@@ -2,7 +2,7 @@
 // API BASE URL
 // ------------------------------------------------------
 const API_BASE =
-    import.meta.env.VITE_BACKEND_URL?.replace(/\/$/, "")
+    import.meta.env.VITE_API_URL?.replace(/\/$/, "")
 
 // ------------------------------------------------------
 // AUTH HEADERS

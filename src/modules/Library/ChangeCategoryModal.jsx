@@ -14,7 +14,7 @@ const ChangeCategoryModal = ({ item, onClose, onSuccess }) => {
             setLoading(true);
 
             const res = await fetch(
-                `${import.meta.env.VITE_BACKEND_URL}/library/item/${item.id}`,
+                `${import.meta.env.VITE_API_URL}/library/item/${item.id}`,
                 {
                     method: "PATCH",
                     headers: {

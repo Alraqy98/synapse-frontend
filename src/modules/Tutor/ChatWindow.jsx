@@ -7,6 +7,24 @@ import {
     uploadFile,
     getSessionMessages,
 } from "./apiTutor";
+const typeAssistantMessage = async (fullText, messageId) => {
+    let current = "";
+
+    for (let i = 0; i < fullText.length; i++) {
+        current += fullText[i];
+
+        setMessages((prev) =>
+            prev.map((m) =>
+                m.id === messageId
+                    ? { ...m, content: current }
+                    : m
+            )
+        );
+
+        // typing speed (adjust if you want)
+        await new Promise((r) => setTimeout(r, 15));
+    }
+};
 
 const ChatWindow = ({ activeSessionId }) => {
     const [messages, setMessages] = useState([]);
@@ -135,15 +153,19 @@ const ChatWindow = ({ activeSessionId }) => {
                 lastUserMessage: getLastUserMessage(),
             });
 
-            const botMsg = {
-                id: `bot_${Date.now()}`,
+            const botId = `bot_${Date.now()}`;
+
+            const emptyBotMsg = {
+                id: botId,
                 role: "assistant",
-                // apiTutor currently returns { response, raw }
-                content: response.response,
+                content: "",
                 createdAt: new Date().toISOString(),
             };
 
-            setMessages((prev) => [...prev, botMsg]);
+            setMessages((prev) => [...prev, emptyBotMsg]);
+
+            await typeAssistantMessage(response.response, botId);
+
         } catch (error) {
             console.error("Error sending message:", error);
             const errorMsg = {

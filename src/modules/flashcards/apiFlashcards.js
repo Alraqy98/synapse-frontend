@@ -2,7 +2,7 @@
 
 import axios from "axios";
 
-const API_BASE = import.meta.env.VITE_BACKEND_URL.replace(/\/$/, "");
+const API_BASE = import.meta.env.VITE_API_URL.replace(/\/$/, "");
 
 const authHeaders = () => ({
     Authorization: `Bearer ${localStorage.getItem("access_token")}`,

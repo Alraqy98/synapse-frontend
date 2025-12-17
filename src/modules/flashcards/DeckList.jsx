@@ -60,7 +60,7 @@ export default function DeckList({ openDeck, search }) {
         if (!newName.trim()) return;
 
         try {
-            await fetch(`${import.meta.env.VITE_BACKEND_URL}/flashcards/decks/${renaming.id}`, {
+            await fetch(`${import.meta.env.VITE_API_URL}/flashcards/decks/${renaming.id}`, {
                 method: "PATCH",
                 headers: {
                     "Content-Type": "application/json",
