@@ -4,19 +4,19 @@ import { ArrowRight, Brain, MoreHorizontal } from "lucide-react";
 const FAQ_QUICK = [
     "What is Synapse?",
     "Is Synapse free?",
-    "How is Synapse different from ChatGPT?",
+    "How is this different from ChatGPT?",
     "Does Synapse follow my university curriculum?",
 ];
 
-const FAQ_ANSWERS = {
+const STATIC_FAQ = {
     "What is Synapse?":
-        "Synapse is an AI-powered medical tutor built specifically for medical students. It focuses on understanding, not memorization.",
+        "Synapse is a medical education platform built specifically for medical students, focused on exams, structure, and clinical reasoning.",
     "Is Synapse free?":
-        "Synapse offers free access during beta. Advanced features will be introduced gradually.",
-    "How is Synapse different from ChatGPT?":
-        "Synapse is exam-aware, curriculum-aware, and designed only for medicine. No generic answers.",
+        "Synapse has a free tier. Advanced features like MCQs, summaries, and clinical cases will be part of premium plans.",
+    "How is this different from ChatGPT?":
+        "Synapse is not a general chatbot. It is curriculum-aware, exam-oriented, and built specifically for medical education.",
     "Does Synapse follow my university curriculum?":
-        "Yes. Synapse adapts to your university, year, and uploaded materials once you’re inside the platform.",
+        "Yes. Synapse adapts to your university, year, and uploaded materials to stay aligned with your curriculum.",
 };
 
 const LandingPreviewChat = () => {
@@ -25,25 +25,25 @@ const LandingPreviewChat = () => {
         {
             role: "ai",
             text:
-                "I’m Synapse — a focused medical tutor. I answer briefly and help you understand how this platform works.",
+                "I’m Synapse — a focused medical tutor and platform guide. Ask me about how Synapse works.",
         },
     ]);
+    const [loading, setLoading] = useState(false);
 
     function sendMessage(text) {
-        if (!text) return;
+        if (!text || loading) return;
 
-        setMessages((m) => [
-            ...m,
-            { role: "user", text },
-            {
-                role: "ai",
-                text:
-                    FAQ_ANSWERS[text] ||
-                    "This preview answers common questions. Sign up to unlock the full AI tutor.",
-            },
-        ]);
-
+        setMessages((m) => [...m, { role: "user", text }]);
         setInput("");
+        setLoading(true);
+
+        setTimeout(() => {
+            const reply =
+                STATIC_FAQ[text] ||
+                "For now, I answer common questions about Synapse. Full AI tutoring is available after signup.";
+            setMessages((m) => [...m, { role: "ai", text: reply }]);
+            setLoading(false);
+        }, 600);
     }
 
     return (
@@ -82,26 +82,26 @@ const LandingPreviewChat = () => {
                         ))}
                     </div>
 
-                    {/* Input (Preview Only) */}
+                    {/* Input */}
                     <div className="mt-6 flex items-center bg-[#14181D] border border-white/10 rounded-xl p-2">
-                        <button className="p-3 text-muted cursor-not-allowed">
+                        <button className="p-3 text-muted">
                             <MoreHorizontal size={18} />
                         </button>
                         <input
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
                             onKeyDown={(e) => e.key === "Enter" && sendMessage(input)}
-                            placeholder="Ask a medical or platform question..."
+                            placeholder="Ask about Synapse..."
                             className="flex-1 bg-transparent text-white placeholder:text-gray-600 outline-none px-2"
                         />
                         <button
                             onClick={() => sendMessage(input)}
+                            disabled={loading}
                             className="p-3 bg-teal text-black rounded-lg hover:scale-105 transition"
                         >
                             <ArrowRight size={18} />
                         </button>
                     </div>
-
                 </div>
             </div>
         </div>
