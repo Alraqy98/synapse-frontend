@@ -2,8 +2,7 @@
 // API BASE URL
 // ------------------------------------------------------
 const API_BASE =
-    import.meta.env.VITE_BACKEND_URL?.replace(/\/$/, "") ||
-    "http://localhost:3000";
+    import.meta.env.VITE_BACKEND_URL?.replace(/\/$/, "")
 
 // ------------------------------------------------------
 // AUTH HEADERS
