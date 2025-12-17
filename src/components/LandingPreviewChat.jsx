@@ -4,9 +4,20 @@ import { ArrowRight, Brain, MoreHorizontal } from "lucide-react";
 const FAQ_QUICK = [
     "What is Synapse?",
     "Is Synapse free?",
-    "How is this different from ChatGPT?",
+    "How is Synapse different from ChatGPT?",
     "Does Synapse follow my university curriculum?",
 ];
+
+const FAQ_ANSWERS = {
+    "What is Synapse?":
+        "Synapse is an AI-powered medical tutor built specifically for medical students. It focuses on understanding, not memorization.",
+    "Is Synapse free?":
+        "Synapse offers free access during beta. Advanced features will be introduced gradually.",
+    "How is Synapse different from ChatGPT?":
+        "Synapse is exam-aware, curriculum-aware, and designed only for medicine. No generic answers.",
+    "Does Synapse follow my university curriculum?":
+        "Yes. Synapse adapts to your university, year, and uploaded materials once you’re inside the platform.",
+};
 
 const LandingPreviewChat = () => {
     const [input, setInput] = useState("");
@@ -17,26 +28,22 @@ const LandingPreviewChat = () => {
                 "I’m Synapse — a focused medical tutor. I answer briefly and help you understand how this platform works.",
         },
     ]);
-    const [loading, setLoading] = useState(false);
 
-    async function sendMessage(text) {
-        if (!text || loading) return;
+    function sendMessage(text) {
+        if (!text) return;
 
-        setMessages((m) => [...m, { role: "user", text }]);
-        setLoading(true);
+        setMessages((m) => [
+            ...m,
+            { role: "user", text },
+            {
+                role: "ai",
+                text:
+                    FAQ_ANSWERS[text] ||
+                    "This preview answers common questions. Sign up to unlock the full AI tutor.",
+            },
+        ]);
+
         setInput("");
-
-        try {
-            const reply = await sendPublicMessage(text);
-            setMessages((m) => [...m, { role: "ai", text: reply }]);
-        } catch {
-            setMessages((m) => [
-                ...m,
-                { role: "ai", text: "Something went wrong. Try again." },
-            ]);
-        } finally {
-            setLoading(false);
-        }
     }
 
     return (
@@ -75,9 +82,9 @@ const LandingPreviewChat = () => {
                         ))}
                     </div>
 
-                    {/* Input */}
+                    {/* Input (Preview Only) */}
                     <div className="mt-6 flex items-center bg-[#14181D] border border-white/10 rounded-xl p-2">
-                        <button className="p-3 text-muted">
+                        <button className="p-3 text-muted cursor-not-allowed">
                             <MoreHorizontal size={18} />
                         </button>
                         <input
@@ -89,12 +96,12 @@ const LandingPreviewChat = () => {
                         />
                         <button
                             onClick={() => sendMessage(input)}
-                            disabled={loading}
                             className="p-3 bg-teal text-black rounded-lg hover:scale-105 transition"
                         >
                             <ArrowRight size={18} />
                         </button>
                     </div>
+
                 </div>
             </div>
         </div>
