@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { ArrowRight, Brain, MoreHorizontal } from "lucide-react";
-import { sendPublicMessage } from "../../lib/publicChatApi";
 
 const FAQ_QUICK = [
     "What is Synapse?",
