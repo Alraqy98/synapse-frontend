@@ -1,17 +1,25 @@
 // src/modules/Library/LibraryUploadModal.jsx
 import React, { useState, useRef } from "react";
-import { X, UploadCloud, File } from "lucide-react";
+import { X, UploadCloud, File, Loader2 } from "lucide-react";
 import { uploadLibraryFile } from "./apiLibrary";
+import { compressFileIfNeeded, isCompressibleFileType } from "../../lib/fileCompression";
 
 const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null }) => {
     const [file, setFile] = useState(null);
     const [category, setCategory] = useState("Lecture");
     const [isUploading, setIsUploading] = useState(false);
+    const [isCompressing, setIsCompressing] = useState(false);
+    const [compressionProgress, setCompressionProgress] = useState(0);
+    const [error, setError] = useState(null);
+    const [compressionInfo, setCompressionInfo] = useState(null);
     const fileInputRef = useRef(null);
 
     const handleFileChange = (e) => {
-        if (e.target.files?.[0]) {
-            setFile(e.target.files[0]);
+        const selectedFile = e.target.files?.[0];
+        if (selectedFile) {
+            setError(null);
+            setCompressionInfo(null);
+            setFile(selectedFile);
         }
     };
 
@@ -19,15 +27,49 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null })
         if (!file) return;
 
         setIsUploading(true);
+        setError(null);
+        
         try {
-            await uploadLibraryFile(file, category, parentFolderId);
+            let fileToUpload = file;
+            
+            // Check if file needs compression
+            const needsCompression = file.size > 2 * 1024 * 1024 && isCompressibleFileType(file);
+            
+            if (needsCompression) {
+                setIsCompressing(true);
+                setCompressionProgress(0);
+                
+                try {
+                    const result = await compressFileIfNeeded(file, (progress) => {
+                        setCompressionProgress(progress);
+                    });
+                    
+                    fileToUpload = result.file;
+                    setCompressionInfo({
+                        wasCompressed: result.wasCompressed,
+                        originalSize: result.originalSize,
+                        compressedSize: result.compressedSize
+                    });
+                } catch (compressionError) {
+                    setIsCompressing(false);
+                    setError(compressionError.message || "Compression failed. Please try a smaller file.");
+                    setIsUploading(false);
+                    return;
+                } finally {
+                    setIsCompressing(false);
+                }
+            }
+            
+            // Upload the file (compressed or original)
+            await uploadLibraryFile(fileToUpload, category, parentFolderId);
             onUploadSuccess();
             onClose();
         } catch (error) {
             console.error("Upload failed:", error);
-            alert("Failed to upload file");
+            setError(error.message || "Failed to upload file. Please try again.");
         } finally {
             setIsUploading(false);
+            setCompressionProgress(0);
         }
     };
 
@@ -65,23 +107,35 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null })
                             ref={fileInputRef}
                             onChange={handleFileChange}
                             className="hidden"
-                            accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.md"
+                            accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.md,.jpg,.jpeg,.png,.gif,.webp"
                         />
 
                         {file ? (
                             <>
                                 <File size={40} className="text-teal mb-4" />
                                 <p className="font-medium text-white">{file.name}</p>
-                                <p className="text-sm text-muted mt-1">
-                                    {(file.size / 1024 / 1024).toFixed(2)} MB
-                                </p>
+                                <div className="text-sm text-muted mt-1 space-y-1">
+                                    <p>
+                                        {(file.size / 1024 / 1024).toFixed(2)} MB
+                                        {compressionInfo?.wasCompressed && (
+                                            <span className="text-teal ml-2">
+                                                (compressed from {(compressionInfo.originalSize / 1024 / 1024).toFixed(2)} MB)
+                                            </span>
+                                        )}
+                                    </p>
+                                    {file.size > 2 * 1024 * 1024 && isCompressibleFileType(file) && (
+                                        <p className="text-yellow-400 text-xs">
+                                            File will be compressed before upload
+                                        </p>
+                                    )}
+                                </div>
                             </>
                         ) : (
                             <>
                                 <UploadCloud size={40} className="text-muted mb-4" />
                                 <p className="font-medium text-white">Click to upload</p>
                                 <p className="text-sm text-muted mt-1">
-                                    PDF, DOC, DOCX, PPT, PPTX, TXT (Max 50MB)
+                                    PDF, Images, DOC, DOCX, PPT, PPTX, TXT (Max 50MB)
                                 </p>
                             </>
                         )}
@@ -103,6 +157,29 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null })
                             <option value="Book">Book (Private)</option>
                         </select>
                     </div>
+
+                    {/* Compression Progress */}
+                    {isCompressing && (
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between text-sm">
+                                <span className="text-muted">Compressing file...</span>
+                                <span className="text-teal">{Math.round(compressionProgress * 100)}%</span>
+                            </div>
+                            <div className="w-full bg-[#0f1115] rounded-full h-2 overflow-hidden">
+                                <div
+                                    className="bg-teal h-full transition-all duration-300"
+                                    style={{ width: `${compressionProgress * 100}%` }}
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Error Message */}
+                    {error && (
+                        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
+                            <p className="text-red-400 text-sm">{error}</p>
+                        </div>
+                    )}
                 </div>
 
                 {/* Footer */}
@@ -115,10 +192,17 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null })
                     </button>
                     <button
                         onClick={handleUpload}
-                        disabled={!file || isUploading}
+                        disabled={!file || isUploading || isCompressing}
                         className="px-6 py-2 bg-teal hover:bg-teal-neon text-black font-bold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
-                        {isUploading ? "Uploading..." : "Upload"}
+                        {(isUploading || isCompressing) ? (
+                            <>
+                                <Loader2 size={16} className="animate-spin" />
+                                {isCompressing ? "Compressing..." : "Uploading..."}
+                            </>
+                        ) : (
+                            "Upload"
+                        )}
                     </button>
                 </div>
             </div>
