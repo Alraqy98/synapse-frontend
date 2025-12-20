@@ -25,6 +25,7 @@ import {
     getSessionMessages,
 } from "../Tutor/apiTutor";
 import MessageBubble from "../Tutor/MessageBubble";
+import PdfJsPage from "./PdfJsPage";
 
 
 const API_URL = import.meta.env.VITE_API_URL
@@ -68,57 +69,59 @@ const FileViewer = ({ file, onBack }) => {
 
     // Page renderer
     const [activePage, setActivePage] = useState(1);
-    const [pageImg, setPageImg] = useState(null);
-    const [loadingPageImg, setLoadingPageImg] = useState(false);
-
-    // Astra vision
     const [pageImageForTutor, setPageImageForTutor] = useState(null);
+    const [imageLoadFailed, setImageLoadFailed] = useState(false);
+    const pdfCanvasRef = useRef(null);
 
     const pages = file.page_contents || [];
     const totalPages = pages.length || file.page_count || file.total_pages || 1;
 
     useEffect(() => {
         setActivePage(1);
-        setPageImg(null);
         setPageImageForTutor(null);
+        setImageLoadFailed(false);
     }, [file.id]);
 
     // =====================================================================
-    // FETCH PNG PAGE
+    // GET CURRENT PAGE IMAGE URL (from page_contents, no backend call)
     // =====================================================================
-    const fetchPageImage = async (page) => {
-        if (!file?.id) return;
-
-        setLoadingPageImg(true);
-
-        const token = getSupabaseToken();
-        const url = `${API_URL}/library/item/${file.id}/page/${page}/render`;
-
-        try {
-            const res = await fetch(url, {
-                headers: {
-                    Authorization: token ? `Bearer ${token}` : "",
-                },
-            });
-
-            if (!res.ok) throw new Error("PNG load failed");
-
-            const blob = await res.blob();
-            const objectUrl = URL.createObjectURL(blob);
-
-            setPageImg(objectUrl);
-            setPageImageForTutor(objectUrl);
-        } catch {
-            setPageImg(null);
-            setPageImageForTutor(null);
-        } finally {
-            setLoadingPageImg(false);
-        }
+    const getCurrentPageImageUrl = () => {
+        const pageIndex = activePage - 1;
+        const currentPage = pages[pageIndex];
+        return currentPage?.image_url || currentPage?.image_path || null;
     };
 
+    // Reset image load failed state when page changes
     useEffect(() => {
-        fetchPageImage(activePage);
-    }, [activePage]);
+        setImageLoadFailed(false);
+        const pageIndex = activePage - 1;
+        const currentPage = pages[pageIndex];
+        const imageUrl = currentPage?.image_url || currentPage?.image_path || null;
+        if (imageUrl) {
+            setPageImageForTutor(imageUrl);
+        } else {
+            setPageImageForTutor(null);
+        }
+    }, [activePage, pages, file.id]);
+
+    // Extract image from PDF.js canvas for tutor (optional optimization)
+    const handlePdfRenderComplete = () => {
+        if (pdfCanvasRef.current) {
+            try {
+                const canvas = pdfCanvasRef.current.querySelector('canvas');
+                if (canvas) {
+                    canvas.toBlob((blob) => {
+                        if (blob) {
+                            const url = URL.createObjectURL(blob);
+                            setPageImageForTutor(url);
+                        }
+                    }, 'image/png', 0.9);
+                }
+            } catch (err) {
+                console.warn('Failed to extract image from PDF.js canvas:', err);
+            }
+        }
+    };
 
     // =====================================================================
     // INIT SESSION (NO AUTO-CREATE) + VALIDATE AGAINST DB
@@ -331,25 +334,46 @@ const FileViewer = ({ file, onBack }) => {
                 {/* MAIN VIEWER */}
                 <div className="flex-1 overflow-hidden bg-[#050609] p-3 flex">
                     <div className="flex-1 bg-[#0f1115] rounded-lg border border-white/5 shadow-xl overflow-hidden flex items-center justify-center">
-                        {loadingPageImg && (
-                            <div className="text-muted text-sm opacity-50">
-                                Loading page…
-                            </div>
-                        )}
-
-                        {!loadingPageImg && pageImg && (
-                            <img
-                                src={pageImg}
-                                alt={`Page ${activePage}`}
-                                className="max-w-full max-h-full object-contain"
-                            />
-                        )}
-
-                        {!loadingPageImg && !pageImg && (
-                            <div className="text-muted text-sm opacity-50">
-                                Page unavailable
-                            </div>
-                        )}
+                        {(() => {
+                            const imageUrl = getCurrentPageImageUrl();
+                            
+                            // If image_url exists and hasn't failed, use it (backend PNG)
+                            if (imageUrl && !imageLoadFailed) {
+                                return (
+                                    <img
+                                        src={imageUrl}
+                                        alt={`Page ${activePage}`}
+                                        className="max-w-full max-h-full object-contain"
+                                        loading="lazy"
+                                        onError={() => {
+                                            // If image fails to load, mark as failed and fallback to PDF.js
+                                            console.warn(`Image ${imageUrl} failed to load, falling back to PDF.js`);
+                                            setImageLoadFailed(true);
+                                        }}
+                                    />
+                                );
+                            }
+                            
+                            // Otherwise, use PDF.js fallback (no image_url or image failed)
+                            if (file.file_url) {
+                                return (
+                                    <div ref={pdfCanvasRef} className="w-full h-full flex items-center justify-center">
+                                        <PdfJsPage
+                                            pdfUrl={file.file_url}
+                                            pageNumber={activePage}
+                                            onRenderComplete={handlePdfRenderComplete}
+                                        />
+                                    </div>
+                                );
+                            }
+                            
+                            // Fallback if no file_url
+                            return (
+                                <div className="text-muted text-sm opacity-50">
+                                    Page unavailable
+                                </div>
+                            );
+                        })()}
                     </div>
                 </div>
             </div>
