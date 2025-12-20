@@ -26,6 +26,11 @@ import {
 } from "../Tutor/apiTutor";
 import MessageBubble from "../Tutor/MessageBubble";
 import PdfJsPage from "./PdfJsPage";
+import * as pdfjsLib from "pdfjs-dist";
+import pdfWorker from "pdfjs-dist/build/pdf.worker.min?url";
+
+// Configure PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 
 const API_URL = import.meta.env.VITE_API_URL
@@ -74,10 +79,60 @@ const FileViewer = ({ file, onBack }) => {
     const [renderAttempted, setRenderAttempted] = useState(new Set()); // Track render attempts per page
     const [renderedImageUrl, setRenderedImageUrl] = useState(null); // Store rendered image URL
     const [isRendering, setIsRendering] = useState(false);
+    const [totalPages, setTotalPages] = useState(1); // PDF.js determined page count
+    const [isLoadingPageCount, setIsLoadingPageCount] = useState(false);
     const pdfCanvasRef = useRef(null);
 
     const pages = file.page_contents || [];
-    const totalPages = pages.length || file.page_count || file.total_pages || 1;
+
+    // =====================================================================
+    // LOAD PDF TO DETERMINE PAGE COUNT (single source of truth)
+    // =====================================================================
+    useEffect(() => {
+        const loadPageCount = async () => {
+            // If no signed_url, use fallback immediately
+            if (!file.signed_url) {
+                const fallbackCount = pages.length || file.page_count || file.total_pages || 1;
+                setTotalPages(fallbackCount);
+                return;
+            }
+
+            // Check if file is likely a PDF (by mime_type or extension)
+            const isLikelyPDF = file.mime_type === 'application/pdf' || 
+                               (file.title && file.title.toLowerCase().endsWith('.pdf'));
+
+            // If clearly not a PDF, use fallback
+            if (file.mime_type && file.mime_type !== 'application/pdf' && !file.title?.toLowerCase().endsWith('.pdf')) {
+                const fallbackCount = pages.length || file.page_count || file.total_pages || 1;
+                setTotalPages(fallbackCount);
+                return;
+            }
+
+            // Attempt to load as PDF to get accurate page count
+            setIsLoadingPageCount(true);
+            try {
+                const loadingTask = pdfjsLib.getDocument({
+                    url: file.signed_url,
+                    withCredentials: false,
+                });
+                const pdf = await loadingTask.promise;
+                const numPages = pdf.numPages;
+                setTotalPages(numPages);
+                
+                // Cleanup PDF document
+                pdf.destroy().catch(() => {});
+            } catch (err) {
+                console.warn('Failed to load PDF for page count, using fallback:', err);
+                // Fallback to backend data if PDF.js fails (not a PDF or load error)
+                const fallbackCount = pages.length || file.page_count || file.total_pages || 1;
+                setTotalPages(fallbackCount);
+            } finally {
+                setIsLoadingPageCount(false);
+            }
+        };
+
+        loadPageCount();
+    }, [file.id, file.signed_url, file.mime_type, file.title, pages.length, file.page_count, file.total_pages]);
 
     useEffect(() => {
         setActivePage(1);
