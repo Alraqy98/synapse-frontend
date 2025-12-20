@@ -98,11 +98,8 @@ export const validateFileForUpload = (file) => {
     }
 
     if (isPdfFile(file)) {
-        return {
-            isValid: false,
-            error: 'PDF exceeds 3MB. Please compress it before uploading.',
-            canCompress: false
-        };
+        // PDFs can be compressed (using pdf-lib)
+        return { isValid: false, error: null, canCompress: true };
     }
 
     if (isOfficeFile(file)) {

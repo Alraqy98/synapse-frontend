@@ -2,7 +2,8 @@
 import React, { useState, useRef } from "react";
 import { X, UploadCloud, File, Loader2 } from "lucide-react";
 import { uploadLibraryFile } from "./apiLibrary";
-import { compressImageIfNeeded, validateFileForUpload, isImageFile } from "../../lib/fileCompression";
+import { compressImageIfNeeded, validateFileForUpload, isImageFile, isPdfFile } from "../../lib/fileCompression";
+import { compressPdfFile } from "./utils/compressPdf";
 
 const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null }) => {
     const [file, setFile] = useState(null);
@@ -56,7 +57,7 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null })
         try {
             let fileToUpload = file;
             
-            // Only compress images that are > 3MB
+            // Compress images that are > 3MB
             if (validation.canCompress && isImageFile(file)) {
                 setIsCompressing(true);
                 setCompressionProgress(0);
@@ -75,6 +76,34 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null })
                 } catch (compressionError) {
                     setIsCompressing(false);
                     setError(compressionError.message || "Image compression failed. Please try a smaller image.");
+                    setIsUploading(false);
+                    return;
+                } finally {
+                    setIsCompressing(false);
+                }
+            }
+            
+            // Compress PDFs that are > 3MB
+            if (validation.canCompress && isPdfFile(file) && file.type === "application/pdf") {
+                setIsCompressing(true);
+                setCompressionProgress(0);
+                
+                try {
+                    const originalSize = file.size;
+                    setCompressionProgress(50); // Show progress indicator
+                    
+                    const compressedFile = await compressPdfFile(file, 3 * 1024 * 1024);
+                    
+                    setCompressionProgress(100);
+                    fileToUpload = compressedFile;
+                    setCompressionInfo({
+                        wasCompressed: compressedFile.size < originalSize,
+                        originalSize: originalSize,
+                        compressedSize: compressedFile.size
+                    });
+                } catch (compressionError) {
+                    setIsCompressing(false);
+                    setError(compressionError.message || "Unable to compress PDF below 3 MB. Please compress manually.");
                     setIsUploading(false);
                     return;
                 } finally {
@@ -152,9 +181,9 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null })
                                             </span>
                                         )}
                                     </p>
-                                    {file.size > 3 * 1024 * 1024 && isImageFile(file) && (
+                                    {file.size > 3 * 1024 * 1024 && (isImageFile(file) || isPdfFile(file)) && (
                                         <p className="text-yellow-400 text-xs">
-                                            Image will be compressed before upload
+                                            File will be compressed before upload
                                         </p>
                                     )}
                                 </div>
@@ -191,13 +220,15 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null })
                     {isCompressing && (
                         <div className="space-y-2">
                             <div className="flex items-center justify-between text-sm">
-                                <span className="text-muted">Compressing image…</span>
-                                <span className="text-teal">{Math.round(compressionProgress * 100)}%</span>
+                                <span className="text-muted">
+                                    {isPdfFile(file) ? "Compressing PDF…" : "Compressing image…"}
+                                </span>
+                                <span className="text-teal">{Math.round(compressionProgress)}%</span>
                             </div>
                             <div className="w-full bg-[#0f1115] rounded-full h-2 overflow-hidden">
                                 <div
                                     className="bg-teal h-full transition-all duration-300"
-                                    style={{ width: `${compressionProgress * 100}%` }}
+                                    style={{ width: `${compressionProgress}%` }}
                                 />
                             </div>
                         </div>
