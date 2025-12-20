@@ -2,7 +2,7 @@
 import React, { useState, useRef } from "react";
 import { X, UploadCloud, File, Loader2 } from "lucide-react";
 import { uploadLibraryFile } from "./apiLibrary";
-import { compressFileIfNeeded, isCompressibleFileType } from "../../lib/fileCompression";
+import { compressImageIfNeeded, validateFileForUpload, isImageFile } from "../../lib/fileCompression";
 
 const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null }) => {
     const [file, setFile] = useState(null);
@@ -19,6 +19,21 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null })
         if (selectedFile) {
             setError(null);
             setCompressionInfo(null);
+            
+            // Validate file immediately
+            const validation = validateFileForUpload(selectedFile);
+            
+            if (!validation.isValid && !validation.canCompress) {
+                // File is invalid and cannot be compressed - show error immediately
+                setError(validation.error || 'File exceeds 3MB and cannot be compressed.');
+                setFile(null);
+                // Clear file input
+                if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                }
+                return;
+            }
+            
             setFile(selectedFile);
         }
     };
@@ -26,21 +41,28 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null })
     const handleUpload = async () => {
         if (!file) return;
 
+        // Validate file before proceeding
+        const validation = validateFileForUpload(file);
+        
+        if (!validation.isValid && !validation.canCompress) {
+            // File is invalid and cannot be compressed - block upload
+            setError(validation.error || 'File exceeds 3MB and cannot be compressed.');
+            return;
+        }
+
         setIsUploading(true);
         setError(null);
         
         try {
             let fileToUpload = file;
             
-            // Check if file needs compression
-            const needsCompression = file.size > 2 * 1024 * 1024 && isCompressibleFileType(file);
-            
-            if (needsCompression) {
+            // Only compress images that are > 3MB
+            if (validation.canCompress && isImageFile(file)) {
                 setIsCompressing(true);
                 setCompressionProgress(0);
                 
                 try {
-                    const result = await compressFileIfNeeded(file, (progress) => {
+                    const result = await compressImageIfNeeded(file, (progress) => {
                         setCompressionProgress(progress);
                     });
                     
@@ -52,12 +74,19 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null })
                     });
                 } catch (compressionError) {
                     setIsCompressing(false);
-                    setError(compressionError.message || "Compression failed. Please try a smaller file.");
+                    setError(compressionError.message || "Image compression failed. Please try a smaller image.");
                     setIsUploading(false);
                     return;
                 } finally {
                     setIsCompressing(false);
                 }
+            }
+            
+            // Final validation - ensure file is <= 3MB before upload
+            if (fileToUpload.size > 3 * 1024 * 1024) {
+                setError('File still exceeds 3MB after compression. Please use a smaller file.');
+                setIsUploading(false);
+                return;
             }
             
             // Upload the file (compressed or original)
@@ -123,9 +152,9 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null })
                                             </span>
                                         )}
                                     </p>
-                                    {file.size > 2 * 1024 * 1024 && isCompressibleFileType(file) && (
+                                    {file.size > 3 * 1024 * 1024 && isImageFile(file) && (
                                         <p className="text-yellow-400 text-xs">
-                                            File will be compressed before upload
+                                            Image will be compressed before upload
                                         </p>
                                     )}
                                 </div>
@@ -135,7 +164,7 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null })
                                 <UploadCloud size={40} className="text-muted mb-4" />
                                 <p className="font-medium text-white">Click to upload</p>
                                 <p className="text-sm text-muted mt-1">
-                                    PDF, Images, DOC, DOCX, PPT, PPTX, TXT (Max 50MB)
+                                    PDF, Images, DOC, DOCX, PPT, PPTX, TXT (Max 3MB)
                                 </p>
                             </>
                         )}
@@ -162,7 +191,7 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null })
                     {isCompressing && (
                         <div className="space-y-2">
                             <div className="flex items-center justify-between text-sm">
-                                <span className="text-muted">Compressing file...</span>
+                                <span className="text-muted">Compressing image…</span>
                                 <span className="text-teal">{Math.round(compressionProgress * 100)}%</span>
                             </div>
                             <div className="w-full bg-[#0f1115] rounded-full h-2 overflow-hidden">

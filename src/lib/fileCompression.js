@@ -1,229 +1,174 @@
 // Browser-side file compression utility
-// Supports: Images (JPEG, PNG, WebP) and PDFs
+// Strict 3MB upload rule with image-only compression
 
-const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB in bytes
+import imageCompression from 'browser-image-compression';
+
+const MAX_FILE_SIZE = 3 * 1024 * 1024; // 3MB in bytes
 
 /**
- * Check if a file type is supported for compression
+ * Check if a file is an image (only images can be compressed)
  */
-export const isCompressibleFileType = (file) => {
+export const isImageFile = (file) => {
     if (!file) return false;
-    
+    return file.type.startsWith('image/');
+};
+
+/**
+ * Check if a file is a PDF
+ */
+export const isPdfFile = (file) => {
+    if (!file) return false;
     const mimeType = file.type;
     const fileName = file.name.toLowerCase();
-    
-    // Check PDF
-    if (mimeType === 'application/pdf' || fileName.endsWith('.pdf')) {
-        return true;
-    }
-    
-    // Check images
-    if (mimeType.startsWith('image/')) {
-        const supportedImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
-        return supportedImageTypes.includes(mimeType);
-    }
-    
-    return false;
+    return mimeType === 'application/pdf' || fileName.endsWith('.pdf');
 };
 
 /**
- * Compress an image file using Canvas API
+ * Check if a file is an Office document (DOCX, PPT, PPTX)
+ */
+export const isOfficeFile = (file) => {
+    if (!file) return false;
+    const fileName = file.name.toLowerCase();
+    return fileName.endsWith('.docx') || 
+           fileName.endsWith('.ppt') || 
+           fileName.endsWith('.pptx') ||
+           fileName.endsWith('.doc');
+};
+
+/**
+ * Compress an image file using browser-image-compression
  * @param {File} file - The image file to compress
- * @param {number} maxSizeBytes - Target maximum size in bytes (default: 2MB)
- * @param {number} quality - Initial quality (0-1), will be reduced if needed
- * @returns {Promise<File>} - Compressed file or original if compression fails
+ * @param {Function} onProgress - Optional progress callback (0-1)
+ * @returns {Promise<File>} - Compressed file
  */
-export const compressImage = async (file, maxSizeBytes = MAX_FILE_SIZE, quality = 0.8) => {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
+export const compressImage = async (file, onProgress) => {
+    if (!isImageFile(file)) {
+        throw new Error('File is not an image');
+    }
+
+    const options = {
+        maxSizeMB: 3, // Target 3MB
+        maxWidthOrHeight: 1920,
+        useWebWorker: true,
+        fileType: file.type,
+    };
+
+    try {
+        const compressedFile = await imageCompression(file, options);
         
-        reader.onload = (e) => {
-            const img = new Image();
-            
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-                
-                // Calculate dimensions (max 1920px on longest side to maintain quality)
-                let width = img.width;
-                let height = img.height;
-                const maxDimension = 1920;
-                
-                if (width > height) {
-                    if (width > maxDimension) {
-                        height = (height * maxDimension) / width;
-                        width = maxDimension;
-                    }
-                } else {
-                    if (height > maxDimension) {
-                        width = (width * maxDimension) / height;
-                        height = maxDimension;
-                    }
-                }
-                
-                canvas.width = width;
-                canvas.height = height;
-                
-                // Draw image to canvas
-                ctx.drawImage(img, 0, 0, width, height);
-                
-                // Try to compress with decreasing quality until we hit target size
-                const tryCompress = (currentQuality) => {
-                    canvas.toBlob(
-                        (blob) => {
-                            if (!blob) {
-                                reject(new Error('Failed to compress image'));
-                                return;
-                            }
-                            
-                            // If we're under the limit, return successfully
-                            if (blob.size <= maxSizeBytes) {
-                                const compressedFile = new File(
-                                    [blob],
-                                    file.name,
-                                    { type: 'image/jpeg' } // Always output as JPEG for better compression
-                                );
-                                resolve(compressedFile);
-                            } else if (currentQuality <= 0.1) {
-                                // Quality is too low and still over limit - return anyway
-                                // The caller will check size and throw appropriate error
-                                const compressedFile = new File(
-                                    [blob],
-                                    file.name,
-                                    { type: 'image/jpeg' }
-                                );
-                                resolve(compressedFile);
-                            } else {
-                                // Try with lower quality (reduce by 0.1, but don't go below 0.1)
-                                const nextQuality = Math.max(0.1, currentQuality - 0.1);
-                                tryCompress(nextQuality);
-                            }
-                        },
-                        'image/jpeg',
-                        currentQuality
-                    );
-                };
-                
-                tryCompress(quality);
-            };
-            
-            img.onerror = () => {
-                reject(new Error('Failed to load image for compression'));
-            };
-            
-            img.src = e.target.result;
-        };
-        
-        reader.onerror = () => {
-            reject(new Error('Failed to read image file'));
-        };
-        
-        reader.readAsDataURL(file);
-    });
+        // Verify compressed file is <= 3MB
+        if (compressedFile.size > MAX_FILE_SIZE) {
+            throw new Error(
+                `Image could not be compressed below 3MB. Original size: ${(file.size / 1024 / 1024).toFixed(2)}MB. ` +
+                `Please use a smaller or lower quality image.`
+            );
+        }
+
+        if (onProgress) onProgress(1);
+        return compressedFile;
+    } catch (error) {
+        if (error.message.includes('could not be compressed')) {
+            throw error;
+        }
+        throw new Error(`Image compression failed: ${error.message}. Please try a different image.`);
+    }
 };
 
 /**
- * Attempt to optimize PDF (browser-side PDF compression is limited)
- * For now, we'll return the original file and let the size check handle it
- * @param {File} file - The PDF file
- * @returns {Promise<File>} - Original file (PDF compression in browser is complex)
+ * Validate file size and type before upload
+ * @param {File} file - The file to validate
+ * @returns {Object} - { isValid: boolean, error: string|null, canCompress: boolean }
  */
-export const compressPDF = async (file) => {
-    // Browser-side PDF compression is very limited and complex
-    // Most PDF compression requires server-side processing or specialized libraries
-    // For stability, we'll return the original file and let size validation handle it
-    // In a production environment, you might want to use a service worker or
-    // a library like pdf-lib, but true compression is difficult client-side
-    
-    return Promise.resolve(file);
+export const validateFileForUpload = (file) => {
+    if (!file) {
+        return { isValid: false, error: 'No file selected', canCompress: false };
+    }
+
+    const fileSizeMB = file.size / 1024 / 1024;
+
+    // If file is <= 3MB, it's valid
+    if (file.size <= MAX_FILE_SIZE) {
+        return { isValid: true, error: null, canCompress: false };
+    }
+
+    // File is > 3MB - check type
+    if (isImageFile(file)) {
+        // Images can be compressed
+        return { isValid: false, error: null, canCompress: true };
+    }
+
+    if (isPdfFile(file)) {
+        return {
+            isValid: false,
+            error: 'PDF exceeds 3MB. Please compress it before uploading.',
+            canCompress: false
+        };
+    }
+
+    if (isOfficeFile(file)) {
+        return {
+            isValid: false,
+            error: 'File exceeds 3MB. Please reduce file size and try again.',
+            canCompress: false
+        };
+    }
+
+    // Other file types
+    return {
+        isValid: false,
+        error: 'File exceeds 3MB. Please reduce file size and try again.',
+        canCompress: false
+    };
 };
 
 /**
- * Compress a file if it's over the size limit
+ * Compress image if needed (only for images > 3MB)
  * @param {File} file - The file to potentially compress
  * @param {Function} onProgress - Optional progress callback (0-1)
- * @returns {Promise<{file: File, wasCompressed: boolean, originalSize: number}>}
+ * @returns {Promise<{file: File, wasCompressed: boolean, originalSize: number, compressedSize: number}>}
  */
-export const compressFileIfNeeded = async (file, onProgress) => {
-    if (!file) {
-        throw new Error('No file provided');
-    }
+export const compressImageIfNeeded = async (file, onProgress) => {
+    const validation = validateFileForUpload(file);
     
-    const originalSize = file.size;
-    
-    // If file is already under limit, return as-is
-    if (originalSize <= MAX_FILE_SIZE) {
+    if (validation.isValid) {
+        // File is already <= 3MB, no compression needed
         if (onProgress) onProgress(1);
         return {
             file,
             wasCompressed: false,
-            originalSize,
-            compressedSize: originalSize
+            originalSize: file.size,
+            compressedSize: file.size
         };
     }
-    
-    // Check if file type is supported
-    if (!isCompressibleFileType(file)) {
-        throw new Error(
-            `File type not supported for compression. Please upload a PDF or image file under ${(MAX_FILE_SIZE / 1024 / 1024).toFixed(0)}MB.`
-        );
+
+    if (!validation.canCompress) {
+        // File cannot be compressed (PDF, Office, etc.)
+        throw new Error(validation.error || 'File cannot be compressed');
     }
-    
+
+    // Image > 3MB - attempt compression
     if (onProgress) onProgress(0.1);
     
-    let compressedFile;
-    const mimeType = file.type;
-    const fileName = file.name.toLowerCase();
-    
     try {
-        // Compress based on file type
-        if (mimeType === 'application/pdf' || fileName.endsWith('.pdf')) {
-            if (onProgress) onProgress(0.3);
-            compressedFile = await compressPDF(file);
-            if (onProgress) onProgress(0.7);
-        } else if (mimeType.startsWith('image/')) {
-            if (onProgress) onProgress(0.3);
-            compressedFile = await compressImage(file);
-            if (onProgress) onProgress(0.9);
-        } else {
-            throw new Error('Unsupported file type for compression');
-        }
-        
-        if (onProgress) onProgress(1);
-        
-        // Check if compressed file is still too large
-        if (compressedFile.size > MAX_FILE_SIZE) {
-            // For PDFs, we can't really compress them in the browser
-            if (mimeType === 'application/pdf' || fileName.endsWith('.pdf')) {
-                throw new Error(
-                    `PDF file is too large (${(originalSize / 1024 / 1024).toFixed(2)}MB). ` +
-                    `Please compress the PDF using an external tool before uploading. Maximum size is ${(MAX_FILE_SIZE / 1024 / 1024).toFixed(0)}MB.`
-                );
-            } else {
-                throw new Error(
-                    `File is too large (${(originalSize / 1024 / 1024).toFixed(2)}MB) and could not be compressed below ${(MAX_FILE_SIZE / 1024 / 1024).toFixed(0)}MB. ` +
-                    `Please use a smaller or lower quality image.`
-                );
+        const compressedFile = await compressImage(file, (progress) => {
+            // Map browser-image-compression progress to our callback
+            if (onProgress) {
+                onProgress(0.1 + (progress * 0.9)); // 10% to 100%
             }
-        }
-        
+        });
+
+        if (onProgress) onProgress(1);
+
         return {
             file: compressedFile,
             wasCompressed: true,
-            originalSize,
+            originalSize: file.size,
             compressedSize: compressedFile.size
         };
-        
     } catch (error) {
-        // If compression fails, throw with a clear message
-        if (error.message.includes('too large') || error.message.includes('compress')) {
-            throw error;
-        }
-        
         throw new Error(
-            `Compression failed: ${error.message}. ` +
-            `Please ensure the file is under ${(MAX_FILE_SIZE / 1024 / 1024).toFixed(0)}MB or try a different file.`
+            error.message || 
+            'Image compression failed. Please try a smaller image or compress it manually.'
         );
     }
 };
-
