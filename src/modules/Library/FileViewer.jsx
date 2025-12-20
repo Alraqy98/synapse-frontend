@@ -67,6 +67,7 @@ const FileViewer = ({ file, onBack }) => {
     const [isChatTyping, setIsChatTyping] = useState(false);
     const [isChatLoading, setIsChatLoading] = useState(false);
     const chatEndRef = useRef(null);
+    const messagesInitializedRef = useRef(false); // Track if messages have been loaded from backend
 
     // Page renderer
     const [activePage, setActivePage] = useState(1);
@@ -232,9 +233,14 @@ const FileViewer = ({ file, onBack }) => {
     };
 
     // =====================================================================
-    // INIT SESSION (NO AUTO-CREATE) + VALIDATE AGAINST DB
+    // INIT SESSION (ONCE ON MOUNT ONLY - NO RE-FETCHING)
     // =====================================================================
     useEffect(() => {
+        // Only initialize once per file.id - never re-fetch messages
+        if (messagesInitializedRef.current) {
+            return;
+        }
+
         const initSession = async () => {
             const key = `synapse_file_session_${file.id}`;
             const existingSessionId = localStorage.getItem(key);
@@ -242,6 +248,7 @@ const FileViewer = ({ file, onBack }) => {
             if (!existingSessionId) {
                 setFileSessionId(null);
                 setChatMessages([]);
+                messagesInitializedRef.current = true;
                 return;
             }
 
@@ -253,6 +260,7 @@ const FileViewer = ({ file, onBack }) => {
                     localStorage.removeItem(key);
                     setFileSessionId(null);
                     setChatMessages([]);
+                    messagesInitializedRef.current = true;
                     return;
                 }
 
@@ -272,6 +280,7 @@ const FileViewer = ({ file, onBack }) => {
                     localStorage.removeItem(key);
                     setFileSessionId(null);
                     setChatMessages([]);
+                    messagesInitializedRef.current = true;
                     return;
                 }
             } catch (err) {
@@ -279,23 +288,31 @@ const FileViewer = ({ file, onBack }) => {
                 localStorage.removeItem(key);
                 setFileSessionId(null);
                 setChatMessages([]);
+                messagesInitializedRef.current = true;
                 return;
             }
 
-            // Load history if session is valid
+            // Load history ONCE if session is valid - never re-fetch
             try {
                 setIsChatLoading(true);
                 setFileSessionId(existingSessionId);
                 const history = await getSessionMessages(existingSessionId);
                 setChatMessages(history);
+                messagesInitializedRef.current = true;
             } catch {
                 setChatMessages([]);
+                messagesInitializedRef.current = true;
             } finally {
                 setIsChatLoading(false);
             }
         };
 
         initSession();
+    }, [file.id]);
+
+    // Reset initialization flag when file.id changes
+    useEffect(() => {
+        messagesInitializedRef.current = false;
     }, [file.id]);
 
     // =====================================================================
@@ -328,6 +345,7 @@ const FileViewer = ({ file, onBack }) => {
 
     // =====================================================================
     // SEND CHAT — creates session only on first message
+    // Append-only: never re-fetch, never replace messages
     // =====================================================================
     const handleChatSend = async () => {
         if (!chatInput.trim()) return;
@@ -335,7 +353,11 @@ const FileViewer = ({ file, onBack }) => {
         const msg = chatInput;
         setChatInput("");
 
-        const userMsg = { id: Date.now(), role: "user", content: msg };
+        // Generate stable IDs for messages
+        const userMsgId = `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const userMsg = { id: userMsgId, role: "user", content: msg };
+        
+        // Append user message - append-only, never replace
         setChatMessages((prev) => [...prev, userMsg]);
         setIsChatTyping(true);
 
@@ -369,9 +391,13 @@ const FileViewer = ({ file, onBack }) => {
                 },
             });
 
+            // Generate stable ID for assistant message
+            const assistantMsgId = `assistant-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            
+            // Append assistant message - append-only, never replace
             setChatMessages((prev) => [
                 ...prev,
-                { id: Date.now() + 1, role: "assistant", content: res.text },
+                { id: assistantMsgId, role: "assistant", content: res.text },
             ]);
         } catch (err) {
             console.error("Chat send failed:", err);
