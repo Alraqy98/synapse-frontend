@@ -26,11 +26,7 @@ import {
 } from "../Tutor/apiTutor";
 import MessageBubble from "../Tutor/MessageBubble";
 import PdfJsPage from "./PdfJsPage";
-import * as pdfjsLib from "pdfjs-dist";
-import pdfWorker from "pdfjs-dist/build/pdf.worker.min?url";
-
-// Configure PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
+import { getPdfDoc } from "./pdfCache";
 
 
 const API_URL = import.meta.env.VITE_API_URL
@@ -75,13 +71,16 @@ const FileViewer = ({ file, onBack }) => {
     // Page renderer
     const [activePage, setActivePage] = useState(1);
     const [pageImageForTutor, setPageImageForTutor] = useState(null);
-    const [imageLoadFailed, setImageLoadFailed] = useState(false);
-    const [renderAttempted, setRenderAttempted] = useState(new Set()); // Track render attempts per page
-    const [renderedImageUrl, setRenderedImageUrl] = useState(null); // Store rendered image URL
+    const [renderedImageUrl, setRenderedImageUrl] = useState(null); // Store rendered image URL per page
     const [isRendering, setIsRendering] = useState(false);
     const [totalPages, setTotalPages] = useState(1); // PDF.js determined page count
     const [isLoadingPageCount, setIsLoadingPageCount] = useState(false);
     const pdfCanvasRef = useRef(null);
+    
+    // Use refs for stable tracking that doesn't reset on re-renders
+    const renderAttemptedRef = useRef(new Set()); // Track render attempts per page: `${file.id}:${page}`
+    const imageLoadFailedRef = useRef(new Set()); // Track image load failures: `${file.id}:${page}`
+    const renderedImageUrlsRef = useRef(new Map()); // Store rendered image URLs: `${file.id}:${page}` -> URL
 
     const pages = file.page_contents || [];
 
@@ -108,19 +107,13 @@ const FileViewer = ({ file, onBack }) => {
                 return;
             }
 
-            // Attempt to load as PDF to get accurate page count
+            // Attempt to load as PDF to get accurate page count (uses cache)
             setIsLoadingPageCount(true);
             try {
-                const loadingTask = pdfjsLib.getDocument({
-                    url: file.signed_url,
-                    withCredentials: false,
-                });
-                const pdf = await loadingTask.promise;
+                const pdf = await getPdfDoc(file.signed_url);
                 const numPages = pdf.numPages;
                 setTotalPages(numPages);
-                
-                // Cleanup PDF document
-                pdf.destroy().catch(() => {});
+                // Note: Don't destroy - it's cached and may be reused
             } catch (err) {
                 console.warn('Failed to load PDF for page count, using fallback:', err);
                 // Fallback to backend data if PDF.js fails (not a PDF or load error)
@@ -134,12 +127,14 @@ const FileViewer = ({ file, onBack }) => {
         loadPageCount();
     }, [file.id, file.signed_url, file.mime_type, file.title, pages.length, file.page_count, file.total_pages]);
 
+    // Reset refs and state when file changes
     useEffect(() => {
         setActivePage(1);
         setPageImageForTutor(null);
-        setImageLoadFailed(false);
-        setRenderAttempted(new Set());
         setRenderedImageUrl(null);
+        renderAttemptedRef.current = new Set();
+        imageLoadFailedRef.current = new Set();
+        renderedImageUrlsRef.current = new Map();
     }, [file.id]);
 
     // =====================================================================
@@ -151,52 +146,68 @@ const FileViewer = ({ file, onBack }) => {
         return currentPage?.image_url || currentPage?.image_path || null;
     };
 
-    // Reset states and attempt render when page changes
+    // Handle page changes and determine rendering mode
     useEffect(() => {
-        setImageLoadFailed(false);
-        setRenderedImageUrl(null);
-        
+        const pageKey = `${file.id}:${activePage}`;
         const pageIndex = activePage - 1;
         const currentPage = pages[pageIndex];
         const imageUrl = currentPage?.image_url || currentPage?.image_path || null;
         
-        if (imageUrl) {
-            // PNG exists in page_contents, use it
+        // Check if image has previously failed to load
+        const imageFailed = imageLoadFailedRef.current.has(pageKey);
+        
+        // Priority 1: Use rendered PNG URL if available and not failed
+        const cachedRenderedUrl = renderedImageUrlsRef.current.get(pageKey);
+        if (cachedRenderedUrl && !imageFailed) {
+            setRenderedImageUrl(cachedRenderedUrl);
+            setPageImageForTutor(cachedRenderedUrl);
+            setIsRendering(false);
+            return;
+        }
+        
+        // Priority 2: Use image_url from page_contents if available and not failed
+        if (imageUrl && !imageFailed) {
+            setRenderedImageUrl(null);
             setPageImageForTutor(imageUrl);
-        } else {
-            // No PNG in page_contents, attempt backend render once
-            setPageImageForTutor(null);
-            
-            // Attempt render only if not already attempted
-            if (!renderAttempted.has(activePage) && file?.id) {
-                setIsRendering(true);
-                setRenderAttempted(prev => new Set(prev).add(activePage));
+            setIsRendering(false);
+            return;
+        }
+        
+        // Priority 3: Attempt backend render once if not already attempted
+        const renderKey = `${file.id}:${activePage}`;
+        if (!renderAttemptedRef.current.has(renderKey) && file?.id) {
+            setIsRendering(true);
+            renderAttemptedRef.current.add(renderKey);
 
-                const token = getSupabaseToken();
-                const url = `${API_URL}/library/item/${file.id}/page/${activePage}/render`;
+            const token = getSupabaseToken();
+            const url = `${API_URL}/library/item/${file.id}/page/${activePage}/render`;
 
-                fetch(url, {
-                    headers: {
-                        Authorization: token ? `Bearer ${token}` : "",
-                    },
+            fetch(url, {
+                headers: {
+                    Authorization: token ? `Bearer ${token}` : "",
+                },
+            })
+                .then(async (res) => {
+                    if (!res.ok) {
+                        throw new Error("PNG render failed");
+                    }
+                    const blob = await res.blob();
+                    const objectUrl = URL.createObjectURL(blob);
+                    renderedImageUrlsRef.current.set(pageKey, objectUrl);
+                    setRenderedImageUrl(objectUrl);
+                    setPageImageForTutor(objectUrl);
                 })
-                    .then(async (res) => {
-                        if (!res.ok) {
-                            throw new Error("PNG render failed");
-                        }
-                        const blob = await res.blob();
-                        const objectUrl = URL.createObjectURL(blob);
-                        setRenderedImageUrl(objectUrl);
-                        setPageImageForTutor(objectUrl);
-                    })
-                    .catch((err) => {
-                        console.warn(`Backend render failed for page ${activePage}:`, err);
-                        // Will fallback to PDF.js
-                    })
-                    .finally(() => {
-                        setIsRendering(false);
-                    });
-            }
+                .catch((err) => {
+                    console.warn(`Backend render failed for page ${activePage}:`, err);
+                    // Will fallback to PDF.js
+                })
+                .finally(() => {
+                    setIsRendering(false);
+                });
+        } else {
+            // Already attempted or no file ID - will use PDF.js fallback
+            setRenderedImageUrl(null);
+            setIsRendering(false);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activePage, file.id]);
@@ -432,8 +443,11 @@ const FileViewer = ({ file, onBack }) => {
                 <div className="flex-1 overflow-hidden bg-[#050609] p-3 flex">
                     <div className="flex-1 bg-[#0f1115] rounded-lg border border-white/5 shadow-xl overflow-hidden flex items-center justify-center">
                         {(() => {
-                            // Priority 1: Use rendered image from /render endpoint if available
-                            if (renderedImageUrl && !imageLoadFailed) {
+                            const pageKey = `${file.id}:${activePage}`;
+                            const imageFailed = imageLoadFailedRef.current.has(pageKey);
+                            
+                            // Priority (a): Use rendered PNG URL if present and not failed
+                            if (renderedImageUrl && !imageFailed) {
                                 return (
                                     <img
                                         src={renderedImageUrl}
@@ -442,15 +456,16 @@ const FileViewer = ({ file, onBack }) => {
                                         loading="lazy"
                                         onError={() => {
                                             console.warn(`Rendered image failed to load, falling back to PDF.js`);
-                                            setImageLoadFailed(true);
+                                            imageLoadFailedRef.current.add(pageKey);
+                                            setRenderedImageUrl(null);
                                         }}
                                     />
                                 );
                             }
 
-                            // Priority 2: Use image_url from page_contents if available
+                            // Priority (b): Use image_url from page_contents if available and not failed
                             const imageUrl = getCurrentPageImageUrl();
-                            if (imageUrl && !imageLoadFailed) {
+                            if (imageUrl && !imageFailed) {
                                 return (
                                     <img
                                         src={imageUrl}
@@ -459,13 +474,13 @@ const FileViewer = ({ file, onBack }) => {
                                         loading="lazy"
                                         onError={() => {
                                             console.warn(`Image ${imageUrl} failed to load, falling back to PDF.js`);
-                                            setImageLoadFailed(true);
+                                            imageLoadFailedRef.current.add(pageKey);
                                         }}
                                     />
                                 );
                             }
                             
-                            // Priority 3: Show loading while attempting render
+                            // Priority (c): Show loading while attempting backend render
                             if (isRendering) {
                                 return (
                                     <div className="text-muted text-sm opacity-50">
@@ -474,7 +489,7 @@ const FileViewer = ({ file, onBack }) => {
                                 );
                             }
                             
-                            // Priority 4: Use PDF.js fallback with signed_url
+                            // Priority (d): Use PDF.js fallback with signed_url (permanent for this page)
                             if (file.signed_url) {
                                 return (
                                     <div ref={pdfCanvasRef} className="w-full h-full flex items-center justify-center">

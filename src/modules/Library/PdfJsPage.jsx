@@ -1,33 +1,28 @@
 // PdfJsPage.jsx - PDF.js fallback renderer for PDF pages
 import { useEffect, useRef, useState } from "react";
-import * as pdfjsLib from "pdfjs-dist";
-import pdfWorker from "pdfjs-dist/build/pdf.worker.min?url";
-
-// Configure PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
+import { getPdfDoc } from "./pdfCache";
 
 export default function PdfJsPage({ pdfUrl, pageNumber, onRenderComplete }) {
     const canvasRef = useRef(null);
+    const renderTaskRef = useRef(null);
     const [isRendering, setIsRendering] = useState(true);
     const [error, setError] = useState(null);
 
     useEffect(() => {
         let cancelled = false;
-        let pdfDocument = null;
 
         async function render() {
-            if (!pdfUrl || !pageNumber) return;
+            if (!pdfUrl || !pageNumber) {
+                setIsRendering(false);
+                return;
+            }
 
             setIsRendering(true);
             setError(null);
 
             try {
-                // Load PDF document
-                const loadingTask = pdfjsLib.getDocument({
-                    url: pdfUrl,
-                    withCredentials: false,
-                });
-                pdfDocument = await loadingTask.promise;
+                // Use cached PDF document
+                const pdfDocument = await getPdfDoc(pdfUrl);
 
                 if (cancelled) return;
 
@@ -37,7 +32,10 @@ export default function PdfJsPage({ pdfUrl, pageNumber, onRenderComplete }) {
                 if (cancelled) return;
 
                 const canvas = canvasRef.current;
-                if (!canvas) return;
+                if (!canvas) {
+                    cancelled = true;
+                    return;
+                }
 
                 const ctx = canvas.getContext("2d");
 
@@ -54,11 +52,17 @@ export default function PdfJsPage({ pdfUrl, pageNumber, onRenderComplete }) {
                     viewport: viewport,
                 };
 
-                await page.render(renderContext).promise;
+                // Store render task so we can cancel it
+                const renderTask = page.render(renderContext);
+                renderTaskRef.current = renderTask;
+
+                await renderTask.promise;
 
                 if (cancelled) return;
 
                 setIsRendering(false);
+                renderTaskRef.current = null;
+                
                 if (onRenderComplete) {
                     onRenderComplete();
                 }
@@ -67,6 +71,7 @@ export default function PdfJsPage({ pdfUrl, pageNumber, onRenderComplete }) {
                 console.error("PDF.js render error:", err);
                 setError(err.message || "Failed to render PDF page");
                 setIsRendering(false);
+                renderTaskRef.current = null;
             }
         }
 
@@ -74,9 +79,10 @@ export default function PdfJsPage({ pdfUrl, pageNumber, onRenderComplete }) {
 
         return () => {
             cancelled = true;
-            // Cleanup: cancel any ongoing rendering
-            if (pdfDocument) {
-                pdfDocument.destroy().catch(() => {});
+            // Cancel any ongoing render task
+            if (renderTaskRef.current) {
+                renderTaskRef.current.cancel();
+                renderTaskRef.current = null;
             }
         };
     }, [pdfUrl, pageNumber, onRenderComplete]);
