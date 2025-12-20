@@ -7,24 +7,6 @@ import {
     uploadFile,
     getSessionMessages,
 } from "./apiTutor";
-const typeAssistantMessage = async (fullText, messageId) => {
-    let current = "";
-
-    for (let i = 0; i < fullText.length; i++) {
-        current += fullText[i];
-
-        setMessages((prev) =>
-            prev.map((m) =>
-                m.id === messageId
-                    ? { ...m, content: current }
-                    : m
-            )
-        );
-
-        // typing speed (adjust if you want)
-        await new Promise((r) => setTimeout(r, 15));
-    }
-};
 
 const ChatWindow = ({ activeSessionId }) => {
     const [messages, setMessages] = useState([]);
@@ -125,6 +107,60 @@ const ChatWindow = ({ activeSessionId }) => {
     };
 
     /* ------------------------------------------------
+     * Type assistant message with typing animation
+     * ----------------------------------------------*/
+    const typeAssistantMessage = async (fullText, messageId) => {
+        if (!fullText) return;
+        
+        let current = "";
+
+        for (let i = 0; i < fullText.length; i++) {
+            current += fullText[i];
+
+            setMessages((prev) =>
+                prev.map((m) =>
+                    m.id === messageId
+                        ? { ...m, content: current }
+                        : m
+                )
+            );
+
+            // typing speed (adjust if you want)
+            await new Promise((r) => setTimeout(r, 15));
+        }
+    };
+
+    /* ------------------------------------------------
+     * Check DB for assistant response (fallback)
+     * ----------------------------------------------*/
+    const checkForResponseInDB = async (sessionId, retryCount = 0) => {
+        if (retryCount >= 2) return null; // Max 2 retries
+        
+        try {
+            // Wait a bit before checking
+            await new Promise((r) => setTimeout(r, 1000));
+            
+            const dbMessages = await getSessionMessages(sessionId);
+            // Get the last assistant message from DB
+            const lastAssistantMsg = [...dbMessages].reverse().find((m) => m.role === "assistant");
+            
+            if (lastAssistantMsg && lastAssistantMsg.content && lastAssistantMsg.content.trim()) {
+                return lastAssistantMsg.content;
+            }
+            
+            // Retry once more if no response found
+            if (retryCount === 0) {
+                return await checkForResponseInDB(sessionId, 1);
+            }
+            
+            return null;
+        } catch (err) {
+            console.warn("Failed to check DB for response:", err);
+            return null;
+        }
+    };
+
+    /* ------------------------------------------------
      * Send text message
      * ----------------------------------------------*/
     const handleSend = async () => {
@@ -145,6 +181,19 @@ const ChatWindow = ({ activeSessionId }) => {
         setInput("");
         setIsTyping(true);
 
+        // Create assistant message optimistically
+        const botId = `bot_${Date.now()}`;
+        const emptyBotMsg = {
+            id: botId,
+            role: "assistant",
+            content: "",
+            createdAt: new Date().toISOString(),
+        };
+        setMessages((prev) => [...prev, emptyBotMsg]);
+
+        let responseText = null;
+        let isRealError = false;
+
         try {
             const response = await sendMessageToTutor({
                 sessionId: activeSessionId,
@@ -153,30 +202,71 @@ const ChatWindow = ({ activeSessionId }) => {
                 lastUserMessage: getLastUserMessage(),
             });
 
-            const botId = `bot_${Date.now()}`;
+            // Use response.text (not response.response)
+            responseText = response.text || response.response || "";
+            
+            if (!responseText || !responseText.trim()) {
+                // Empty response - check DB as fallback
+                responseText = await checkForResponseInDB(activeSessionId);
+            }
 
-            const emptyBotMsg = {
-                id: botId,
-                role: "assistant",
-                content: "",
-                createdAt: new Date().toISOString(),
-            };
-
-            setMessages((prev) => [...prev, emptyBotMsg]);
-
-            await typeAssistantMessage(response.response, botId);
+            if (responseText && responseText.trim()) {
+                // Update assistant message with response
+                await typeAssistantMessage(responseText, botId);
+            } else {
+                // No response found - this is a real error
+                isRealError = true;
+            }
 
         } catch (error) {
             console.error("Error sending message:", error);
-            const errorMsg = {
-                id: `err_${Date.now()}`,
-                role: "assistant",
-                content: "⚠️ Astra was unable to answer. Please try again.",
-                createdAt: new Date().toISOString(),
-            };
-            setMessages((prev) => [...prev, errorMsg]);
+            
+            // Check if this is a real backend error (4xx/5xx) vs network/timeout
+            const isNetworkError = error.message?.includes("fetch") || 
+                                  error.message?.includes("network") ||
+                                  error.message?.includes("timeout");
+            
+            if (isNetworkError) {
+                // Network/timeout error - check DB for response that might have been saved
+                responseText = await checkForResponseInDB(activeSessionId);
+                
+                if (responseText && responseText.trim()) {
+                    // Response exists in DB - update message instead of showing error
+                    await typeAssistantMessage(responseText, botId);
+                } else {
+                    // No response in DB - this might be a real error, but don't show error message yet
+                    // Keep the empty message and let user retry
+                    isRealError = false; // Don't show error for network issues
+                }
+            } else {
+                // Real backend error (4xx/5xx)
+                isRealError = true;
+            }
         } finally {
             setIsTyping(false);
+            
+            // Only show error message if it's a real backend error AND no response was found
+            if (isRealError && (!responseText || !responseText.trim())) {
+                // Check DB one more time before showing error (in case response was saved after our check)
+                const finalCheck = await checkForResponseInDB(activeSessionId);
+                
+                if (finalCheck && finalCheck.trim()) {
+                    // Response found in final check - update message instead of showing error
+                    await typeAssistantMessage(finalCheck, botId);
+                } else {
+                    // No response found - show error message
+                    setMessages((prev) => 
+                        prev.map((m) =>
+                            m.id === botId
+                                ? {
+                                    ...m,
+                                    content: "⚠️ Astra was unable to answer. Please try again.",
+                                }
+                                : m
+                        )
+                    );
+                }
+            }
         }
     };
 
@@ -211,10 +301,13 @@ const ChatWindow = ({ activeSessionId }) => {
                 // page left null here → normal global context
             });
 
+            // Use response.text (not response.response)
+            const responseText = response.text || response.response || "";
+            
             const botMsg = {
                 id: `bot_${Date.now()}`,
                 role: "assistant",
-                content: response.response,
+                content: responseText,
                 createdAt: new Date().toISOString(),
             };
             setMessages((prev) => [...prev, botMsg]);
