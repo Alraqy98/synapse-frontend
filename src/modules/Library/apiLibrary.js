@@ -73,6 +73,7 @@ const mapItemFromApi = (item) => {
         category: item.category,
         size_bytes: item.size_bytes,
         file_url: item.file_url,
+        signed_url: item.signed_url,      // Signed URL for PDF access
         mime_type: item.mime_type,
         depth: item.depth,
         is_folder: isFolder,
