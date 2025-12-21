@@ -267,6 +267,287 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
         return null;
     };
 
+    // Parse and structure section content
+    const parseSectionContent = (htmlContent) => {
+        if (!htmlContent) return [];
+
+        // Create a temporary DOM element to parse HTML
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = htmlContent;
+
+        // Extract structured content from HTML
+        const extractTextFromNode = (node) => {
+            if (node.nodeType === Node.TEXT_NODE) {
+                return node.textContent.trim();
+            }
+            if (node.nodeType === Node.ELEMENT_NODE) {
+                // Handle lists
+                if (node.tagName === 'UL' || node.tagName === 'OL') {
+                    const items = [];
+                    Array.from(node.querySelectorAll('li') || []).forEach(li => {
+                        const text = li.textContent.trim();
+                        if (text) items.push(text);
+                    });
+                    return items;
+                }
+                // Handle paragraphs
+                if (node.tagName === 'P') {
+                    return node.textContent.trim();
+                }
+                // Recursively get text from children
+                return Array.from(node.childNodes)
+                    .map(extractTextFromNode)
+                    .filter(Boolean)
+                    .join(' ');
+            }
+            return '';
+        };
+
+        // Get all text nodes and elements
+        const allText = [];
+        const walker = document.createTreeWalker(
+            tempDiv,
+            NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
+            null
+        );
+
+        let node;
+        while (node = walker.nextNode()) {
+            if (node.nodeType === Node.ELEMENT_NODE) {
+                if (node.tagName === 'UL' || node.tagName === 'OL') {
+                    const items = Array.from(node.querySelectorAll('li') || [])
+                        .map(li => li.textContent.trim())
+                        .filter(text => text.length > 0);
+                    if (items.length > 0) {
+                        allText.push({ type: 'list', items });
+                    }
+                } else if (node.tagName === 'P') {
+                    const text = node.textContent.trim();
+                    if (text.length > 0) {
+                        allText.push({ type: 'paragraph', text });
+                    }
+                }
+            }
+        }
+
+        // If no structured content found, extract plain text
+        if (allText.length === 0) {
+            const plainText = tempDiv.textContent || tempDiv.innerText || '';
+            const lines = plainText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+            lines.forEach(line => {
+                allText.push({ type: 'paragraph', text: line });
+            });
+        }
+
+        const blocks = [];
+        let currentSubHeading = null;
+        let currentItems = [];
+        
+        // Semantic keywords for sub-headings
+        const subHeadingKeywords = {
+            'Definition': ['definition', 'defined as', 'refers to'],
+            'Types': ['types', 'classification', 'categories', 'variants', 'forms'],
+            'Causes': ['causes', 'etiology', 'risk factors', 'predisposing factors'],
+            'Pathophysiology': ['pathophysiology', 'mechanism', 'pathogenesis'],
+            'Clinical Features': ['clinical features', 'symptoms', 'signs', 'presentation', 'manifestations'],
+            'Diagnosis': ['diagnosis', 'diagnostic', 'workup', 'investigations', 'tests'],
+            'Management': ['management', 'treatment', 'therapy', 'approach', 'intervention'],
+            'Complications': ['complications', 'sequelae', 'adverse effects'],
+            'Prognosis': ['prognosis', 'outcome', 'prognostic factors'],
+        };
+
+        const detectSubHeading = (text) => {
+            const lowerText = text.toLowerCase();
+            for (const [heading, keywords] of Object.entries(subHeadingKeywords)) {
+                for (const keyword of keywords) {
+                    if (lowerText.includes(keyword) && text.length < 100) {
+                        // Check if it's a standalone heading (not part of a sentence)
+                        const before = lowerText.substring(0, lowerText.indexOf(keyword));
+                        const after = lowerText.substring(lowerText.indexOf(keyword) + keyword.length);
+                        if ((before.length === 0 || /[.:;]\s*$/.test(before)) && 
+                            (after.length === 0 || /^\s*[:.]/.test(after))) {
+                            return heading;
+                        }
+                    }
+                }
+            }
+            return null;
+        };
+
+        const emphasizeKeyTerms = (text) => {
+            // Escape HTML first
+            const escaped = text
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+            
+            // Emphasize numbers, percentages, contrasts, and key medical terms
+            return escaped
+                .replace(/(\d+[%]?)/g, '<strong>$1</strong>')
+                .replace(/(vs\.|versus|compared to|contrast)/gi, '<strong>$1</strong>')
+                .replace(/(high|low|increased|decreased|elevated|reduced)\s+(\w+)/gi, '<strong>$1</strong> $2')
+                .replace(/(most common|rare|uncommon|frequent|typically|usually|often)/gi, '<strong>$1</strong>');
+        };
+
+        const breakLongText = (text) => {
+            // If text is too long (>100 chars), try to break it intelligently
+            if (text.length > 100) {
+                // Break on semicolons
+                if (text.includes(';')) {
+                    return text.split(';').map(s => s.trim()).filter(s => s.length > 0);
+                }
+                // Break on "and" if there are multiple items
+                if (text.includes(' and ') && text.split(' and ').length > 2) {
+                    const parts = text.split(/, and | and /);
+                    if (parts.length > 2) {
+                        return parts.map(p => p.trim()).filter(p => p.length > 0);
+                    }
+                }
+                // Break on commas if there are many
+                if (text.split(',').length > 3) {
+                    const parts = text.split(',').map(p => p.trim()).filter(p => p.length > 10);
+                    if (parts.length > 2) {
+                        return parts;
+                    }
+                }
+            }
+            return [text];
+        };
+
+        // Process all text blocks
+        for (const block of allText) {
+            if (block.type === 'list') {
+                // Add list items directly
+                block.items.forEach(item => {
+                    const broken = breakLongText(item);
+                    broken.forEach(part => {
+                        if (part.length > 0) {
+                            currentItems.push({
+                                text: emphasizeKeyTerms(part),
+                                original: part,
+                            });
+                        }
+                    });
+                });
+            } else if (block.type === 'paragraph') {
+                const text = block.text;
+                
+                // Check if this is a sub-heading
+                const detectedHeading = detectSubHeading(text);
+                if (detectedHeading) {
+                    // Save previous block
+                    if (currentItems.length > 0) {
+                        blocks.push({
+                            type: 'subheading',
+                            heading: currentSubHeading,
+                            items: currentItems,
+                        });
+                        currentItems = [];
+                    }
+                    currentSubHeading = detectedHeading;
+                    continue;
+                }
+
+                // Check if it's a bullet point (starts with dash or bullet)
+                if (/^[-•*]\s/.test(text) || /^\d+[.)]\s/.test(text)) {
+                    const bulletText = text.replace(/^[-•*]\s/, '').replace(/^\d+[.)]\s/, '').trim();
+                    const broken = breakLongText(bulletText);
+                    broken.forEach(part => {
+                        if (part.length > 0) {
+                            currentItems.push({
+                                text: emphasizeKeyTerms(part),
+                                original: part,
+                            });
+                        }
+                    });
+                } else {
+                    // Regular paragraph - break if long
+                    const broken = breakLongText(text);
+                    broken.forEach(part => {
+                        if (part.length > 0) {
+                            currentItems.push({
+                                text: emphasizeKeyTerms(part),
+                                original: part,
+                            });
+                        }
+                    });
+                }
+            }
+        }
+
+        // Add final block
+        if (currentItems.length > 0) {
+            blocks.push({
+                type: 'subheading',
+                heading: currentSubHeading,
+                items: currentItems,
+            });
+        }
+
+        // If no blocks were created, create a default one
+        if (blocks.length === 0) {
+            const fallbackText = tempDiv.textContent || '';
+            const lines = fallbackText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            if (lines.length > 0) {
+                const allItems = lines.map(line => ({
+                    text: emphasizeKeyTerms(line),
+                    original: line,
+                }));
+                blocks.push({
+                    type: 'subheading',
+                    heading: null,
+                    items: allItems,
+                });
+            }
+        }
+
+        return blocks;
+    };
+
+    // Render structured section content
+    const renderStructuredContent = (htmlContent) => {
+        const blocks = parseSectionContent(htmlContent);
+
+        if (blocks.length === 0) {
+            // Fallback to original HTML if parsing fails
+            return (
+                <div
+                    className="text-gray-300 leading-loose text-[15px] summary-content"
+                    style={{ userSelect: 'text' }}
+                    dangerouslySetInnerHTML={{ __html: htmlContent }}
+                />
+            );
+        }
+
+        return (
+            <div className="space-y-5" style={{ userSelect: 'text' }}>
+                {blocks.map((block, blockIdx) => (
+                    <div key={blockIdx} className="space-y-3">
+                        {block.heading && (
+                            <h4 className="text-sm font-semibold text-muted uppercase tracking-wide mb-2">
+                                {block.heading}
+                            </h4>
+                        )}
+                        <ul className="space-y-3">
+                            {block.items.map((item, itemIdx) => (
+                                <li
+                                    key={itemIdx}
+                                    className="text-gray-300 flex items-start gap-3 leading-loose text-[15px]"
+                                >
+                                    <span className="text-teal mt-1.5 font-bold flex-shrink-0">•</span>
+                                    <span 
+                                        className="flex-1"
+                                        dangerouslySetInnerHTML={{ __html: item.text }}
+                                    />
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                ))}
+            </div>
+        );
+    };
+
     const renderContent = () => {
         if (!summary) return null;
 
@@ -318,13 +599,7 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                                         {sectionIcon}
                                         <span>{section.heading}</span>
                                     </h2>
-                                    <div
-                                        className="text-gray-300 leading-loose text-[15px] summary-content"
-                                        style={{ userSelect: 'text' }}
-                                        dangerouslySetInnerHTML={{
-                                            __html: section.content,
-                                        }}
-                                    />
+                                    {renderStructuredContent(section.content)}
                                 </div>
                             );
                         })}
