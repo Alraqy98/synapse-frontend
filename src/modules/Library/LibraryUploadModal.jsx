@@ -4,6 +4,7 @@ import { X, UploadCloud, File, Loader2 } from "lucide-react";
 import { uploadLibraryFile } from "./apiLibrary";
 import { compressImageIfNeeded, validateFileForUpload, isImageFile, isPdfFile } from "../../lib/fileCompression";
 import { compressPdfFile } from "./utils/compressPdf";
+import { getUploadErrorMessage } from "./utils/uploadErrorMessages";
 
 const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null }) => {
     const [file, setFile] = useState(null);
@@ -124,7 +125,9 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null })
             onClose();
         } catch (error) {
             console.error("Upload failed:", error);
-            setError(error.message || "Failed to upload file. Please try again.");
+            // Map backend error codes to user-friendly messages
+            const userMessage = getUploadErrorMessage(error);
+            setError(userMessage);
         } finally {
             setIsUploading(false);
             setCompressionProgress(0);

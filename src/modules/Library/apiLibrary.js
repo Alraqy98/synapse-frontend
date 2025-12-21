@@ -53,9 +53,25 @@ export const apiToUiCategory = (api) => {
 const handleJson = async (res) => {
     const body = await res.json().catch(() => ({}));
     if (!res.ok || body.success === false) {
-        throw new Error(
-            body.error || body.message || `Request failed (${res.status})`
-        );
+        // Preserve error structure for error mapping
+        const error = new Error(body.error || body.message || `Request failed (${res.status})`);
+        // Attach error code if present
+        if (body.error_code) {
+            error.error_code = body.error_code;
+        } else if (body.code) {
+            error.code = body.code;
+        }
+        // Also check if error string contains error code
+        if (body.error && typeof body.error === 'string') {
+            if (body.error.includes('FILE_TOO_LARGE')) {
+                error.error_code = 'FILE_TOO_LARGE';
+            } else if (body.error.includes('CONVERSION_FAILED')) {
+                error.error_code = 'CONVERSION_FAILED';
+            } else if (body.error.includes('UNSUPPORTED_FILE_TYPE')) {
+                error.error_code = 'UNSUPPORTED_FILE_TYPE';
+            }
+        }
+        throw error;
     }
     return body;
 };
