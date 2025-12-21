@@ -28,10 +28,22 @@ export const getSummary = async (summaryId) => {
 /**
  * Generate a new summary
  * POST /ai/summaries/generate
+ * Returns: { success: true, jobId }
  */
 export const generateSummary = async (payload) => {
     const res = await api.post("/ai/summaries/generate", payload);
-    return res.data?.summary;
+    return res.data; // { success: true, jobId }
+};
+
+/**
+ * Get summary generation job status
+ * GET /ai/summaries/job/:jobId
+ * Returns: { status: "pending" | "completed" | "failed", summaryId?: "<uuid>" }
+ */
+export const getSummaryJobStatus = async (jobId) => {
+    if (!jobId) throw new Error("Job ID is missing");
+    const res = await api.get(`/ai/summaries/job/${jobId}`);
+    return res.data; // { status, summaryId }
 };
 
 /**
@@ -51,6 +63,7 @@ export const apiSummaries = {
     getSummariesByFile,
     getSummary,
     generateSummary,
+    getSummaryJobStatus,
     deleteSummary,
 };
 

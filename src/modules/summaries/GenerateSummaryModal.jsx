@@ -247,9 +247,15 @@ export default function GenerateSummaryModal({
 
         try {
             setSubmitting(true);
-            await apiSummaries.generateSummary(payload);
-            onCreated();
-            onClose();
+            const result = await apiSummaries.generateSummary(payload);
+            
+            if (result.success && result.jobId) {
+                // Return jobId to parent - modal closes immediately, generation happens in background
+                onCreated({ jobId: result.jobId, title: title.trim(), file_name: selectedFileName });
+                onClose();
+            } else {
+                throw new Error("Invalid response from server");
+            }
         } catch (err) {
             console.error("Summary generation error:", err);
             alert("Summary generation failed.");

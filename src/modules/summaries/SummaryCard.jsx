@@ -32,11 +32,17 @@ export default function SummaryCard({
     if (goal) contextParts.push(goal);
     const contextNote = contextParts.length > 0 ? contextParts.join(" · ") : null;
 
+    const isGenerating = summary.generating === true;
+
     return (
         <>
         <div
-            className="group cursor-pointer rounded-2xl border border-white/10 bg-black/40 p-6 transition-all hover:-translate-y-1 hover:border-teal/40"
-            onClick={onClick}
+            className={`group rounded-2xl border border-white/10 bg-black/40 p-6 transition-all ${
+                isGenerating 
+                    ? "opacity-75 cursor-not-allowed" 
+                    : "cursor-pointer hover:-translate-y-1 hover:border-teal/40"
+            }`}
+            onClick={isGenerating ? undefined : onClick}
         >
             {/* Header */}
             <div className="flex items-start justify-between mb-4">
@@ -56,17 +62,18 @@ export default function SummaryCard({
                     )}
                 </div>
 
-                <div className="relative">
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setShowMenu(!showMenu);
-                        }}
-                        className="opacity-0 group-hover:opacity-100 transition text-muted hover:text-white"
-                        title="More actions"
-                    >
-                        <MoreHorizontal size={16} />
-                    </button>
+                {!isGenerating && (
+                    <div className="relative">
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setShowMenu(!showMenu);
+                            }}
+                            className="opacity-0 group-hover:opacity-100 transition text-muted hover:text-white"
+                            title="More actions"
+                        >
+                            <MoreHorizontal size={16} />
+                        </button>
 
                     {showMenu && (
                         <div
@@ -127,19 +134,34 @@ export default function SummaryCard({
                             </div>
                         </div>
                     )}
-                </div>
+                    </div>
+                )}
             </div>
 
             {/* Footer */}
             <div className="flex items-center justify-between text-xs text-muted mt-4 pt-4 border-t border-white/5">
-                <span>
-                    {created_at
-                        ? new Date(created_at).toLocaleDateString()
-                        : ""}
-                </span>
-                <span className="px-2 py-1 rounded-full bg-teal/10 border border-teal/30 text-teal text-[10px]">
-                    Summary
-                </span>
+                {isGenerating ? (
+                    <>
+                        <span className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-teal animate-pulse" />
+                            In progress
+                        </span>
+                        <span className="px-2 py-1 rounded-full bg-teal/10 border border-teal/30 text-teal text-[10px]">
+                            Generating…
+                        </span>
+                    </>
+                ) : (
+                    <>
+                        <span>
+                            {created_at
+                                ? new Date(created_at).toLocaleDateString()
+                                : ""}
+                        </span>
+                        <span className="px-2 py-1 rounded-full bg-teal/10 border border-teal/30 text-teal text-[10px]">
+                            Summary
+                        </span>
+                    </>
+                )}
             </div>
         </div>
 

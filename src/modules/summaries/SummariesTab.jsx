@@ -5,12 +5,14 @@ import { apiSummaries } from "./apiSummaries";
 import SummaryCard from "./SummaryCard";
 import GenerateSummaryModal from "./GenerateSummaryModal";
 import SummaryViewer from "./SummaryViewer";
+import { isValidCodeFormat } from "./utils/summaryCode";
 
 export default function SummariesTab() {
     const [view, setView] = useState("list");
     const [summaryId, setSummaryId] = useState(null);
     const [summaries, setSummaries] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [initialLoadDone, setInitialLoadDone] = useState(false);
     const [openModal, setOpenModal] = useState(false);
     const [search, setSearch] = useState("");
     const [sort, setSort] = useState("newest");
@@ -18,21 +20,74 @@ export default function SummariesTab() {
     const [showImport, setShowImport] = useState(false);
     const [importCode, setImportCode] = useState("");
 
-    // Load summaries
-    // Note: Only confirmed endpoints are used. No file context = empty state.
+    // Load summaries (matching MCQ pattern)
     const loadSummaries = async () => {
-        setLoading(true);
-        // No speculative API calls - only use confirmed endpoints
-        // Without file context, show empty state
-        setSummaries([]);
-        setLoading(false);
+        try {
+            if (!initialLoadDone) setLoading(true);
+            // For now, empty state - backend may not have list endpoint yet
+            setSummaries([]);
+        } catch (err) {
+            console.error("Failed to load summaries:", err);
+            setSummaries([]);
+        } finally {
+            setLoading(false);
+            setInitialLoadDone(true);
+        }
     };
 
     useEffect(() => {
         loadSummaries();
     }, []);
 
+    // Poll for generating summaries (matching MCQ pattern exactly)
+    useEffect(() => {
+        if (!summaries.length) return;
+        const generating = summaries.some((s) => s.generating);
+        if (!generating) return;
+
+        const pollAllGenerating = async () => {
+            const generatingJobs = summaries.filter(s => s.generating);
+            
+            for (const summary of generatingJobs) {
+                try {
+                    const status = await apiSummaries.getSummaryJobStatus(summary.id);
+                    
+                    if (status.status === "completed" && status.summaryId) {
+                        // Fetch the completed summary
+                        const completedSummary = await apiSummaries.getSummary(status.summaryId);
+                        
+                        // Remove generating placeholder and add completed summary at top
+                        setSummaries(prev => {
+                            const filtered = prev.filter(s => s.id !== summary.id);
+                            return [completedSummary, ...filtered];
+                        });
+                        
+                        // Show subtle toast notification
+                        console.log("Summary ready");
+                    } else if (status.status === "failed") {
+                        // Remove generating placeholder
+                        setSummaries(prev => prev.filter(s => s.id !== summary.id));
+                        
+                        // Show user-safe error
+                        alert("Summary generation failed");
+                    }
+                    // If pending, continue polling
+                } catch (err) {
+                    console.error(`Failed to poll job ${summary.id}:`, err);
+                    // On error, continue polling (don't remove job)
+                }
+            }
+        };
+
+        const interval = setInterval(pollAllGenerating, 4000);
+        return () => clearInterval(interval);
+    }, [summaries]);
+
     const openSummary = (id) => {
+        // Don't open generating summaries
+        const summary = summaries.find(s => s.id === id);
+        if (summary?.generating) return;
+        
         setSummaryId(id);
         setView("viewer");
     };
@@ -124,22 +179,13 @@ export default function SummariesTab() {
                                     </p>
                                 </div>
 
-                                <div className="flex gap-2">
-                                    <button
-                                        className="btn btn-secondary gap-2"
-                                        onClick={() => setShowImport(true)}
-                                    >
-                                        <Upload size={16} />
-                                        Import Summary
-                                    </button>
-                                    <button
-                                        className="btn btn-primary gap-2"
-                                        onClick={() => setOpenModal(true)}
-                                    >
-                                        <Plus size={16} />
-                                        Generate Summary
-                                    </button>
-                                </div>
+                                <button
+                                    className="btn btn-primary gap-2"
+                                    onClick={() => setOpenModal(true)}
+                                >
+                                    <Plus size={16} />
+                                    Generate Summary
+                                </button>
                             </div>
 
                             {/* COMMAND BAR */}
@@ -166,6 +212,15 @@ export default function SummariesTab() {
                                     <option value="newest">Newest</option>
                                     <option value="oldest">Oldest</option>
                                 </select>
+
+                                <div className="flex gap-2 ml-auto">
+                                    <button 
+                                        className="btn btn-secondary gap-2"
+                                        onClick={() => setShowImport(true)}
+                                    >
+                                        <Upload size={14} /> Import
+                                    </button>
+                                </div>
                             </div>
 
                             {/* GRID */}
@@ -230,9 +285,20 @@ export default function SummariesTab() {
                     <GenerateSummaryModal
                         open={openModal}
                         onClose={() => setOpenModal(false)}
-                        onCreated={() => {
+                        onCreated={({ jobId, title, file_name }) => {
                             setOpenModal(false);
-                            loadSummaries();
+                            
+                            // Create generating placeholder (matching MCQ pattern)
+                            const generatingSummary = {
+                                id: jobId, // Use jobId as temporary ID
+                                title: title || "Generating summary…",
+                                file_name: file_name,
+                                generating: true,
+                                created_at: new Date().toISOString(),
+                            };
+                            
+                            // Add to top of list - polling will start automatically via useEffect
+                            setSummaries(prev => [generatingSummary, ...prev]);
                         }}
                     />
 

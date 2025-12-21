@@ -685,9 +685,9 @@ const FileViewer = ({ file, onBack }) => {
                 open={showSummaryModal}
                 presetFileId={file.id}
                 onClose={() => setShowSummaryModal(false)}
-                onCreated={() => {
+                onCreated={({ jobId }) => {
                     setShowSummaryModal(false);
-                    // Summary created successfully
+                    // Summary generation started - user can check progress in Summaries tab
                 }}
             />
         </div>
