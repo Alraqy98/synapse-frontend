@@ -1,0 +1,538 @@
+// src/modules/summaries/SummaryViewer.jsx
+import React, { useState, useRef, useEffect } from "react";
+import {
+    ArrowLeft,
+    Send,
+    Sparkles,
+} from "lucide-react";
+import { apiSummaries } from "./apiSummaries";
+import {
+    sendMessageToTutor,
+    createNewSession,
+    getSessionMessages,
+} from "../Tutor/apiTutor";
+import MessageBubble from "../Tutor/MessageBubble";
+
+export default function SummaryViewer({ summaryId, goBack }) {
+    const [summary, setSummary] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    // Chat state
+    const [sessionId, setSessionId] = useState(null);
+    const [messages, setMessages] = useState([]);
+    const [chatInput, setChatInput] = useState("");
+    const [isTyping, setIsTyping] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const chatEndRef = useRef(null);
+    const messagesInitializedRef = useRef(false);
+
+    // Text selection state
+    const [selectedText, setSelectedText] = useState(null);
+    const [selectionBubble, setSelectionBubble] = useState(null);
+    const selectionRef = useRef(null);
+
+    // Load summary - enforce canonical schema
+    useEffect(() => {
+        if (!summaryId) return;
+
+        (async () => {
+            try {
+                setLoading(true);
+                const data = await apiSummaries.getSummary(summaryId);
+                
+                // Enforce required fields - fail clearly if missing
+                if (!data) {
+                    setError("Summary data is missing");
+                    setLoading(false);
+                    return;
+                }
+                
+                if (!data.title) {
+                    setError("Summary is missing required field: title");
+                    setLoading(false);
+                    return;
+                }
+                
+                setSummary(data);
+            } catch (err) {
+                console.error("Failed to load summary:", err);
+                setError("Failed to load summary");
+            } finally {
+                setLoading(false);
+            }
+        })();
+    }, [summaryId]);
+
+    // Initialize chat session
+    useEffect(() => {
+        if (!summary || messagesInitializedRef.current) return;
+
+        (async () => {
+            const stored = localStorage.getItem(
+                `synapse_summary_session_${summary.id}`
+            );
+            if (stored) {
+                setSessionId(stored);
+                try {
+                    const msgs = await getSessionMessages(stored);
+                    setMessages(msgs || []);
+                } catch (err) {
+                    console.error("Failed to load messages:", err);
+                }
+            }
+            messagesInitializedRef.current = true;
+        })();
+    }, [summary]);
+
+    // Scroll to bottom on new messages
+    useEffect(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [messages]);
+
+    // Handle text selection
+    useEffect(() => {
+        const handleSelection = () => {
+            const selection = window.getSelection();
+            if (!selection || selection.rangeCount === 0) {
+                setSelectedText(null);
+                setSelectionBubble(null);
+                return;
+            }
+
+            const range = selection.getRangeAt(0);
+            const text = range.toString().trim();
+
+            if (!text || text.length < 3) {
+                setSelectedText(null);
+                setSelectionBubble(null);
+                return;
+            }
+
+            // Get bounding rect for bubble positioning
+            const rect = range.getBoundingClientRect();
+            setSelectedText(text);
+            setSelectionBubble({
+                top: rect.top - 40,
+                left: rect.left + rect.width / 2,
+            });
+        };
+
+        const handleClick = (e) => {
+            // Close bubble if clicking outside
+            if (selectionRef.current && !selectionRef.current.contains(e.target)) {
+                const selection = window.getSelection();
+                if (selection) selection.removeAllRanges();
+                setSelectedText(null);
+                setSelectionBubble(null);
+            }
+        };
+
+        document.addEventListener("selectionchange", handleSelection);
+        document.addEventListener("mousedown", handleClick);
+
+        return () => {
+            document.removeEventListener("selectionchange", handleSelection);
+            document.removeEventListener("mousedown", handleClick);
+        };
+    }, []);
+
+    const handleAskAstra = async () => {
+        if (!selectedText) return;
+
+        // Clear selection
+        window.getSelection()?.removeAllRanges();
+        setSelectedText(null);
+        setSelectionBubble(null);
+
+        // Open side panel if closed (it's always visible in this layout)
+        // Preload context and send message
+        const question = `About this selection: "${selectedText}"`;
+        setChatInput(question);
+
+        // Auto-send the message
+        setTimeout(() => {
+            handleChatSend(question);
+        }, 100);
+    };
+
+    const handleChatSend = async (prefilledMessage = null) => {
+        const msg = prefilledMessage || chatInput;
+        if (!msg.trim()) return;
+
+        if (!prefilledMessage) setChatInput("");
+
+        const userMsgId = `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const userMsg = { id: userMsgId, role: "user", content: msg };
+
+        setMessages((prev) => [...prev, userMsg]);
+        setIsTyping(true);
+
+        try {
+            let currentSessionId = sessionId;
+
+            if (!currentSessionId) {
+                const session = await createNewSession(
+                    `Summary: ${summary?.title || "Untitled"}`
+                );
+                currentSessionId = session.id;
+                setSessionId(currentSessionId);
+
+                localStorage.setItem(
+                    `synapse_summary_session_${summary.id}`,
+                    String(currentSessionId)
+                );
+            }
+
+            // Find the section containing selected text for context
+            let sectionContext = null;
+            if (selectedText && summary?.sections) {
+                for (const section of summary.sections) {
+                    if (
+                        section.content &&
+                        section.content.includes(selectedText.substring(0, 50))
+                    ) {
+                        sectionContext = section.heading || section.title;
+                        break;
+                    }
+                }
+            }
+
+            const contextMessage = selectedText
+                ? `[Summary: ${summary?.title}${sectionContext ? ` | Section: ${sectionContext}` : ""}${summary?.file_id ? ` | File ID: ${summary.file_id}` : ""}] ${msg}`
+                : `[Summary: ${summary?.title}${summary?.file_id ? ` | File ID: ${summary.file_id}` : ""}] ${msg}`;
+
+            const res = await sendMessageToTutor({
+                sessionId: currentSessionId,
+                message: contextMessage,
+                fileId: summary?.file_id || null,
+                resourceSelection: {
+                    scope: "selected",
+                    file_ids: summary?.file_id ? [summary.file_id] : [],
+                    folder_ids: [],
+                    include_books: true,
+                },
+            });
+
+            const assistantMsgId = `assistant-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            const assistantMsg = {
+                id: assistantMsgId,
+                role: "assistant",
+                content: res.text || "",
+            };
+
+            setMessages((prev) => [...prev, assistantMsg]);
+        } catch (err) {
+            console.error("Chat error:", err);
+            const errorMsg = {
+                id: `error-${Date.now()}`,
+                role: "assistant",
+                content: "Sorry, I was unable to answer. Please try again.",
+            };
+            setMessages((prev) => [...prev, errorMsg]);
+        } finally {
+            setIsTyping(false);
+        }
+    };
+
+    const renderContent = () => {
+        if (!summary) return null;
+
+        return (
+            <div className="prose prose-invert max-w-none">
+                {/* Title */}
+                <h1 className="text-3xl font-bold text-white mb-4">
+                    {summary.title}
+                </h1>
+
+                {/* Context Note */}
+                {(summary.academic_stage ||
+                    summary.specialty ||
+                    summary.goal) && (
+                    <div className="text-sm text-muted mb-6">
+                        {[
+                            summary.academic_stage,
+                            summary.specialty,
+                            summary.goal,
+                        ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                    </div>
+                )}
+
+                {/* Sections - enforce canonical schema */}
+                {summary.sections && summary.sections.length > 0 && (
+                    <div className="space-y-8">
+                        {summary.sections.map((section, idx) => {
+                            // Enforce required fields
+                            if (!section.heading) {
+                                console.error(`Section ${idx} missing required field: heading`);
+                                return null;
+                            }
+                            if (section.content === undefined || section.content === null) {
+                                console.error(`Section ${idx} missing required field: content`);
+                                return null;
+                            }
+                            
+                            return (
+                                <div key={idx} className="summary-section">
+                                    <h2 className="text-2xl font-semibold text-white mb-4">
+                                        {section.heading}
+                                    </h2>
+                                    <div
+                                        className="text-gray-300 leading-relaxed"
+                                        dangerouslySetInnerHTML={{
+                                            __html: section.content,
+                                        }}
+                                    />
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+
+                {/* Tables - enforce canonical schema */}
+                {summary.tables && summary.tables.length > 0 && (
+                    <div className="mt-8 space-y-6">
+                        {summary.tables.map((table, idx) => {
+                            // Enforce required fields
+                            if (!table.headers || !Array.isArray(table.headers)) {
+                                console.error(`Table ${idx} missing required field: headers`);
+                                return null;
+                            }
+                            if (!table.rows || !Array.isArray(table.rows)) {
+                                console.error(`Table ${idx} missing required field: rows`);
+                                return null;
+                            }
+                            
+                            return (
+                                <div key={idx} className="overflow-x-auto">
+                                    <table className="w-full border-collapse border border-white/10">
+                                        <thead>
+                                            <tr className="bg-white/5">
+                                                {table.headers.map((header, hIdx) => (
+                                                    <th
+                                                        key={hIdx}
+                                                        className="border border-white/10 px-4 py-2 text-left text-sm font-semibold text-white"
+                                                    >
+                                                        {header}
+                                                    </th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {table.rows.map((row, rIdx) => (
+                                                <tr
+                                                    key={rIdx}
+                                                    className="hover:bg-white/5"
+                                                >
+                                                    {row.map((cell, cIdx) => (
+                                                        <td
+                                                            key={cIdx}
+                                                            className="border border-white/10 px-4 py-2 text-sm text-gray-300"
+                                                        >
+                                                            {cell}
+                                                        </td>
+                                                    ))}
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+
+                {/* Key Takeaways - enforce canonical schema */}
+                {summary.key_takeaways && summary.key_takeaways.length > 0 && (
+                    <div className="mt-8">
+                        <h2 className="text-2xl font-semibold text-white mb-4">
+                            Key Takeaways
+                        </h2>
+                        <ul className="space-y-2">
+                            {summary.key_takeaways.map((takeaway, idx) => {
+                                // Enforce required field
+                                if (takeaway === undefined || takeaway === null || takeaway === "") {
+                                    console.error(`Key takeaway ${idx} is missing or empty`);
+                                    return null;
+                                }
+                                
+                                return (
+                                    <li
+                                        key={idx}
+                                        className="text-gray-300 flex items-start gap-2"
+                                    >
+                                        <span className="text-teal mt-1">•</span>
+                                        <span>{takeaway}</span>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    </div>
+                )}
+
+                {/* References - enforce canonical schema */}
+                {summary.references && summary.references.length > 0 && (
+                    <div className="mt-8">
+                        <h2 className="text-2xl font-semibold text-white mb-4">
+                            References
+                        </h2>
+                        <ul className="space-y-2">
+                            {summary.references.map((ref, idx) => {
+                                // Enforce required field - assume canonical structure
+                                if (!ref || (typeof ref === 'object' && !ref.text)) {
+                                    console.error(`Reference ${idx} missing required field: text`);
+                                    return null;
+                                }
+                                
+                                const refText = typeof ref === 'string' ? ref : ref.text;
+                                const refPage = typeof ref === 'object' ? ref.page : null;
+                                
+                                return (
+                                    <li key={idx} className="text-sm text-muted">
+                                        {refPage && `Page ${refPage}: `}
+                                        {refText}
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    if (loading) {
+        return (
+            <div className="h-full flex items-center justify-center">
+                <div className="text-muted">Loading summary…</div>
+            </div>
+        );
+    }
+
+    if (error || !summary) {
+        return (
+            <div className="h-full flex items-center justify-center">
+                <div className="text-center">
+                    <p className="text-red-400 mb-4">{error || "Summary not found"}</p>
+                    <button onClick={goBack} className="btn btn-secondary">
+                        Go Back
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="h-full w-full flex bg-void">
+            {/* MAIN CONTENT */}
+            <div className="flex-1 flex flex-col overflow-hidden">
+                {/* Header */}
+                <div className="p-6 border-b border-white/5 flex items-center gap-4">
+                    <button
+                        onClick={goBack}
+                        className="p-2 hover:bg-white/5 rounded-lg transition"
+                    >
+                        <ArrowLeft size={20} />
+                    </button>
+                    <div className="flex-1">
+                        <h2 className="text-lg font-semibold text-white">
+                            {summary.title}
+                        </h2>
+                        {summary.file_name && (
+                            <p className="text-xs text-muted">
+                                From: {summary.file_name}
+                            </p>
+                        )}
+                    </div>
+                </div>
+
+                {/* Content Area */}
+                <div className="flex-1 overflow-y-auto p-8">
+                    <div className="max-w-4xl mx-auto">{renderContent()}</div>
+                </div>
+            </div>
+
+            {/* RIGHT SIDEBAR - Ask Astra */}
+            <div className="w-[400px] bg-[#1a1d24] flex flex-col border-l border-white/5 overflow-hidden">
+                <div className="p-6 border-b border-white/5">
+                    <div className="flex items-center gap-2 mb-2">
+                        <Sparkles size={18} className="text-teal" />
+                        <h3 className="font-bold text-lg">Ask Astra</h3>
+                    </div>
+                    <p className="text-sm text-muted">
+                        Select text in the summary to ask questions
+                    </p>
+                </div>
+
+                {/* Chat */}
+                <div className="flex-1 flex flex-col bg-[#0f1115] overflow-hidden">
+                    <div className="p-3 border-b border-white/5 text-xs text-muted uppercase tracking-wider">
+                        <span>
+                            Chat • <span className="text-white">{summary.title}</span>
+                        </span>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
+                        {messages.map((msg) => (
+                            <MessageBubble key={msg.id} message={msg} />
+                        ))}
+
+                        {isLoading && !messages.length && (
+                            <div className="text-xs text-muted">Loading chat…</div>
+                        )}
+
+                        {isTyping && (
+                            <div className="text-xs text-muted">Astra is typing…</div>
+                        )}
+
+                        <div ref={chatEndRef} />
+                    </div>
+
+                    <div className="p-3 border-t border-white/5 bg-[#1a1d24]">
+                        <div className="flex items-center gap-2 bg-[#0f1115] border border-white/10 px-3 py-2 rounded-lg">
+                            <input
+                                type="text"
+                                value={chatInput}
+                                onChange={(e) => setChatInput(e.target.value)}
+                                onKeyDown={(e) =>
+                                    e.key === "Enter" && handleChatSend()
+                                }
+                                placeholder="Ask Astra about this summary…"
+                                className="flex-1 bg-transparent text-sm text-white outline-none"
+                            />
+                            <button
+                                onClick={() => handleChatSend()}
+                                disabled={!chatInput.trim() || isTyping}
+                                className="p-1.5 bg-teal text-black rounded hover:bg-teal-neon disabled:opacity-40"
+                            >
+                                <Send size={14} />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Selection Bubble */}
+            {selectedText && selectionBubble && (
+                <div
+                    ref={selectionRef}
+                    className="fixed z-50 bg-teal text-black px-4 py-2 rounded-lg shadow-lg cursor-pointer hover:bg-teal-neon transition"
+                    style={{
+                        top: `${selectionBubble.top}px`,
+                        left: `${selectionBubble.left}px`,
+                        transform: "translateX(-50%)",
+                    }}
+                    onClick={handleAskAstra}
+                >
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                        <Sparkles size={14} />
+                        Ask Astra
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+

@@ -35,6 +35,9 @@ import FlashcardsTab from "./modules/flashcards/FlashcardsTab";
 import DeckView from "./modules/flashcards/DeckView";
 import ReviewScreen from "./modules/flashcards/ReviewScreen";
 
+// SUMMARIES
+import SummariesTab from "./modules/summaries/SummariesTab";
+
 // TEMP placeholders
 const Placeholder = ({ label }) => (
   <div className="h-full flex-center text-muted text-xl">
@@ -44,95 +47,9 @@ const Placeholder = ({ label }) => (
 
 const OSCEModule = () => <Placeholder label="OSCE" />;
 const OralExamModule = () => <Placeholder label="Oral Exam Prep" />;
+
 const SummariesModule = () => {
-  return (
-    <div className="max-w-5xl mx-auto h-full flex flex-col gap-10 py-10">
-
-      {/* STATUS */}
-      <div className="panel p-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">
-            Summaries Module
-          </h1>
-          <p className="text-sm text-muted mt-2">
-            Actively in development · First release very soon
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-teal animate-pulse" />
-          <span className="text-xs text-teal font-semibold">
-            BUILDING
-          </span>
-        </div>
-      </div>
-
-      {/* ROADMAP */}
-      <div className="panel p-8">
-        <h2 className="text-lg font-semibold text-white mb-6">
-          What’s coming first
-        </h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[
-            {
-              title: "High-Yield Bullet Summaries",
-              desc: "Condensed, exam-focused points with zero fluff",
-            },
-            {
-              title: "Page-Linked References",
-              desc: "Every claim traceable back to your slides or PDFs",
-            },
-            {
-              title: "Exam vs Study Mode",
-              desc: "Switch between deep understanding and rapid revision",
-            },
-            {
-              title: "Flashcards from Summaries",
-              desc: "One click → spaced repetition ready",
-            },
-          ].map((item, i) => (
-            <div
-              key={i}
-              className="bg-black/40 border border-white/10 rounded-xl p-5 hover:border-teal/40 transition"
-            >
-              <div className="font-semibold text-white">
-                {item.title}
-              </div>
-              <div className="text-sm text-muted mt-1">
-                {item.desc}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-6 text-xs text-muted">
-          Updates are announced in Settings → Announcements
-        </div>
-      </div>
-
-      {/* FEEDBACK */}
-      <div className="panel p-8">
-        <h2 className="text-lg font-semibold text-white mb-2">
-          Shape this module
-        </h2>
-        <p className="text-sm text-muted mb-4">
-          Tell us what you actually want. We read everything.
-        </p>
-
-        <textarea
-          placeholder="Example: I want summaries to follow exam patterns and highlight common traps…"
-          className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-sm text-white outline-none focus:border-teal"
-          rows={4}
-        />
-
-        <button className="btn-primary mt-4 w-full">
-          Send suggestion
-        </button>
-      </div>
-
-    </div>
-  );
+  return <SummariesTab />;
 };
 
 const PlannerModule = () => <Placeholder label="Planner" />;
