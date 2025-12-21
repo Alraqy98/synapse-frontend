@@ -16,6 +16,24 @@ export const getSummariesByFile = async (fileId) => {
 };
 
 /**
+ * Get all summaries for the current user
+ * GET /ai/summaries
+ * Returns: { summaries: [...] }
+ */
+export const getAllSummaries = async () => {
+    try {
+        const res = await api.get("/ai/summaries");
+        return res.data?.summaries || [];
+    } catch (err) {
+        // If endpoint doesn't exist, return empty array
+        if (err.response?.status === 404) {
+            return [];
+        }
+        throw err;
+    }
+};
+
+/**
  * Get a single summary by ID
  * GET /ai/summaries/:id
  */
@@ -61,6 +79,7 @@ export const deleteSummary = async (summaryId) => {
 
 export const apiSummaries = {
     getSummariesByFile,
+    getAllSummaries,
     getSummary,
     generateSummary,
     getSummaryJobStatus,

@@ -20,12 +20,12 @@ export default function SummariesTab() {
     const [showImport, setShowImport] = useState(false);
     const [importCode, setImportCode] = useState("");
 
-    // Load summaries (matching MCQ pattern)
+    // Load summaries (matching MCQ pattern exactly)
     const loadSummaries = async () => {
         try {
             if (!initialLoadDone) setLoading(true);
-            // For now, empty state - backend may not have list endpoint yet
-            setSummaries([]);
+            const summaries = await apiSummaries.getAllSummaries();
+            setSummaries(summaries || []);
         } catch (err) {
             console.error("Failed to load summaries:", err);
             setSummaries([]);
@@ -53,12 +53,13 @@ export default function SummariesTab() {
                     const status = await apiSummaries.getSummaryJobStatus(summary.id);
                     
                     if (status.status === "completed" && status.summaryId) {
-                        // Fetch the completed summary
+                        // Fetch the completed summary from backend (persisted)
                         const completedSummary = await apiSummaries.getSummary(status.summaryId);
                         
                         // Remove generating placeholder and add completed summary at top
+                        // Deduplication: if summary already exists (from backend fetch), replace it
                         setSummaries(prev => {
-                            const filtered = prev.filter(s => s.id !== summary.id);
+                            const filtered = prev.filter(s => s.id !== summary.id && s.id !== status.summaryId);
                             return [completedSummary, ...filtered];
                         });
                         
@@ -151,7 +152,7 @@ export default function SummariesTab() {
                     goBack={() => {
                         setView("list");
                         setSummaryId(null);
-                        loadSummaries();
+                        // Do NOT reload summaries - keep state intact (matching MCQ pattern)
                     }}
                     onRename={handleRename}
                     onDelete={async (id) => {
