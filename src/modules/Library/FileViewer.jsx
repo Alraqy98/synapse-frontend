@@ -473,7 +473,7 @@ const FileViewer = ({ file, onBack }) => {
 
                 {/* MAIN VIEWER */}
                 <div className="flex-1 overflow-hidden bg-[#050609] p-3 flex">
-                    <div className="flex-1 bg-[#0f1115] rounded-lg border border-white/5 shadow-xl overflow-hidden flex items-center justify-center">
+                    <div className="flex-1 bg-[#0f1115] rounded-lg border border-white/5 shadow-xl overflow-hidden flex items-center justify-center" style={{ userSelect: 'text' }}>
                         {(() => {
                             const pageKey = `${file.id}:${activePage}`;
                             const imageFailed = imageLoadFailedRef.current.has(pageKey);

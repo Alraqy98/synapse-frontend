@@ -39,7 +39,6 @@
     box-sizing: border-box;
     margin: 0;
     padding: 0;
-    user-select: none;
     transition:
         background-color 0.25s ease,
         color 0.25s ease,
@@ -93,6 +92,7 @@ body {
     display: inline-flex;
     align-items: center;
     gap: 8px;
+    user-select: none;
 }
 
 .btn-primary {
@@ -134,6 +134,7 @@ body {
     padding: 12px 16px;
     border-radius: 10px;
     color: var(--text-main);
+    user-select: text;
 }
 
 .input-field:focus {
@@ -172,6 +173,7 @@ body {
     opacity: 0.70;
     position: relative;
     transition: transform .2s ease, opacity .2s ease;
+    user-select: none;
 }
 
 .nav-item:hover {
@@ -214,30 +216,6 @@ body {
     }
 }
 
-* {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-    user-select: none;
-    transition:
-        background-color 0.25s ease,
-        color 0.25s ease,
-        border-color 0.25s ease,
-        box-shadow 0.25s ease,
-        transform 0.20s ease;
-}
-
-body {
-    background: var(--bg-void);
-    background-image: var(--landing-gradient);
-    color: var(--text-main);
-    font-family: var(--font-sans);
-    overflow-x: hidden;
-    /* Prevents sideways scroll */
-    overflow-y: auto;
-    /* Allows the page to scroll normally */
-}
-
 
 /* =========================================================
    UTILS
@@ -272,6 +250,7 @@ body {
     display: inline-flex;
     align-items: center;
     gap: 8px;
+    user-select: none;
 }
 
 .btn-primary {
@@ -313,6 +292,7 @@ body {
     padding: 12px 16px;
     border-radius: 10px;
     color: var(--text-main);
+    user-select: text;
 }
 
 .input-field:focus {
@@ -351,6 +331,7 @@ body {
     opacity: 0.70;
     position: relative;
     transition: transform .2s ease, opacity .2s ease;
+    user-select: none;
 }
 
 .nav-item:hover {

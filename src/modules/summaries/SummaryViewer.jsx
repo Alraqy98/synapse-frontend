@@ -251,7 +251,7 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
         if (!summary) return null;
 
         return (
-            <div className="prose prose-invert max-w-none">
+            <div className="prose prose-invert max-w-none" style={{ userSelect: 'text' }}>
                 {/* Title */}
                 <h1 className="text-3xl font-bold text-white mb-4">
                     {summary.title}
@@ -518,7 +518,7 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                 </div>
 
                 {/* Content Area */}
-                <div className="flex-1 overflow-y-auto p-8">
+                <div className="flex-1 overflow-y-auto p-8" style={{ userSelect: 'text' }}>
                     <div className="max-w-4xl mx-auto">{renderContent()}</div>
                 </div>
             </div>
