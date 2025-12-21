@@ -1,6 +1,6 @@
 // src/modules/summaries/SummaryCard.jsx
 import React, { useState } from "react";
-import { Trash2, MoreHorizontal, Edit2, Download, Upload, Copy } from "lucide-react";
+import { Trash2, MoreHorizontal, Edit2, Download, Copy } from "lucide-react";
 import { generateImportCode } from "./utils/summaryCode";
 
 export default function SummaryCard({

@@ -1,6 +1,6 @@
 // src/modules/summaries/SummariesTab.jsx
 import React, { useState, useEffect, useMemo } from "react";
-import { Search, Plus, MoreHorizontal } from "lucide-react";
+import { Search, Plus, MoreHorizontal, Upload } from "lucide-react";
 import { apiSummaries } from "./apiSummaries";
 import SummaryCard from "./SummaryCard";
 import GenerateSummaryModal from "./GenerateSummaryModal";
