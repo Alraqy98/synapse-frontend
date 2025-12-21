@@ -15,6 +15,8 @@ export default function SummariesTab() {
     const [search, setSearch] = useState("");
     const [sort, setSort] = useState("newest");
     const [confirmDelete, setConfirmDelete] = useState(null);
+    const [showImport, setShowImport] = useState(false);
+    const [importCode, setImportCode] = useState("");
 
     // Load summaries
     // Note: Only confirmed endpoints are used. No file context = empty state.
@@ -71,6 +73,21 @@ export default function SummariesTab() {
         }
     };
 
+    const handleRename = async (id, newTitle) => {
+        // Update local state immediately
+        setSummaries((prev) =>
+            prev.map((s) => (s.id === id ? { ...s, title: newTitle } : s))
+        );
+        // TODO: Backend rename endpoint when available
+        // For now, this is UI-only
+    };
+
+    const handleExportCode = (id, code) => {
+        // Code is generated and shown in modal
+        // Store in local state if needed
+        console.log(`Export code for summary ${id}: ${code}`);
+    };
+
     return (
         <div className="h-full w-full">
             {view === "viewer" ? (
@@ -80,6 +97,16 @@ export default function SummariesTab() {
                         setView("list");
                         setSummaryId(null);
                         loadSummaries();
+                    }}
+                    onRename={handleRename}
+                    onDelete={async (id) => {
+                        setSummaries((prev) => prev.filter((s) => s.id !== id));
+                        try {
+                            await apiSummaries.deleteSummary(id);
+                        } catch (err) {
+                            console.error("Delete failed", err);
+                            loadSummaries();
+                        }
                     }}
                 />
             ) : (
@@ -97,13 +124,22 @@ export default function SummariesTab() {
                                     </p>
                                 </div>
 
-                                <button
-                                    className="btn btn-primary gap-2"
-                                    onClick={() => setOpenModal(true)}
-                                >
-                                    <Plus size={16} />
-                                    Generate Summary
-                                </button>
+                                <div className="flex gap-2">
+                                    <button
+                                        className="btn btn-secondary gap-2"
+                                        onClick={() => setShowImport(true)}
+                                    >
+                                        <Upload size={16} />
+                                        Import Summary
+                                    </button>
+                                    <button
+                                        className="btn btn-primary gap-2"
+                                        onClick={() => setOpenModal(true)}
+                                    >
+                                        <Plus size={16} />
+                                        Generate Summary
+                                    </button>
+                                </div>
                             </div>
 
                             {/* COMMAND BAR */}
@@ -153,6 +189,8 @@ export default function SummariesTab() {
                                             onDelete={(id) =>
                                                 setConfirmDelete({ id, title: summary.title })
                                             }
+                                            onRename={handleRename}
+                                            onExportCode={handleExportCode}
                                         />
                                     ))}
                                 </div>
@@ -197,6 +235,58 @@ export default function SummariesTab() {
                             loadSummaries();
                         }}
                     />
+
+                    {/* Import Modal */}
+                    {showImport && (
+                        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center">
+                            <div className="w-full max-w-md rounded-2xl bg-black border border-white/10 p-6">
+                                <h3 className="text-lg font-semibold text-white mb-4">
+                                    Import Summary
+                                </h3>
+                                <p className="text-sm text-muted mb-4">
+                                    Enter the import code to import a summary.
+                                </p>
+                                <input
+                                    autoFocus
+                                    value={importCode}
+                                    onChange={(e) => setImportCode(e.target.value.toUpperCase())}
+                                    placeholder="SYN-XXXXXX"
+                                    className="w-full px-4 py-2 rounded-lg bg-black/40 border border-white/10 text-white mb-6 font-mono"
+                                    maxLength={10}
+                                />
+                                {importCode && !isValidCodeFormat(importCode) && (
+                                    <p className="text-xs text-red-400 mb-4">
+                                        Invalid code format. Expected: SYN-XXXXXX
+                                    </p>
+                                )}
+                                <div className="flex justify-end gap-2">
+                                    <button
+                                        className="btn btn-secondary"
+                                        onClick={() => {
+                                            setShowImport(false);
+                                            setImportCode("");
+                                        }}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        className="btn btn-primary"
+                                        onClick={() => {
+                                            if (isValidCodeFormat(importCode)) {
+                                                // For now, show message that import will be enabled once backend is ready
+                                                alert("Import will be enabled once the summary owner is verified.");
+                                                setShowImport(false);
+                                                setImportCode("");
+                                            }
+                                        }}
+                                        disabled={!isValidCodeFormat(importCode)}
+                                    >
+                                        Import
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </>
             )}
         </div>

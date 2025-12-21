@@ -80,9 +80,8 @@ export default function GenerateSummaryModal({
 
     const [tree, setTree] = useState([]);
     const [expanded, setExpanded] = useState({});
-    const [selectedFiles, setSelectedFiles] = useState(
-        presetFileId ? [presetFileId] : []
-    );
+    const [selectedFileId, setSelectedFileId] = useState(presetFileId || null);
+    const [selectedFileName, setSelectedFileName] = useState(null);
 
     const [loadingTree, setLoadingTree] = useState(false);
     const [submitting, setSubmitting] = useState(false);
@@ -90,7 +89,36 @@ export default function GenerateSummaryModal({
     // Load library tree
     useEffect(() => {
         if (!open) return;
-        if (presetFileId) return;
+        if (presetFileId) {
+            // If presetFileId, find the file name for auto-title
+            (async () => {
+                try {
+                    const root = await getLibraryItems("All", null);
+                    const findFile = (items) => {
+                        for (const item of items) {
+                            if (item.id === presetFileId && item.kind === "file") {
+                                return item.title;
+                            }
+                            if (item.children) {
+                                const found = findFile(item.children);
+                                if (found) return found;
+                            }
+                        }
+                        return null;
+                    };
+                    const fileName = findFile(root);
+                    if (fileName) {
+                        setSelectedFileName(fileName);
+                        if (!title.trim()) {
+                            setTitle(`${fileName} – Summary`);
+                        }
+                    }
+                } catch (err) {
+                    console.error("Failed to load file name:", err);
+                }
+            })();
+            return;
+        }
 
         (async () => {
             setLoadingTree(true);
@@ -144,28 +172,14 @@ export default function GenerateSummaryModal({
         setExpanded((prev) => ({ ...prev, [id]: true }));
     }
 
-    function toggleSelectFile(fileId) {
-        setSelectedFiles((prev) =>
-            prev.includes(fileId)
-                ? prev.filter((id) => id !== fileId)
-                : [...prev, fileId]
-        );
-    }
-
-    function collectAllFiles(node) {
-        let out = [];
-        if (node.kind === "file") out.push(node.id);
-        if (node.children?.length) {
-            node.children.forEach((c) => {
-                out = out.concat(collectAllFiles(c));
-            });
+    function selectFile(fileId, fileName) {
+        // Single file selection - deselect previous if selecting new
+        setSelectedFileId(fileId);
+        setSelectedFileName(fileName);
+        // Auto-generate title if empty
+        if (!title.trim()) {
+            setTitle(`${fileName} – Summary`);
         }
-        return out;
-    }
-
-    function handleSelectFolder(folder) {
-        const folderFiles = collectAllFiles(folder);
-        setSelectedFiles((prev) => [...new Set([...prev, ...folderFiles])]);
     }
 
     function renderNode(node, depth = 0) {
@@ -184,15 +198,6 @@ export default function GenerateSummaryModal({
                             {isOpen ? "📂" : "📁"}
                         </span>
                         <span onClick={() => toggleFolder(node)}>{node.title}</span>
-
-                        {isOpen && (
-                            <button
-                                className="ml-2 text-xs px-2 py-0.5 bg-white/10 border border-white/20 rounded hover:border-teal/50"
-                                onClick={() => handleSelectFolder(node)}
-                            >
-                                Select Folder
-                            </button>
-                        )}
                     </div>
 
                     {isOpen &&
@@ -202,14 +207,15 @@ export default function GenerateSummaryModal({
         }
 
         if (node.kind === "file") {
-            const checked = selectedFiles.includes(node.id);
+            const isSelected = selectedFileId === node.id;
 
             return (
                 <div key={node.id} className="flex items-center gap-2 py-1" style={pad}>
                     <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggleSelectFile(node.id)}
+                        type="radio"
+                        name="summary-file-select"
+                        checked={isSelected}
+                        onChange={() => selectFile(node.id, node.title)}
                     />
                     <span>📄 {node.title}</span>
                 </div>
@@ -221,15 +227,18 @@ export default function GenerateSummaryModal({
 
     async function handleSubmit() {
         if (!title.trim()) return alert("Enter summary title.");
-        if (selectedFiles.length === 0)
-            return alert("Select at least one file.");
+        if (!selectedFileId) {
+            return alert("Please select a file.");
+        }
 
-        const invalid = selectedFiles.filter((id) => !looksLikeUuid(id));
-        if (invalid.length) console.warn("Invalid file IDs:", invalid);
+        if (!looksLikeUuid(selectedFileId)) {
+            console.warn("Invalid file ID:", selectedFileId);
+            return alert("Invalid file selected.");
+        }
 
         const payload = {
             title: title.trim(),
-            file_ids: selectedFiles,
+            fileId: selectedFileId,
             academic_stage: academicStage || null,
             specialty: specialty || null,
             goal: goal || null,
@@ -343,9 +352,9 @@ export default function GenerateSummaryModal({
                 </div>
 
                 {/* FILE PICKER */}
-                {!presetFileId && (
+                {!presetFileId ? (
                     <>
-                        <label className="text-sm text-muted">Source Files</label>
+                        <label className="text-sm text-muted">Source File</label>
                         <div className="border border-white/10 rounded-xl p-4 mt-1 max-h-64 overflow-y-auto bg-black/20">
                             {loadingTree ? (
                                 <div className="text-sm text-muted">Loading files…</div>
@@ -357,7 +366,21 @@ export default function GenerateSummaryModal({
                                 tree.map((n) => renderNode(n))
                             )}
                         </div>
+                        {selectedFileId && (
+                            <p className="text-xs text-muted mt-2">
+                                Selected: {selectedFileName}
+                            </p>
+                        )}
                     </>
+                ) : (
+                    <div className="border border-white/10 rounded-xl p-4 bg-black/20">
+                        <p className="text-sm text-muted">
+                            File: <span className="text-white">{selectedFileName || "Loading..."}</span>
+                        </p>
+                        <p className="text-xs text-muted mt-1">
+                            File is locked for this summary.
+                        </p>
+                    </div>
                 )}
 
                 {/* Footer */}

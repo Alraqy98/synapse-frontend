@@ -17,6 +17,7 @@ import {
 
 import GenerateFlashcardsModal from "../flashcards/GenerateFlashcardsModal";
 import GenerateMCQModal from "../mcq/GenerateMCQModal";
+import GenerateSummaryModal from "../summaries/GenerateSummaryModal";
 
 import { performLibraryAction } from "./apiLibrary";
 import {
@@ -59,6 +60,7 @@ const FileViewer = ({ file, onBack }) => {
     const [toolsCollapsed, setToolsCollapsed] = useState(true);
     const [showFlashcardsModal, setShowFlashcardsModal] = useState(false);
     const [showMCQModal, setShowMCQModal] = useState(false);
+    const [showSummaryModal, setShowSummaryModal] = useState(false);
 
     // Chat
     const [fileSessionId, setFileSessionId] = useState(null);
@@ -328,6 +330,10 @@ const FileViewer = ({ file, onBack }) => {
         }
         if (id === "quiz") {
             setShowMCQModal(true);
+            return;
+        }
+        if (id === "summary") {
+            setShowSummaryModal(true);
             return;
         }
 
@@ -672,6 +678,16 @@ const FileViewer = ({ file, onBack }) => {
                 onCreated={() => {
                     setShowMCQModal(false);
                     // later: refresh MCQ list or navigate
+                }}
+            />
+
+            <GenerateSummaryModal
+                open={showSummaryModal}
+                presetFileId={file.id}
+                onClose={() => setShowSummaryModal(false)}
+                onCreated={() => {
+                    setShowSummaryModal(false);
+                    // Summary created successfully
                 }}
             />
         </div>
