@@ -9,6 +9,11 @@ import {
     Download,
     Copy,
     MoreHorizontal,
+    Brain,
+    Stethoscope,
+    AlertTriangle,
+    BookOpen,
+    List,
 } from "lucide-react";
 import { generateImportCode } from "./utils/summaryCode";
 import { apiSummaries } from "./apiSummaries";
@@ -247,13 +252,28 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
         }
     };
 
+    // Helper to get icon for section heading
+    const getSectionIcon = (heading) => {
+        const lowerHeading = heading.toLowerCase();
+        if (lowerHeading.includes('mechanism') || lowerHeading.includes('pathophysiology') || lowerHeading.includes('pathology')) {
+            return <Brain size={18} className="text-teal" />;
+        }
+        if (lowerHeading.includes('clinical') || lowerHeading.includes('presentation') || lowerHeading.includes('symptoms') || lowerHeading.includes('signs')) {
+            return <Stethoscope size={18} className="text-teal" />;
+        }
+        if (lowerHeading.includes('red flag') || lowerHeading.includes('warning') || lowerHeading.includes('complication') || lowerHeading.includes('risk')) {
+            return <AlertTriangle size={18} className="text-red-400" />;
+        }
+        return null;
+    };
+
     const renderContent = () => {
         if (!summary) return null;
 
         return (
             <div className="prose prose-invert max-w-none" style={{ userSelect: 'text' }}>
                 {/* Title */}
-                <h1 className="text-3xl font-bold text-white mb-4">
+                <h1 className="text-3xl font-bold text-white mb-3">
                     {summary.title}
                 </h1>
 
@@ -261,7 +281,7 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                 {(summary.academic_stage ||
                     summary.specialty ||
                     summary.goal) && (
-                    <div className="text-sm text-muted mb-6">
+                    <div className="text-sm text-muted mb-8 px-1">
                         {[
                             summary.academic_stage,
                             summary.specialty,
@@ -274,7 +294,7 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
 
                 {/* Sections - enforce canonical schema */}
                 {summary.sections && summary.sections.length > 0 && (
-                    <div className="space-y-8">
+                    <div className="space-y-6">
                         {summary.sections.map((section, idx) => {
                             // Enforce required fields
                             if (!section.heading) {
@@ -286,13 +306,21 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                                 return null;
                             }
                             
+                            const sectionIcon = getSectionIcon(section.heading);
+                            
                             return (
-                                <div key={idx} className="summary-section">
-                                    <h2 className="text-2xl font-semibold text-white mb-4">
-                                        {section.heading}
+                                <div 
+                                    key={idx} 
+                                    className="rounded-2xl border border-white/10 bg-black/40 p-6 hover:border-white/15 transition-colors"
+                                    style={{ userSelect: 'text' }}
+                                >
+                                    <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                                        {sectionIcon}
+                                        <span>{section.heading}</span>
                                     </h2>
                                     <div
-                                        className="text-gray-300 leading-relaxed"
+                                        className="text-gray-300 leading-loose text-[15px] summary-content"
+                                        style={{ userSelect: 'text' }}
                                         dangerouslySetInnerHTML={{
                                             __html: section.content,
                                         }}
@@ -318,14 +346,18 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                             }
                             
                             return (
-                                <div key={idx} className="overflow-x-auto">
-                                    <table className="w-full border-collapse border border-white/10">
+                                <div 
+                                    key={idx} 
+                                    className="rounded-2xl border border-white/10 bg-black/40 p-6 overflow-x-auto"
+                                    style={{ userSelect: 'text' }}
+                                >
+                                    <table className="w-full border-collapse">
                                         <thead>
                                             <tr className="bg-white/5">
                                                 {table.headers.map((header, hIdx) => (
                                                     <th
                                                         key={hIdx}
-                                                        className="border border-white/10 px-4 py-2 text-left text-sm font-semibold text-white"
+                                                        className="border border-white/10 px-4 py-3 text-left text-sm font-bold text-white"
                                                     >
                                                         {header}
                                                     </th>
@@ -336,12 +368,12 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                                             {table.rows.map((row, rIdx) => (
                                                 <tr
                                                     key={rIdx}
-                                                    className="hover:bg-white/5"
+                                                    className="hover:bg-white/5 transition-colors"
                                                 >
                                                     {row.map((cell, cIdx) => (
                                                         <td
                                                             key={cIdx}
-                                                            className="border border-white/10 px-4 py-2 text-sm text-gray-300"
+                                                            className="border border-white/10 px-4 py-3 text-sm text-gray-300 leading-relaxed"
                                                         >
                                                             {cell}
                                                         </td>
@@ -358,11 +390,12 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
 
                 {/* Key Takeaways - enforce canonical schema */}
                 {summary.key_takeaways && summary.key_takeaways.length > 0 && (
-                    <div className="mt-8">
-                        <h2 className="text-2xl font-semibold text-white mb-4">
-                            Key Takeaways
+                    <div className="mt-8 rounded-2xl border border-white/10 bg-black/40 p-6" style={{ userSelect: 'text' }}>
+                        <h2 className="text-xl font-bold text-white mb-5 flex items-center gap-2">
+                            <List size={18} className="text-teal" />
+                            <span>Key Takeaways</span>
                         </h2>
-                        <ul className="space-y-2">
+                        <ul className="space-y-4">
                             {summary.key_takeaways.map((takeaway, idx) => {
                                 // Enforce required field
                                 if (takeaway === undefined || takeaway === null || takeaway === "") {
@@ -373,10 +406,10 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                                 return (
                                     <li
                                         key={idx}
-                                        className="text-gray-300 flex items-start gap-2"
+                                        className="text-gray-300 flex items-start gap-3 leading-loose text-[15px]"
                                     >
-                                        <span className="text-teal mt-1">•</span>
-                                        <span>{takeaway}</span>
+                                        <span className="text-teal mt-1.5 font-bold flex-shrink-0">•</span>
+                                        <span className="flex-1">{takeaway}</span>
                                     </li>
                                 );
                             })}
@@ -386,11 +419,12 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
 
                 {/* References - enforce canonical schema */}
                 {summary.references && summary.references.length > 0 && (
-                    <div className="mt-8">
-                        <h2 className="text-2xl font-semibold text-white mb-4">
-                            References
+                    <div className="mt-8 rounded-2xl border border-white/10 bg-black/40 p-6" style={{ userSelect: 'text' }}>
+                        <h2 className="text-xl font-bold text-white mb-5 flex items-center gap-2">
+                            <BookOpen size={18} className="text-teal" />
+                            <span>References</span>
                         </h2>
-                        <ul className="space-y-2">
+                        <ul className="space-y-3">
                             {summary.references.map((ref, idx) => {
                                 // Enforce required field - assume canonical structure
                                 if (!ref || (typeof ref === 'object' && !ref.text)) {
@@ -402,9 +436,9 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                                 const refPage = typeof ref === 'object' ? ref.page : null;
                                 
                                 return (
-                                    <li key={idx} className="text-sm text-muted">
-                                        {refPage && `Page ${refPage}: `}
-                                        {refText}
+                                    <li key={idx} className="text-sm text-muted leading-relaxed">
+                                        {refPage && <span className="text-teal/70 font-medium">Page {refPage}: </span>}
+                                        <span>{refText}</span>
                                     </li>
                                 );
                             })}
@@ -437,7 +471,55 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
     }
 
     return (
-        <div className="h-full w-full flex bg-void">
+        <>
+            <style>{`
+                .summary-content p {
+                    margin-bottom: 1rem;
+                    line-height: 1.75;
+                }
+                .summary-content p:last-child {
+                    margin-bottom: 0;
+                }
+                .summary-content ul, .summary-content ol {
+                    margin-top: 0.75rem;
+                    margin-bottom: 1rem;
+                    padding-left: 1.5rem;
+                }
+                .summary-content li {
+                    margin-bottom: 0.5rem;
+                    line-height: 1.75;
+                }
+                .summary-content li:last-child {
+                    margin-bottom: 0;
+                }
+                .summary-content h3, .summary-content h4 {
+                    margin-top: 1.5rem;
+                    margin-bottom: 0.75rem;
+                    font-weight: 600;
+                    color: #F5F5F7;
+                }
+                .summary-content h3 {
+                    font-size: 1.125rem;
+                }
+                .summary-content h4 {
+                    font-size: 1rem;
+                }
+                .summary-content strong {
+                    font-weight: 600;
+                    color: #F5F5F7;
+                }
+                .summary-content em {
+                    font-style: italic;
+                }
+                .summary-content code {
+                    background: rgba(255, 255, 255, 0.05);
+                    padding: 0.125rem 0.375rem;
+                    border-radius: 0.25rem;
+                    font-size: 0.875rem;
+                    font-family: 'Monaco', 'Courier New', monospace;
+                }
+            `}</style>
+            <div className="h-full w-full flex bg-void">
             {/* MAIN CONTENT */}
             <div className="flex-1 flex flex-col overflow-hidden">
                 {/* Header */}
@@ -689,6 +771,7 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                 </div>
             )}
         </div>
+        </>
     );
 }
 
