@@ -104,6 +104,12 @@ export default function GenerateSummaryModal({
     const [loadingTree, setLoadingTree] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [fileNotReadyMessage, setFileNotReadyMessage] = useState(null);
+    const [isTriggeringRender, setIsTriggeringRender] = useState(false);
+    const [isWaitingForRender, setIsWaitingForRender] = useState(false);
+    
+    // Refs for render polling
+    const renderPollIntervalRef = useRef(null);
+    const pendingPayloadRef = useRef(null);
 
     // Poll file readiness when a file is selected
     const { 
@@ -497,15 +503,24 @@ export default function GenerateSummaryModal({
         }
     }
 
-    // Cleanup polling on unmount or modal close
+    // Reset state when modal opens/closes
     useEffect(() => {
-        return () => {
+        if (!open) {
+            // Reset render states when modal closes
+            setIsTriggeringRender(false);
+            setIsWaitingForRender(false);
+            setFileNotReadyMessage(null);
             if (renderPollIntervalRef.current) {
                 clearInterval(renderPollIntervalRef.current);
                 renderPollIntervalRef.current = null;
             }
-        };
-    }, []);
+        } else {
+            // Reset render states when modal opens (clean slate)
+            setIsTriggeringRender(false);
+            setIsWaitingForRender(false);
+            setFileNotReadyMessage(null);
+        }
+    }, [open]);
 
     return (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
