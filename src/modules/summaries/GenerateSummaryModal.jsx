@@ -282,8 +282,14 @@ export default function GenerateSummaryModal({
     }
 
     async function handleSubmit() {
-        if (!title.trim()) return alert("Enter summary title.");
+        console.log("🔵 [DIAGNOSTIC] handleSubmit called");
+        
+        if (!title.trim()) {
+            console.log("🔵 [DIAGNOSTIC] Title validation failed");
+            return alert("Enter summary title.");
+        }
         if (!selectedFileId) {
+            console.log("🔵 [DIAGNOSTIC] File selection validation failed");
             return alert("Please select a file.");
         }
 
@@ -295,6 +301,7 @@ export default function GenerateSummaryModal({
         // Check file readiness before submitting
         const currentFile = selectedFile || (selectedFileId ? await getItemById(selectedFileId).catch(() => null) : null);
         if (currentFile && !isFileReady(currentFile)) {
+            console.log("🔵 [DIAGNOSTIC] File not ready, blocking submit");
             setFileNotReadyMessage("Preparing slides. This usually takes a few seconds.");
             return;
         }
@@ -308,10 +315,14 @@ export default function GenerateSummaryModal({
             instruction: instruction.trim() || null,
         };
 
+        console.log("🔵 [DIAGNOSTIC] About to call apiSummaries.generateSummary with payload:", payload);
+
         try {
             setSubmitting(true);
             setFileNotReadyMessage(null);
+            console.log("🔵 [DIAGNOSTIC] Calling apiSummaries.generateSummary...");
             const result = await apiSummaries.generateSummary(payload);
+            console.log("🔵 [DIAGNOSTIC] apiSummaries.generateSummary returned:", result);
             
             if (result.success && result.jobId) {
                 // Return jobId to parent - modal closes immediately, generation happens in background
@@ -321,7 +332,7 @@ export default function GenerateSummaryModal({
                 throw new Error("Invalid response from server");
             }
         } catch (err) {
-            console.error("Summary generation error:", err);
+            console.error("🔵 [DIAGNOSTIC] Summary generation error:", err);
             if (err.code === "FILE_NOT_READY" || err.message?.includes("Preparing slides")) {
                 setFileNotReadyMessage(err.message || "Preparing slides. This usually takes a few seconds.");
             } else {
@@ -496,7 +507,20 @@ export default function GenerateSummaryModal({
                     <button
                         className="px-6 py-2 rounded-xl bg-teal text-black font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                         disabled={submitting || !title.trim() || !selectedFileId || (selectedFile && !isFileReadyForGeneration)}
-                        onClick={handleSubmit}
+                        onClick={(e) => {
+                            console.log("🔴 [DIAGNOSTIC] Generate button clicked");
+                            console.log("🔴 [DIAGNOSTIC] Button disabled state:", submitting || !title.trim() || !selectedFileId || (selectedFile && !isFileReadyForGeneration));
+                            console.log("🔴 [DIAGNOSTIC] submitting:", submitting);
+                            console.log("🔴 [DIAGNOSTIC] title.trim():", title.trim());
+                            console.log("🔴 [DIAGNOSTIC] selectedFileId:", selectedFileId);
+                            console.log("🔴 [DIAGNOSTIC] selectedFile:", selectedFile);
+                            console.log("🔴 [DIAGNOSTIC] isFileReadyForGeneration:", isFileReadyForGeneration);
+                            if (!(submitting || !title.trim() || !selectedFileId || (selectedFile && !isFileReadyForGeneration))) {
+                                handleSubmit();
+                            } else {
+                                console.log("🔴 [DIAGNOSTIC] Button is disabled, onClick handler not executing");
+                            }
+                        }}
                         title={selectedFile && !isFileReadyForGeneration ? "Preparing slides…" : undefined}
                     >
                         {submitting ? "Generating…" : "Generate"}

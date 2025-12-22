@@ -12,6 +12,15 @@ api.interceptors.request.use((config) => {
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
     }
+    // Diagnostic logging for summary generation
+    if (config.url?.includes("/ai/summaries/generate")) {
+        console.log("🟡 [DIAGNOSTIC] Axios interceptor: POST request to /ai/summaries/generate");
+        console.log("🟡 [DIAGNOSTIC] Method:", config.method);
+        console.log("🟡 [DIAGNOSTIC] URL:", config.url);
+        console.log("🟡 [DIAGNOSTIC] Full URL:", config.baseURL + config.url);
+        console.log("🟡 [DIAGNOSTIC] Payload:", config.data);
+        console.log("🟡 [DIAGNOSTIC] Headers:", config.headers);
+    }
     return config;
 });
 

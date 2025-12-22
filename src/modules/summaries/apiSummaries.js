@@ -50,10 +50,18 @@ export const getSummary = async (summaryId) => {
  * Throws error with code: "FILE_NOT_READY" if file is not ready
  */
 export const generateSummary = async (payload) => {
+    console.log("🟢 [DIAGNOSTIC] generateSummary API function called with payload:", payload);
+    console.log("🟢 [DIAGNOSTIC] About to make POST request to /ai/summaries/generate");
+    
     try {
+        console.log("🟢 [DIAGNOSTIC] Calling api.post('/ai/summaries/generate', payload)");
         const res = await api.post("/ai/summaries/generate", payload);
+        console.log("🟢 [DIAGNOSTIC] POST /ai/summaries/generate response:", res);
+        console.log("🟢 [DIAGNOSTIC] Response data:", res.data);
         return res.data; // { success: true, jobId }
     } catch (err) {
+        console.error("🟢 [DIAGNOSTIC] generateSummary error:", err);
+        console.error("🟢 [DIAGNOSTIC] Error response:", err.response);
         // Handle FILE_NOT_READY gracefully
         if (err.response?.status === 422 && 
             (err.response?.data?.code === "FILE_NOT_READY" || 
