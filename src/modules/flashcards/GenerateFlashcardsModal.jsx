@@ -5,7 +5,7 @@
 import React, { useEffect, useState } from "react";
 import { generateFlashcards } from "./apiFlashcards";
 import { getLibraryItems, getItemById } from "../Library/apiLibrary";
-import { areFilesReady, isFileReady } from "../Library/utils/fileReadiness";
+import { areFilesReady, isFileReady, getRenderProgress } from "../Library/utils/fileReadiness";
 import { Check, ChevronDown } from "lucide-react";
 
 // ===============================================================
@@ -291,6 +291,7 @@ export default function GenerateFlashcardsModal({
         if (node.kind === "file") {
             const checked = selectedFiles.includes(node.id);
             const fileReady = isFileReady(node);
+            const progress = getRenderProgress(node);
             return (
                 <div key={node.id} className="flex items-center gap-2 py-1" style={pad}>
                     <input
@@ -300,7 +301,11 @@ export default function GenerateFlashcardsModal({
                     />
                     <span>📄 {node.title}</span>
                     {!fileReady && (
-                        <span className="text-xs text-muted ml-2">Preparing slides…</span>
+                        <span className="text-xs text-muted ml-2">
+                            {progress.total > 0 
+                                ? `Preparing slides (${progress.rendered} / ${progress.total})`
+                                : "Preparing slides…"}
+                        </span>
                     )}
                 </div>
             );
@@ -410,11 +415,25 @@ export default function GenerateFlashcardsModal({
                     </div>
                 )}
 
-                {selectedFiles.length > 0 && !areFilesReady(selectedFilesData) && (
-                    <div className="mb-4 p-3 bg-white/5 border border-white/10 rounded-xl">
-                        <p className="text-sm text-muted">Preparing slides…</p>
-                    </div>
-                )}
+                {selectedFiles.length > 0 && !areFilesReady(selectedFilesData) && (() => {
+                    const progress = selectedFilesData.reduce((acc, file) => {
+                        const prog = getRenderProgress(file);
+                        return {
+                            totalRendered: acc.totalRendered + prog.rendered,
+                            totalPages: acc.totalPages + prog.total
+                        };
+                    }, { totalRendered: 0, totalPages: 0 });
+
+                    return (
+                        <div className="mb-4 p-3 bg-white/5 border border-white/10 rounded-xl">
+                            <p className="text-sm text-muted">
+                                {progress.totalPages > 0 
+                                    ? `Preparing slides (${progress.totalRendered} / ${progress.totalPages})`
+                                    : "Preparing slides…"}
+                            </p>
+                        </div>
+                    );
+                })()}
 
                 {fileNotReadyMessage && (
                     <div className="mb-4 p-3 bg-white/5 border border-white/10 rounded-xl">

@@ -11,6 +11,23 @@ export const isFileReady = (file) => {
 };
 
 /**
+ * Get rendering progress for a file
+ * @param {object} file - File object
+ * @returns {object} { ready, rendered, total }
+ */
+export function getRenderProgress(file) {
+    if (!file || file.is_folder) {
+        return { ready: true, rendered: 0, total: 0 };
+    }
+
+    const total = file.total_pages || 0;
+    const rendered = file.rendered_pages || 0;
+    const ready = file.ingestion_status === "ready";
+
+    return { ready, rendered, total };
+}
+
+/**
  * Hook to poll file metadata until ready
  * @param {string} fileId - File ID to poll
  * @param {boolean} enabled - Whether polling should be active
@@ -82,7 +99,15 @@ export const useFileReadiness = (fileId, enabled = true) => {
 
     const isReady = isFileReady(file);
 
-    return { isReady, file, isLoading };
+    return {
+        isReady,
+        ready: isReady,
+        ingestionStatus: file?.ingestion_status || null,
+        renderedPages: file?.rendered_pages || 0,
+        totalPages: file?.total_pages || 0,
+        file,
+        isLoading
+    };
 };
 
 /**

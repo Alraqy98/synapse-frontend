@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { apiSummaries } from "./apiSummaries";
 import { getLibraryItems, getItemById } from "../Library/apiLibrary";
-import { useFileReadiness, isFileReady } from "../Library/utils/fileReadiness";
+import { useFileReadiness, isFileReady, getRenderProgress } from "../Library/utils/fileReadiness";
 import { ChevronDown, Check, X } from "lucide-react";
 
 // Premium Dropdown Component (reused from MCQ modal)
@@ -90,7 +90,14 @@ export default function GenerateSummaryModal({
     const [fileNotReadyMessage, setFileNotReadyMessage] = useState(null);
 
     // Poll file readiness when a file is selected
-    const { isReady: isFileReadyForGeneration, file: polledFile, isLoading: isPollingFile } = useFileReadiness(
+    const { 
+        isReady: isFileReadyForGeneration, 
+        file: polledFile, 
+        isLoading: isPollingFile,
+        renderedPages,
+        totalPages,
+        ready
+    } = useFileReadiness(
         selectedFileId && !selectedFile?.is_folder ? selectedFileId : null,
         !!selectedFileId && !selectedFile?.is_folder
     );
@@ -246,6 +253,7 @@ export default function GenerateSummaryModal({
         if (node.kind === "file") {
             const isSelected = selectedFileId === node.id;
             const fileReady = isFileReady(node);
+            const progress = getRenderProgress(node);
 
             return (
                 <div key={node.id} className="flex items-center gap-2 py-1" style={pad}>
@@ -260,7 +268,11 @@ export default function GenerateSummaryModal({
                     />
                     <span>📄 {node.title}</span>
                     {!fileReady && (
-                        <span className="text-xs text-muted ml-2">Preparing slides…</span>
+                        <span className="text-xs text-muted ml-2">
+                            {progress.total > 0 
+                                ? `Preparing slides (${progress.rendered} / ${progress.total})`
+                                : "Preparing slides…"}
+                        </span>
                     )}
                 </div>
             );
@@ -433,7 +445,12 @@ export default function GenerateSummaryModal({
                                 <p className="text-xs text-muted">
                                     Selected: {selectedFileName}
                                 </p>
-                                {selectedFile && !isFileReadyForGeneration && (
+                                {selectedFile && !ready && totalPages > 0 && (
+                                    <p className="text-xs text-muted mt-1">
+                                        Preparing slides ({renderedPages} / {totalPages})
+                                    </p>
+                                )}
+                                {selectedFile && !ready && totalPages === 0 && (
                                     <p className="text-xs text-muted mt-1">
                                         Preparing slides…
                                     </p>
@@ -446,7 +463,12 @@ export default function GenerateSummaryModal({
                         <p className="text-sm text-muted">
                             File: <span className="text-white">{selectedFileName || "Loading..."}</span>
                         </p>
-                        {selectedFile && !isFileReadyForGeneration && (
+                        {selectedFile && !ready && totalPages > 0 && (
+                            <p className="text-xs text-muted mt-1">
+                                Preparing slides ({renderedPages} / {totalPages})
+                            </p>
+                        )}
+                        {selectedFile && !ready && totalPages === 0 && (
                             <p className="text-xs text-muted mt-1">
                                 Preparing slides…
                             </p>
