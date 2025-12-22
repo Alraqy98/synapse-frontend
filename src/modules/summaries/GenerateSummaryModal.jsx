@@ -1,9 +1,25 @@
 // src/modules/summaries/GenerateSummaryModal.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { apiSummaries } from "./apiSummaries";
 import { getLibraryItems, getItemById } from "../Library/apiLibrary";
 import { useFileReadiness, isFileReady, getRenderProgress } from "../Library/utils/fileReadiness";
 import { ChevronDown, Check, X } from "lucide-react";
+
+const API_URL = import.meta.env.VITE_API_URL;
+
+// Helper to get auth token
+function getSupabaseToken() {
+    try {
+        const key = Object.keys(localStorage).find((k) =>
+            k.includes("auth-token")
+        );
+        if (!key) return null;
+        const parsed = JSON.parse(localStorage.getItem(key));
+        return parsed?.access_token || localStorage.getItem("access_token");
+    } catch {
+        return localStorage.getItem("access_token");
+    }
+}
 
 // Premium Dropdown Component (reused from MCQ modal)
 function PremiumDropdown({ label, value, setValue, options }) {
@@ -281,6 +297,109 @@ export default function GenerateSummaryModal({
         return null;
     }
 
+    // Trigger rendering for all pages of a file
+    async function triggerFileRendering(fileId, totalPages) {
+        if (!fileId || !totalPages || totalPages === 0) {
+            console.warn("Cannot trigger rendering: missing fileId or totalPages");
+            return;
+        }
+
+        const token = getSupabaseToken();
+        const renderPromises = [];
+
+        // Trigger rendering for all pages (fire and forget - backend handles idempotency)
+        for (let page = 1; page <= totalPages; page++) {
+            const url = `${API_URL}/library/item/${fileId}/page/${page}/render`;
+            renderPromises.push(
+                fetch(url, {
+                    headers: {
+                        Authorization: token ? `Bearer ${token}` : "",
+                    },
+                }).catch((err) => {
+                    console.warn(`Failed to trigger render for page ${page}:`, err);
+                    // Continue with other pages even if one fails
+                })
+            );
+        }
+
+        // Fire all render requests in parallel (don't wait for completion)
+        Promise.all(renderPromises).catch(() => {
+            // Errors are logged per-page, continue anyway
+        });
+    }
+
+    // Poll file metadata until ready, then proceed with generation
+    async function pollUntilReadyAndGenerate(fileId, payload) {
+        if (renderPollIntervalRef.current) {
+            clearInterval(renderPollIntervalRef.current);
+        }
+
+        setIsWaitingForRender(true);
+        setFileNotReadyMessage(null);
+
+        const pollInterval = 1500; // 1.5 seconds (between 1-2s as requested)
+        let pollCount = 0;
+        const maxPolls = 120; // Max 3 minutes (120 * 1.5s)
+
+        renderPollIntervalRef.current = setInterval(async () => {
+            pollCount++;
+            
+            try {
+                const currentFile = await getItemById(fileId);
+                const progress = getRenderProgress(currentFile);
+
+                // Update selectedFile state to show progress
+                setSelectedFile(currentFile);
+
+                // Check if ready
+                if (progress.ready && progress.rendered >= progress.total && progress.total > 0) {
+                    // File is ready - stop polling and proceed with generation
+                    clearInterval(renderPollIntervalRef.current);
+                    renderPollIntervalRef.current = null;
+                    setIsWaitingForRender(false);
+                    setFileNotReadyMessage(null);
+
+                    // Now proceed with generation
+                    try {
+                        setSubmitting(true);
+                        console.log("🔵 [DIAGNOSTIC] File ready, calling generateSummary with payload:", payload);
+                        const result = await apiSummaries.generateSummary(payload);
+                        console.log("🔵 [DIAGNOSTIC] apiSummaries.generateSummary returned:", result);
+                        
+                        if (result.success && result.jobId) {
+                            onCreated({ jobId: result.jobId, title: payload.title, file_name: selectedFileName });
+                            onClose();
+                        } else {
+                            throw new Error("Invalid response from server");
+                        }
+                    } catch (err) {
+                        console.error("🔵 [DIAGNOSTIC] Summary generation error:", err);
+                        if (err.code === "FILE_NOT_READY" || err.message?.includes("Preparing slides")) {
+                            setFileNotReadyMessage(err.message || "Preparing slides. This usually takes a few seconds.");
+                        } else {
+                            alert("Summary generation failed.");
+                        }
+                    } finally {
+                        setSubmitting(false);
+                    }
+                    return;
+                }
+
+                // Timeout after max polls
+                if (pollCount >= maxPolls) {
+                    clearInterval(renderPollIntervalRef.current);
+                    renderPollIntervalRef.current = null;
+                    setIsWaitingForRender(false);
+                    setFileNotReadyMessage("Rendering is taking longer than expected. Please try again in a moment.");
+                    setSubmitting(false);
+                }
+            } catch (err) {
+                console.error("Failed to poll file status:", err);
+                // Continue polling on error
+            }
+        }, pollInterval);
+    }
+
     async function handleSubmit() {
         console.log("🔵 [DIAGNOSTIC] handleSubmit called");
         
@@ -298,14 +417,6 @@ export default function GenerateSummaryModal({
             return alert("Invalid file selected.");
         }
 
-        // Check file readiness before submitting
-        const currentFile = selectedFile || (selectedFileId ? await getItemById(selectedFileId).catch(() => null) : null);
-        if (currentFile && !isFileReady(currentFile)) {
-            console.log("🔵 [DIAGNOSTIC] File not ready, blocking submit");
-            setFileNotReadyMessage("Preparing slides. This usually takes a few seconds.");
-            return;
-        }
-
         const payload = {
             title: title.trim(),
             fileId: selectedFileId,
@@ -315,33 +426,86 @@ export default function GenerateSummaryModal({
             instruction: instruction.trim() || null,
         };
 
-        console.log("🔵 [DIAGNOSTIC] About to call apiSummaries.generateSummary with payload:", payload);
+        // Store payload for later use
+        pendingPayloadRef.current = payload;
 
-        try {
-            setSubmitting(true);
-            setFileNotReadyMessage(null);
-            console.log("🔵 [DIAGNOSTIC] Calling apiSummaries.generateSummary...");
-            const result = await apiSummaries.generateSummary(payload);
-            console.log("🔵 [DIAGNOSTIC] apiSummaries.generateSummary returned:", result);
+        // Fetch current file state
+        const currentFile = selectedFile || (selectedFileId ? await getItemById(selectedFileId).catch(() => null) : null);
+        
+        if (!currentFile) {
+            alert("Failed to load file information.");
+            return;
+        }
+
+        // Check if file is ready
+        if (isFileReady(currentFile)) {
+            // File is ready - proceed directly with generation
+            try {
+                setSubmitting(true);
+                setFileNotReadyMessage(null);
+                console.log("🔵 [DIAGNOSTIC] File ready, calling generateSummary with payload:", payload);
+                const result = await apiSummaries.generateSummary(payload);
+                console.log("🔵 [DIAGNOSTIC] apiSummaries.generateSummary returned:", result);
+                
+                if (result.success && result.jobId) {
+                    onCreated({ jobId: result.jobId, title: title.trim(), file_name: selectedFileName });
+                    onClose();
+                } else {
+                    throw new Error("Invalid response from server");
+                }
+            } catch (err) {
+                console.error("🔵 [DIAGNOSTIC] Summary generation error:", err);
+                if (err.code === "FILE_NOT_READY" || err.message?.includes("Preparing slides")) {
+                    setFileNotReadyMessage(err.message || "Preparing slides. This usually takes a few seconds.");
+                } else {
+                    alert("Summary generation failed.");
+                }
+            } finally {
+                setSubmitting(false);
+            }
+        } else {
+            // File is NOT ready - trigger rendering and poll
+            console.log("🔵 [DIAGNOSTIC] File not ready, triggering rendering");
+            setIsTriggeringRender(true);
+            setSubmitting(true); // Show loading state
+
+            const totalPages = currentFile.total_pages || currentFile.page_count || 0;
             
-            if (result.success && result.jobId) {
-                // Return jobId to parent - modal closes immediately, generation happens in background
-                onCreated({ jobId: result.jobId, title: title.trim(), file_name: selectedFileName });
-                onClose();
-            } else {
-                throw new Error("Invalid response from server");
+            if (totalPages === 0) {
+                // Can't determine page count - try to proceed anyway
+                console.warn("Cannot determine total pages, proceeding with generation");
+                setIsTriggeringRender(false);
+                try {
+                    const result = await apiSummaries.generateSummary(payload);
+                    if (result.success && result.jobId) {
+                        onCreated({ jobId: result.jobId, title: title.trim(), file_name: selectedFileName });
+                        onClose();
+                    }
+                } catch (err) {
+                    setFileNotReadyMessage("Preparing slides. This usually takes a few seconds.");
+                    setSubmitting(false);
+                }
+                return;
             }
-        } catch (err) {
-            console.error("🔵 [DIAGNOSTIC] Summary generation error:", err);
-            if (err.code === "FILE_NOT_READY" || err.message?.includes("Preparing slides")) {
-                setFileNotReadyMessage(err.message || "Preparing slides. This usually takes a few seconds.");
-            } else {
-                alert("Summary generation failed.");
-            }
-        } finally {
-            setSubmitting(false);
+
+            // Trigger rendering for all pages
+            await triggerFileRendering(selectedFileId, totalPages);
+            setIsTriggeringRender(false);
+
+            // Start polling until ready, then generate
+            await pollUntilReadyAndGenerate(selectedFileId, payload);
         }
     }
+
+    // Cleanup polling on unmount or modal close
+    useEffect(() => {
+        return () => {
+            if (renderPollIntervalRef.current) {
+                clearInterval(renderPollIntervalRef.current);
+                renderPollIntervalRef.current = null;
+            }
+        };
+    }, []);
 
     return (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
@@ -490,9 +654,27 @@ export default function GenerateSummaryModal({
                     </div>
                 )}
 
-                {fileNotReadyMessage && (
+                {(fileNotReadyMessage || isWaitingForRender) && (
                     <div className="mb-4 p-3 bg-white/5 border border-white/10 rounded-xl">
-                        <p className="text-sm text-muted">{fileNotReadyMessage}</p>
+                        {isWaitingForRender && selectedFile && (
+                            <div className="space-y-2">
+                                <p className="text-sm text-muted">
+                                    {(() => {
+                                        const progress = getRenderProgress(selectedFile);
+                                        if (progress.total > 0) {
+                                            return `Preparing slides (${progress.rendered} / ${progress.total})`;
+                                        }
+                                        return "Preparing slides…";
+                                    })()}
+                                </p>
+                                <p className="text-xs text-muted/70">
+                                    Rendering in progress. Generation will start automatically when ready.
+                                </p>
+                            </div>
+                        )}
+                        {fileNotReadyMessage && !isWaitingForRender && (
+                            <p className="text-sm text-muted">{fileNotReadyMessage}</p>
+                        )}
                     </div>
                 )}
 
@@ -506,24 +688,23 @@ export default function GenerateSummaryModal({
                     </button>
                     <button
                         className="px-6 py-2 rounded-xl bg-teal text-black font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled={submitting || !title.trim() || !selectedFileId || (selectedFile && !isFileReadyForGeneration)}
-                        onClick={(e) => {
-                            console.log("🔴 [DIAGNOSTIC] Generate button clicked");
-                            console.log("🔴 [DIAGNOSTIC] Button disabled state:", submitting || !title.trim() || !selectedFileId || (selectedFile && !isFileReadyForGeneration));
-                            console.log("🔴 [DIAGNOSTIC] submitting:", submitting);
-                            console.log("🔴 [DIAGNOSTIC] title.trim():", title.trim());
-                            console.log("🔴 [DIAGNOSTIC] selectedFileId:", selectedFileId);
-                            console.log("🔴 [DIAGNOSTIC] selectedFile:", selectedFile);
-                            console.log("🔴 [DIAGNOSTIC] isFileReadyForGeneration:", isFileReadyForGeneration);
-                            if (!(submitting || !title.trim() || !selectedFileId || (selectedFile && !isFileReadyForGeneration))) {
-                                handleSubmit();
-                            } else {
-                                console.log("🔴 [DIAGNOSTIC] Button is disabled, onClick handler not executing");
-                            }
-                        }}
-                        title={selectedFile && !isFileReadyForGeneration ? "Preparing slides…" : undefined}
+                        disabled={submitting || !title.trim() || !selectedFileId || isWaitingForRender}
+                        onClick={handleSubmit}
+                        title={
+                            isWaitingForRender 
+                                ? "Waiting for slides to render..." 
+                                : selectedFile && !isFileReadyForGeneration 
+                                    ? "Preparing slides…" 
+                                    : undefined
+                        }
                     >
-                        {submitting ? "Generating…" : "Generate"}
+                        {isWaitingForRender 
+                            ? "Preparing slides…" 
+                            : isTriggeringRender 
+                                ? "Starting render…" 
+                                : submitting 
+                                    ? "Generating…" 
+                                    : "Generate"}
                     </button>
                 </div>
             </div>
