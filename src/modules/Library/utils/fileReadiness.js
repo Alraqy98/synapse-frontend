@@ -1,0 +1,97 @@
+// src/modules/Library/utils/fileReadiness.js
+import { useState, useEffect, useRef } from "react";
+import { getItemById } from "../apiLibrary";
+
+/**
+ * Check if a file is ready for generation (ingestion_status === "ready")
+ */
+export const isFileReady = (file) => {
+    if (!file || file.is_folder) return true; // Folders are always "ready"
+    return file.ingestion_status === "ready";
+};
+
+/**
+ * Hook to poll file metadata until ready
+ * @param {string} fileId - File ID to poll
+ * @param {boolean} enabled - Whether polling should be active
+ * @returns {object} { isReady, file, isLoading }
+ */
+export const useFileReadiness = (fileId, enabled = true) => {
+    const [file, setFile] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const pollingRef = useRef(null);
+    const mountedRef = useRef(true);
+
+    useEffect(() => {
+        mountedRef.current = true;
+        return () => {
+            mountedRef.current = false;
+            if (pollingRef.current) {
+                clearInterval(pollingRef.current);
+            }
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!fileId || !enabled) {
+            if (pollingRef.current) {
+                clearInterval(pollingRef.current);
+                pollingRef.current = null;
+            }
+            return;
+        }
+
+        const pollFile = async () => {
+            try {
+                setIsLoading(true);
+                const fetchedFile = await getItemById(fileId);
+                
+                if (!mountedRef.current) return;
+                
+                setFile(fetchedFile);
+
+                // If file is ready, stop polling
+                if (isFileReady(fetchedFile)) {
+                    if (pollingRef.current) {
+                        clearInterval(pollingRef.current);
+                        pollingRef.current = null;
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to poll file:", err);
+            } finally {
+                if (mountedRef.current) {
+                    setIsLoading(false);
+                }
+            }
+        };
+
+        // Initial fetch
+        pollFile();
+
+        // Poll every 4 seconds (between 3-5 seconds as requested)
+        pollingRef.current = setInterval(pollFile, 4000);
+
+        return () => {
+            if (pollingRef.current) {
+                clearInterval(pollingRef.current);
+                pollingRef.current = null;
+            }
+        };
+    }, [fileId, enabled]);
+
+    const isReady = isFileReady(file);
+
+    return { isReady, file, isLoading };
+};
+
+/**
+ * Check multiple files for readiness
+ * @param {Array} files - Array of file objects
+ * @returns {boolean} - True if all files are ready
+ */
+export const areFilesReady = (files) => {
+    if (!files || files.length === 0) return true;
+    return files.every(file => isFileReady(file));
+};
+

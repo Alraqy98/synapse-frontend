@@ -1,7 +1,8 @@
 // src/modules/summaries/GenerateSummaryModal.jsx
 import React, { useState, useEffect } from "react";
 import { apiSummaries } from "./apiSummaries";
-import { getLibraryItems } from "../Library/apiLibrary";
+import { getLibraryItems, getItemById } from "../Library/apiLibrary";
+import { useFileReadiness, isFileReady } from "../Library/utils/fileReadiness";
 import { ChevronDown, Check, X } from "lucide-react";
 
 // Premium Dropdown Component (reused from MCQ modal)
@@ -82,39 +83,67 @@ export default function GenerateSummaryModal({
     const [expanded, setExpanded] = useState({});
     const [selectedFileId, setSelectedFileId] = useState(presetFileId || null);
     const [selectedFileName, setSelectedFileName] = useState(null);
+    const [selectedFile, setSelectedFile] = useState(null);
 
     const [loadingTree, setLoadingTree] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    const [fileNotReadyMessage, setFileNotReadyMessage] = useState(null);
+
+    // Poll file readiness when a file is selected
+    const { isReady: isFileReadyForGeneration, file: polledFile, isLoading: isPollingFile } = useFileReadiness(
+        selectedFileId && !selectedFile?.is_folder ? selectedFileId : null,
+        !!selectedFileId && !selectedFile?.is_folder
+    );
+
+    // Update selectedFile when polled file changes
+    useEffect(() => {
+        if (polledFile) {
+            setSelectedFile(polledFile);
+        }
+    }, [polledFile]);
 
     // Load library tree
     useEffect(() => {
         if (!open) return;
         if (presetFileId) {
-            // If presetFileId, find the file name for auto-title
+            // If presetFileId, find the file name for auto-title and fetch file metadata
             (async () => {
                 try {
-                    const root = await getLibraryItems("All", null);
-                    const findFile = (items) => {
-                        for (const item of items) {
-                            if (item.id === presetFileId && item.kind === "file") {
-                                return item.title;
-                            }
-                            if (item.children) {
-                                const found = findFile(item.children);
-                                if (found) return found;
-                            }
-                        }
-                        return null;
-                    };
-                    const fileName = findFile(root);
-                    if (fileName) {
-                        setSelectedFileName(fileName);
+                    const file = await getItemById(presetFileId);
+                    if (file) {
+                        setSelectedFile(file);
+                        setSelectedFileName(file.title);
                         if (!title.trim()) {
-                            setTitle(`${fileName} – Summary`);
+                            setTitle(`${file.title} – Summary`);
                         }
                     }
                 } catch (err) {
-                    console.error("Failed to load file name:", err);
+                    console.error("Failed to load file:", err);
+                    // Fallback to searching in tree
+                    try {
+                        const root = await getLibraryItems("All", null);
+                        const findFile = (items) => {
+                            for (const item of items) {
+                                if (item.id === presetFileId && item.kind === "file") {
+                                    return item.title;
+                                }
+                                if (item.children) {
+                                    const found = findFile(item.children);
+                                    if (found) return found;
+                                }
+                            }
+                            return null;
+                        };
+                        const fileName = findFile(root);
+                        if (fileName) {
+                            setSelectedFileName(fileName);
+                            if (!title.trim()) {
+                                setTitle(`${fileName} – Summary`);
+                            }
+                        }
+                    } catch (err2) {
+                        console.error("Failed to load file name:", err2);
+                    }
                 }
             })();
             return;
@@ -172,13 +201,21 @@ export default function GenerateSummaryModal({
         setExpanded((prev) => ({ ...prev, [id]: true }));
     }
 
-    function selectFile(fileId, fileName) {
+    async function selectFile(fileId, fileName) {
         // Single file selection - deselect previous if selecting new
         setSelectedFileId(fileId);
         setSelectedFileName(fileName);
+        setFileNotReadyMessage(null);
         // Auto-generate title if empty
         if (!title.trim()) {
             setTitle(`${fileName} – Summary`);
+        }
+        // Fetch file to get ingestion_status
+        try {
+            const file = await getItemById(fileId);
+            setSelectedFile(file);
+        } catch (err) {
+            console.error("Failed to fetch file:", err);
         }
     }
 
@@ -208,6 +245,7 @@ export default function GenerateSummaryModal({
 
         if (node.kind === "file") {
             const isSelected = selectedFileId === node.id;
+            const fileReady = isFileReady(node);
 
             return (
                 <div key={node.id} className="flex items-center gap-2 py-1" style={pad}>
@@ -215,9 +253,15 @@ export default function GenerateSummaryModal({
                         type="radio"
                         name="summary-file-select"
                         checked={isSelected}
-                        onChange={() => selectFile(node.id, node.title)}
+                        onChange={() => {
+                            selectFile(node.id, node.title);
+                            setSelectedFile(node);
+                        }}
                     />
                     <span>📄 {node.title}</span>
+                    {!fileReady && (
+                        <span className="text-xs text-muted ml-2">Preparing slides…</span>
+                    )}
                 </div>
             );
         }
@@ -236,6 +280,13 @@ export default function GenerateSummaryModal({
             return alert("Invalid file selected.");
         }
 
+        // Check file readiness before submitting
+        const currentFile = selectedFile || (selectedFileId ? await getItemById(selectedFileId).catch(() => null) : null);
+        if (currentFile && !isFileReady(currentFile)) {
+            setFileNotReadyMessage("Preparing slides. This usually takes a few seconds.");
+            return;
+        }
+
         const payload = {
             title: title.trim(),
             fileId: selectedFileId,
@@ -247,6 +298,7 @@ export default function GenerateSummaryModal({
 
         try {
             setSubmitting(true);
+            setFileNotReadyMessage(null);
             const result = await apiSummaries.generateSummary(payload);
             
             if (result.success && result.jobId) {
@@ -258,7 +310,11 @@ export default function GenerateSummaryModal({
             }
         } catch (err) {
             console.error("Summary generation error:", err);
-            alert("Summary generation failed.");
+            if (err.code === "FILE_NOT_READY" || err.message?.includes("Preparing slides")) {
+                setFileNotReadyMessage(err.message || "Preparing slides. This usually takes a few seconds.");
+            } else {
+                alert("Summary generation failed.");
+            }
         } finally {
             setSubmitting(false);
         }
@@ -373,9 +429,16 @@ export default function GenerateSummaryModal({
                             )}
                         </div>
                         {selectedFileId && (
-                            <p className="text-xs text-muted mt-2">
-                                Selected: {selectedFileName}
-                            </p>
+                            <div className="mt-2">
+                                <p className="text-xs text-muted">
+                                    Selected: {selectedFileName}
+                                </p>
+                                {selectedFile && !isFileReadyForGeneration && (
+                                    <p className="text-xs text-muted mt-1">
+                                        Preparing slides…
+                                    </p>
+                                )}
+                            </div>
                         )}
                     </>
                 ) : (
@@ -383,9 +446,20 @@ export default function GenerateSummaryModal({
                         <p className="text-sm text-muted">
                             File: <span className="text-white">{selectedFileName || "Loading..."}</span>
                         </p>
+                        {selectedFile && !isFileReadyForGeneration && (
+                            <p className="text-xs text-muted mt-1">
+                                Preparing slides…
+                            </p>
+                        )}
                         <p className="text-xs text-muted mt-1">
                             File is locked for this summary.
                         </p>
+                    </div>
+                )}
+
+                {fileNotReadyMessage && (
+                    <div className="mb-4 p-3 bg-white/5 border border-white/10 rounded-xl">
+                        <p className="text-sm text-muted">{fileNotReadyMessage}</p>
                     </div>
                 )}
 
@@ -398,9 +472,10 @@ export default function GenerateSummaryModal({
                         Cancel
                     </button>
                     <button
-                        className="px-6 py-2 rounded-xl bg-teal text-black font-semibold disabled:opacity-50"
-                        disabled={submitting}
+                        className="px-6 py-2 rounded-xl bg-teal text-black font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={submitting || !title.trim() || !selectedFileId || (selectedFile && !isFileReadyForGeneration)}
                         onClick={handleSubmit}
+                        title={selectedFile && !isFileReadyForGeneration ? "Preparing slides…" : undefined}
                     >
                         {submitting ? "Generating…" : "Generate"}
                     </button>

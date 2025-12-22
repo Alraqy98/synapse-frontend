@@ -100,10 +100,23 @@ export const answerFlashcard = async (card_id, payload) => {
 // ======================================================
 
 export const generateFlashcards = async (payload) => {
-    const res = await axios.post(`${API_BASE}/flashcards/decks`, payload, {
-        headers: authHeaders(),
-    });
-    return res.data;
+    try {
+        const res = await axios.post(`${API_BASE}/flashcards/decks`, payload, {
+            headers: authHeaders(),
+        });
+        return res.data;
+    } catch (err) {
+        // Handle FILE_NOT_READY gracefully
+        if (err.response?.status === 422 && 
+            (err.response?.data?.code === "FILE_NOT_READY" || 
+             err.response?.data?.error_code === "FILE_NOT_READY" ||
+             err.response?.data?.error?.includes("FILE_NOT_READY"))) {
+            const fileNotReadyError = new Error("Preparing slides. This usually takes a few seconds.");
+            fileNotReadyError.code = "FILE_NOT_READY";
+            throw fileNotReadyError;
+        }
+        throw err;
+    }
 };
 
 // ======================================================

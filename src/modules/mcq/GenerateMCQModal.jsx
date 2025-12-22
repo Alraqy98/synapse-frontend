@@ -4,7 +4,8 @@
 
 import React, { useState, useEffect } from "react";
 import { apiMCQ } from "./apiMCQ";
-import { getLibraryItems } from "../Library/apiLibrary";
+import { getLibraryItems, getItemById } from "../Library/apiLibrary";
+import { areFilesReady, isFileReady } from "../Library/utils/fileReadiness";
 import { ChevronDown, Check } from "lucide-react";
 
 // ------------------------------------------------------------
@@ -89,9 +90,81 @@ export default function GenerateMCQModal({
     const [selectedFiles, setSelectedFiles] = useState(
         presetFileId ? [presetFileId] : []
     );
+    const [selectedFilesData, setSelectedFilesData] = useState([]); // Store file objects with ingestion_status
+    const [fileNotReadyMessage, setFileNotReadyMessage] = useState(null);
 
     const [loadingTree, setLoadingTree] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+
+    // ------------------------------------------------------------
+    // Load file data for presetFileId
+    // ------------------------------------------------------------
+    useEffect(() => {
+        if (!open || !presetFileId) return;
+        
+        (async () => {
+            try {
+                const file = await getItemById(presetFileId);
+                if (file) {
+                    setSelectedFilesData([file]);
+                }
+            } catch (err) {
+                console.error("Failed to load preset file:", err);
+            }
+        })();
+    }, [open, presetFileId]);
+
+    // ------------------------------------------------------------
+    // Poll selected files for readiness (every 4 seconds)
+    // ------------------------------------------------------------
+    useEffect(() => {
+        if (selectedFiles.length === 0) return;
+
+        const pollFiles = async () => {
+            // Use functional setState to get latest files and check readiness
+            let currentFiles = [];
+            setSelectedFilesData(prev => {
+                currentFiles = prev;
+                if (prev.length > 0 && areFilesReady(prev)) {
+                    return prev; // All ready, no update needed
+                }
+                return prev; // Keep current while fetching
+            });
+
+            // If all ready, skip polling
+            if (currentFiles.length > 0 && areFilesReady(currentFiles)) {
+                return;
+            }
+
+            // Poll all selected files
+            try {
+                const updatedFiles = await Promise.all(
+                    selectedFiles.map(async (fileId) => {
+                        try {
+                            return await getItemById(fileId);
+                        } catch (err) {
+                            console.error(`Failed to poll file ${fileId}:`, err);
+                            // Return existing file data if fetch fails
+                            const existing = currentFiles.find(f => f.id === fileId);
+                            return existing || { id: fileId, ingestion_status: "ready" };
+                        }
+                    })
+                );
+                
+                setSelectedFilesData(updatedFiles);
+            } catch (err) {
+                console.error("Polling error:", err);
+            }
+        };
+
+        // Initial poll
+        pollFiles();
+
+        // Poll every 4 seconds
+        const interval = setInterval(pollFiles, 4000);
+        
+        return () => clearInterval(interval);
+    }, [selectedFiles.join(',')]); // Only re-run when selectedFiles IDs change
 
     // ------------------------------------------------------------
     // Load ROOT tree when modal opens
@@ -167,12 +240,29 @@ export default function GenerateMCQModal({
     // ------------------------------------------------------------
     // File selection
     // ------------------------------------------------------------
-    function toggleSelectFile(fileId) {
-        setSelectedFiles(prev =>
-            prev.includes(fileId)
-                ? prev.filter(id => id !== fileId)
-                : [...prev, fileId]
-        );
+    async function toggleSelectFile(fileId, fileNode = null) {
+        const isSelected = selectedFiles.includes(fileId);
+        
+        if (isSelected) {
+            setSelectedFiles(prev => prev.filter(id => id !== fileId));
+            setSelectedFilesData(prev => prev.filter(f => f.id !== fileId));
+        } else {
+            setSelectedFiles(prev => [...prev, fileId]);
+            setFileNotReadyMessage(null);
+            
+            // Fetch file metadata if not provided
+            let fileData = fileNode;
+            if (!fileData) {
+                try {
+                    fileData = await getItemById(fileId);
+                } catch (err) {
+                    console.error("Failed to fetch file:", err);
+                    fileData = { id: fileId, ingestion_status: "ready" }; // Default to ready if fetch fails
+                }
+            }
+            
+            setSelectedFilesData(prev => [...prev, fileData]);
+        }
     }
 
     // ------------------------------------------------------------
@@ -232,6 +322,7 @@ export default function GenerateMCQModal({
 
         if (node.kind === "file") {
             const checked = selectedFiles.includes(node.id);
+            const fileReady = isFileReady(node);
 
             return (
                 <div
@@ -242,9 +333,12 @@ export default function GenerateMCQModal({
                     <input
                         type="checkbox"
                         checked={checked}
-                        onChange={() => toggleSelectFile(node.id)}
+                        onChange={() => toggleSelectFile(node.id, node)}
                     />
                     <span>📄 {node.title}</span>
+                    {!fileReady && (
+                        <span className="text-xs text-muted ml-2">Preparing slides…</span>
+                    )}
                 </div>
             );
         }
@@ -259,6 +353,12 @@ export default function GenerateMCQModal({
         if (!title.trim()) return alert("Enter deck title.");
         if (selectedFiles.length === 0) return alert("Select at least one file.");
 
+        // Check all files are ready
+        if (!areFilesReady(selectedFilesData)) {
+            setFileNotReadyMessage("Preparing slides. This usually takes a few seconds.");
+            return;
+        }
+
         const invalid = selectedFiles.filter(id => !looksLikeUuid(id));
         if (invalid.length) console.warn("Invalid file IDs:", invalid);
 
@@ -271,12 +371,17 @@ export default function GenerateMCQModal({
 
         try {
             setSubmitting(true);
+            setFileNotReadyMessage(null);
             await apiMCQ.createMCQDeck(payload);
             onCreated();
             onClose();
         } catch (err) {
             console.error("MCQ creation error:", err);
-            alert("MCQ generation failed.");
+            if (err.code === "FILE_NOT_READY" || err.message?.includes("Preparing slides")) {
+                setFileNotReadyMessage(err.message || "Preparing slides. This usually takes a few seconds.");
+            } else {
+                alert("MCQ generation failed.");
+            }
         } finally {
             setSubmitting(false);
         }
@@ -345,6 +450,17 @@ export default function GenerateMCQModal({
                     </>
                 )}
 
+                {selectedFiles.length > 0 && !areFilesReady(selectedFilesData) && (
+                    <div className="mb-4 p-3 bg-white/5 border border-white/10 rounded-xl">
+                        <p className="text-sm text-muted">Preparing slides…</p>
+                    </div>
+                )}
+
+                {fileNotReadyMessage && (
+                    <div className="mb-4 p-3 bg-white/5 border border-white/10 rounded-xl">
+                        <p className="text-sm text-muted">{fileNotReadyMessage}</p>
+                    </div>
+                )}
 
                 {/* Footer */}
                 <div className="flex justify-end gap-3 mt-6">
@@ -356,9 +472,10 @@ export default function GenerateMCQModal({
                     </button>
 
                     <button
-                        className="px-6 py-2 rounded-xl bg-teal text-black font-semibold disabled:opacity-50"
-                        disabled={submitting}
+                        className="px-6 py-2 rounded-xl bg-teal text-black font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={submitting || !title.trim() || selectedFiles.length === 0 || !areFilesReady(selectedFilesData)}
                         onClick={handleSubmit}
+                        title={!areFilesReady(selectedFilesData) ? "Preparing slides…" : undefined}
                     >
                         {submitting ? "Generating…" : "Generate"}
                     </button>

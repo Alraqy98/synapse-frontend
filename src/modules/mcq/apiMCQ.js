@@ -14,8 +14,21 @@ export const getMCQDecks = async () => {
 };
 
 export const createMCQDeck = async (payload) => {
-    const res = await api.post("/ai/mcq/decks", payload);
-    return res.data?.deck;
+    try {
+        const res = await api.post("/ai/mcq/decks", payload);
+        return res.data?.deck;
+    } catch (err) {
+        // Handle FILE_NOT_READY gracefully
+        if (err.response?.status === 422 && 
+            (err.response?.data?.code === "FILE_NOT_READY" || 
+             err.response?.data?.error_code === "FILE_NOT_READY" ||
+             err.response?.data?.error?.includes("FILE_NOT_READY"))) {
+            const fileNotReadyError = new Error("Preparing slides. This usually takes a few seconds.");
+            fileNotReadyError.code = "FILE_NOT_READY";
+            throw fileNotReadyError;
+        }
+        throw err;
+    }
 };
 
 export const getMCQDeck = async (deck_id) => {

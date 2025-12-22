@@ -47,10 +47,24 @@ export const getSummary = async (summaryId) => {
  * Generate a new summary
  * POST /ai/summaries/generate
  * Returns: { success: true, jobId }
+ * Throws error with code: "FILE_NOT_READY" if file is not ready
  */
 export const generateSummary = async (payload) => {
-    const res = await api.post("/ai/summaries/generate", payload);
-    return res.data; // { success: true, jobId }
+    try {
+        const res = await api.post("/ai/summaries/generate", payload);
+        return res.data; // { success: true, jobId }
+    } catch (err) {
+        // Handle FILE_NOT_READY gracefully
+        if (err.response?.status === 422 && 
+            (err.response?.data?.code === "FILE_NOT_READY" || 
+             err.response?.data?.error_code === "FILE_NOT_READY" ||
+             err.response?.data?.error?.includes("FILE_NOT_READY"))) {
+            const fileNotReadyError = new Error("Preparing slides. This usually takes a few seconds.");
+            fileNotReadyError.code = "FILE_NOT_READY";
+            throw fileNotReadyError;
+        }
+        throw err;
+    }
 };
 
 /**
