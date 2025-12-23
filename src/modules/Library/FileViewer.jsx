@@ -359,12 +359,27 @@ const FileViewer = ({ file, onBack }) => {
                 );
             }
 
+            // Verification: Confirm fileId and page match currently displayed state
+            const normalizedFileId = String(file.id);
+            const normalizedPage = Number(activePage);
+            
+            console.log("[FILEVIEWER ASTRA VERIFICATION]", {
+                fileId: normalizedFileId,
+                page: normalizedPage,
+                fileIdMatchesRoute: normalizedFileId === file.id,
+                pageMatchesVisible: normalizedPage === activePage,
+                visiblePageNumber: activePage,
+                fileIdFromProps: file.id,
+                pageImageStatus: pageImageForTutor ? "present" : "missing",
+                source: "FileViewer handleChatSend - before sendMessageToTutor",
+            });
+
             // Task 2: Normalize payload explicitly - force String and Number, never undefined
             const res = await sendMessageToTutor({
                 sessionId,
                 message: `[File ${file.title} | Page ${activePage}] ${msg}`,
-                fileId: String(file.id),      // FORCE string
-                page: Number(activePage),     // FORCE number
+                fileId: normalizedFileId,      // FORCE string
+                page: normalizedPage,          // FORCE number
                 image: pageImageForTutor,
                 screenshotUrl: pageImageForTutor,
                 resourceSelection: {
@@ -384,7 +399,31 @@ const FileViewer = ({ file, onBack }) => {
                 { id: assistantMsgId, role: "assistant", content: res.text },
             ]);
         } catch (err) {
-            console.error("Chat send failed:", err);
+            // Surface backend error verbatim - no fallback behavior
+            console.error("[FILEVIEWER ASTRA ERROR]", {
+                error: err,
+                message: err.message,
+                backendError: err.response?.data?.error || err.response?.data?.message || null,
+                fileId: file?.id,
+                page: activePage,
+            });
+            
+            // Display backend error message verbatim to user
+            const errorMessage = err.response?.data?.error || 
+                               err.response?.data?.message || 
+                               err.message || 
+                               "Astra request failed";
+            
+            // Append error message to chat for user visibility
+            const errorMsgId = `error-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            setChatMessages((prev) => [
+                ...prev,
+                { 
+                    id: errorMsgId, 
+                    role: "assistant", 
+                    content: `Error: ${errorMessage}` 
+                },
+            ]);
         } finally {
             setIsChatTyping(false);
         }

@@ -177,6 +177,8 @@ export const sendMessageToTutor = async ({
         fileIdIsString: typeof fileId === "string",
         pageIsNumber: typeof page === "number",
         pageIsPositive: typeof page === "number" && page > 0,
+        imageIncluded: payload.image ? "present" : "missing",
+        screenshotUrlIncluded: payload.screenshotUrl ? "present" : "missing",
     });
 
     console.log("📤 sendMessageToTutor payload:", payload);
@@ -192,8 +194,16 @@ export const sendMessageToTutor = async ({
 
     const data = await res.json();
     if (!data.success) {
-        console.error("❌ sendMessageToTutor failed:", data);
-        throw new Error(data.error || "Chat failed");
+        // Surface backend error verbatim - no fallback behavior
+        const backendError = data.error || data.message || "Chat failed";
+        console.error("[FILEVIEWER ASTRA BACKEND ERROR]", {
+            success: data.success,
+            error: backendError,
+            fullResponse: data,
+            fileId,
+            page,
+        });
+        throw new Error(backendError);
     }
 
     return {
