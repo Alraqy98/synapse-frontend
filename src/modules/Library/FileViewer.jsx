@@ -324,6 +324,15 @@ const FileViewer = ({ file, onBack }) => {
     const handleChatSend = async () => {
         if (!chatInput.trim()) return;
 
+        // Task 1: Enforce fileId presence - hard guard before proceeding
+        if (!file || !file.id) {
+            console.error("[FILEVIEWER ASTRA] Missing file.id — aborting chat send", {
+                file,
+                activePage
+            });
+            return;
+        }
+
         const msg = chatInput;
         setChatInput("");
 
@@ -350,11 +359,12 @@ const FileViewer = ({ file, onBack }) => {
                 );
             }
 
+            // Task 2: Normalize payload explicitly - force String and Number, never undefined
             const res = await sendMessageToTutor({
                 sessionId,
                 message: `[File ${file.title} | Page ${activePage}] ${msg}`,
-                page: activePage,
-                fileId: file.id,
+                fileId: String(file.id),      // FORCE string
+                page: Number(activePage),     // FORCE number
                 image: pageImageForTutor,
                 screenshotUrl: pageImageForTutor,
                 resourceSelection: {

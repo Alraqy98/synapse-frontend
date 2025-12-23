@@ -136,10 +136,19 @@ export const sendMessageToTutor = async ({
     lastAIMessage = "",
     lastUserMessage = "",
     resourceSelection,
-    fileId = null,
-    page = null,
+    fileId,
+    page,
 }) => {
     const token = await getToken();
+
+    // Task 3: Remove silent failure - hard assertion before POST
+    if (!fileId || !page) {
+        console.error("[ASTRA FRONTEND BLOCK] Invalid tutor payload", {
+            fileId,
+            page
+        });
+        throw new Error("FileViewer Astra requires valid fileId and page");
+    }
 
     const payload = {
         sessionId,
@@ -157,6 +166,18 @@ export const sendMessageToTutor = async ({
             strictResources: false,
         },
     };
+
+    // Task 4: Verify with runtime log - confirm fileId is UUID string, page is positive integer
+    console.log("[FILEVIEWER ASTRA PAYLOAD]", {
+        fileId,
+        page,
+        endpoint: "/ai/tutor/chat",
+        fileIdType: typeof fileId,
+        pageType: typeof page,
+        fileIdIsString: typeof fileId === "string",
+        pageIsNumber: typeof page === "number",
+        pageIsPositive: typeof page === "number" && page > 0,
+    });
 
     console.log("📤 sendMessageToTutor payload:", payload);
 

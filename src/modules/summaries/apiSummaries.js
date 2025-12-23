@@ -82,7 +82,7 @@ export const generateSummary = async (payload) => {
             (err.response?.data?.code === "FILE_NOT_READY" || 
              err.response?.data?.error_code === "FILE_NOT_READY" ||
              err.response?.data?.error?.includes("FILE_NOT_READY"))) {
-            const fileNotReadyError = new Error("Preparing slides. This usually takes a few seconds.");
+            const fileNotReadyError = new Error("Preparing content. This usually takes a few seconds.");
             fileNotReadyError.code = "FILE_NOT_READY";
             throw fileNotReadyError;
         }
@@ -90,16 +90,6 @@ export const generateSummary = async (payload) => {
     }
 };
 
-/**
- * Get render status for a file
- * GET /library/render-status?fileId=...
- * Returns: { render_status, rendered_pages, total_pages }
- */
-export const getRenderStatus = async (fileId) => {
-    if (!fileId) throw new Error("File ID is missing");
-    const res = await api.get(`/library/render-status?fileId=${fileId}`);
-    return res.data; // { render_status, rendered_pages, total_pages }
-};
 
 /**
  * Get summary generation job status
@@ -132,6 +122,5 @@ export const apiSummaries = {
     generateSummary,
     getSummaryJobStatus,
     deleteSummary,
-    getRenderStatus,
 };
 

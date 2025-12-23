@@ -5,7 +5,6 @@
 import React, { useEffect, useState } from "react";
 import { generateFlashcards } from "./apiFlashcards";
 import { getLibraryItems, getItemById, prepareFile } from "../Library/apiLibrary";
-import { areFilesReady, isFileReady, getRenderProgress } from "../Library/utils/fileReadiness";
 import { Check, ChevronDown } from "lucide-react";
 
 // ===============================================================
@@ -113,20 +112,12 @@ export default function GenerateFlashcardsModal({
         if (selectedFiles.length === 0) return;
 
         const pollFiles = async () => {
-            // Use functional setState to get latest files and check readiness
+            // Use functional setState to get latest files
             let currentFiles = [];
             setSelectedFilesData(prev => {
                 currentFiles = prev;
-                if (prev.length > 0 && areFilesReady(prev)) {
-                    return prev; // All ready, no update needed
-                }
                 return prev; // Keep current while fetching
             });
-
-            // If all ready, skip polling
-            if (currentFiles.length > 0 && areFilesReady(currentFiles)) {
-                return;
-            }
 
             // Poll all selected files
             try {
@@ -290,8 +281,6 @@ export default function GenerateFlashcardsModal({
 
         if (node.kind === "file") {
             const checked = selectedFiles.includes(node.id);
-            const fileReady = isFileReady(node);
-            const progress = getRenderProgress(node);
             return (
                 <div key={node.id} className="flex items-center gap-2 py-1" style={pad}>
                     <input
@@ -300,13 +289,6 @@ export default function GenerateFlashcardsModal({
                         onChange={() => toggleSelectFile(node.id, node)}
                     />
                     <span>📄 {node.title}</span>
-                    {!fileReady && (
-                        <span className="text-xs text-muted ml-2">
-                            {progress.total > 0 
-                                ? `Preparing slides (${progress.rendered} / ${progress.total})`
-                                : "Preparing slides…"}
-                        </span>
-                    )}
                 </div>
             );
         }
@@ -322,11 +304,6 @@ export default function GenerateFlashcardsModal({
         if (selectedFiles.length === 0)
             return alert("Select at least one file.");
 
-        // Check all files are ready
-        if (!areFilesReady(selectedFilesData)) {
-            setFileNotReadyMessage("Preparing slides. This usually takes a few seconds.");
-            return;
-        }
 
         const badIds = selectedFiles.filter((id) => !looksLikeUuid(id));
         if (badIds.length) console.warn("⚠️ Invalid file IDs:", badIds);
@@ -344,59 +321,17 @@ export default function GenerateFlashcardsModal({
             setSubmitting(true);
             setFileNotReadyMessage(null);
 
-            // Step 1: Prepare all selected files (trigger rendering and wait for completion)
+            // Trigger rendering for all files (non-blocking, backend handles asynchronously)
             for (const fileId of selectedFiles) {
                 try {
-                    const prepareResult = await prepareFile(fileId);
-                    // If not completed, poll until completed
-                    if (prepareResult?.render_status !== "completed") {
-                        // Poll render status until completed
-                        await new Promise((resolve, reject) => {
-                            const pollInterval = 1500;
-                            let pollCount = 0;
-                            const maxPolls = 120;
-
-                            const poll = async () => {
-                                try {
-                                    const statusData = await apiSummaries.getRenderStatus(fileId);
-                                    const status = statusData?.render_status || null;
-
-                                    if (status === "completed") {
-                                        resolve();
-                                        return;
-                                    }
-
-                                    pollCount++;
-                                    if (pollCount >= maxPolls) {
-                                        reject(new Error("Rendering timeout"));
-                                        return;
-                                    }
-
-                                    setTimeout(poll, pollInterval);
-                                } catch (err) {
-                                    if (err.response?.status === 404) {
-                                        resolve(); // Endpoint not available, proceed anyway
-                                    } else {
-                                        pollCount++;
-                                        if (pollCount >= maxPolls) {
-                                            reject(err);
-                                        } else {
-                                            setTimeout(poll, pollInterval);
-                                        }
-                                    }
-                                }
-                            };
-
-                            poll();
-                        });
-                    }
+                    await prepareFile(fileId);
                 } catch (err) {
+                    // Continue even if prepare-file fails - generator will handle it
                     console.warn(`Failed to prepare file ${fileId}:`, err);
-                    // Continue with other files
                 }
             }
 
-            // Step 2: Proceed with generation (files are now ready, generator won't trigger rendering again)
+            // Proceed with generation (atomic operation)
             // 🔥 BACKEND RETURNS ONLY THE DECK PLACEHOLDER (generating=true)
             const { deck } = await generateFlashcards(payload);
 
@@ -410,8 +345,8 @@ export default function GenerateFlashcardsModal({
 
         } catch (err) {
             console.error("❌ Flashcard generation failed:", err);
-            if (err.code === "FILE_NOT_READY" || err.message?.includes("Preparing slides")) {
-                setFileNotReadyMessage(err.message || "Preparing slides. This usually takes a few seconds.");
+            if (err.code === "FILE_NOT_READY" || err.message?.includes("Preparing content")) {
+                setFileNotReadyMessage(err.message || "Preparing content. This usually takes a few seconds.");
             } else {
                 alert("Flashcard generation failed.");
             }
@@ -468,25 +403,6 @@ export default function GenerateFlashcardsModal({
                     </div>
                 )}
 
-                {selectedFiles.length > 0 && !areFilesReady(selectedFilesData) && (() => {
-                    const progress = selectedFilesData.reduce((acc, file) => {
-                        const prog = getRenderProgress(file);
-                        return {
-                            totalRendered: acc.totalRendered + prog.rendered,
-                            totalPages: acc.totalPages + prog.total
-                        };
-                    }, { totalRendered: 0, totalPages: 0 });
-
-                    return (
-                        <div className="mb-4 p-3 bg-white/5 border border-white/10 rounded-xl">
-                            <p className="text-sm text-muted">
-                                {progress.totalPages > 0 
-                                    ? `Preparing slides (${progress.totalRendered} / ${progress.totalPages})`
-                                    : "Preparing slides…"}
-                            </p>
-                        </div>
-                    );
-                })()}
 
                 {fileNotReadyMessage && (
                     <div className="mb-4 p-3 bg-white/5 border border-white/10 rounded-xl">
@@ -505,9 +421,8 @@ export default function GenerateFlashcardsModal({
 
                     <button
                         className="px-6 py-2 rounded-xl bg-teal text-black font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled={submitting || !title.trim() || selectedFiles.length === 0 || !areFilesReady(selectedFilesData)}
+                        disabled={submitting || !title.trim() || selectedFiles.length === 0}
                         onClick={handleSubmit}
-                        title={!areFilesReady(selectedFilesData) ? "Preparing slides…" : undefined}
                     >
                         {submitting ? "Generating…" : "Generate"}
                     </button>

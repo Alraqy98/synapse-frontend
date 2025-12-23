@@ -111,7 +111,7 @@ export const generateFlashcards = async (payload) => {
             (err.response?.data?.code === "FILE_NOT_READY" || 
              err.response?.data?.error_code === "FILE_NOT_READY" ||
              err.response?.data?.error?.includes("FILE_NOT_READY"))) {
-            const fileNotReadyError = new Error("Preparing slides. This usually takes a few seconds.");
+            const fileNotReadyError = new Error("Preparing content. This usually takes a few seconds.");
             fileNotReadyError.code = "FILE_NOT_READY";
             throw fileNotReadyError;
         }
