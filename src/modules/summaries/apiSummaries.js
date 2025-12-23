@@ -46,22 +46,14 @@ export const getSummary = async (summaryId) => {
 /**
  * Generate a new summary
  * POST /ai/summaries/generate
- * Returns: { success: true, jobId }
- * Throws error with code: "FILE_NOT_READY" if file is not ready
+ * Returns: { success: true, jobId, render_status, rendered_pages, total_pages }
+ * Backend responds immediately with render status
  */
 export const generateSummary = async (payload) => {
-    console.log("🟢 [DIAGNOSTIC] generateSummary API function called with payload:", payload);
-    console.log("🟢 [DIAGNOSTIC] About to make POST request to /ai/summaries/generate");
-    
     try {
-        console.log("🟢 [DIAGNOSTIC] Calling api.post('/ai/summaries/generate', payload)");
         const res = await api.post("/ai/summaries/generate", payload);
-        console.log("🟢 [DIAGNOSTIC] POST /ai/summaries/generate response:", res);
-        console.log("🟢 [DIAGNOSTIC] Response data:", res.data);
-        return res.data; // { success: true, jobId }
+        return res.data; // { success: true, jobId, render_status, rendered_pages, total_pages }
     } catch (err) {
-        console.error("🟢 [DIAGNOSTIC] generateSummary error:", err);
-        console.error("🟢 [DIAGNOSTIC] Error response:", err.response);
         // Handle FILE_NOT_READY gracefully
         if (err.response?.status === 422 && 
             (err.response?.data?.code === "FILE_NOT_READY" || 
@@ -73,6 +65,17 @@ export const generateSummary = async (payload) => {
         }
         throw err;
     }
+};
+
+/**
+ * Get render status for a file
+ * GET /library/render-status?fileId=...
+ * Returns: { render_status, rendered_pages, total_pages }
+ */
+export const getRenderStatus = async (fileId) => {
+    if (!fileId) throw new Error("File ID is missing");
+    const res = await api.get(`/library/render-status?fileId=${fileId}`);
+    return res.data; // { render_status, rendered_pages, total_pages }
 };
 
 /**
@@ -106,5 +109,6 @@ export const apiSummaries = {
     generateSummary,
     getSummaryJobStatus,
     deleteSummary,
+    getRenderStatus,
 };
 
