@@ -45,15 +45,38 @@ export const getSummary = async (summaryId) => {
 
 /**
  * Generate a new summary
- * POST /ai/summaries/generate
+ * Tries POST /ai/summaries/generate first, falls back to POST /ai/summaries if 404
  * Returns: { success: true, jobId, render_status, rendered_pages, total_pages }
  * Backend responds immediately with render status
  */
 export const generateSummary = async (payload) => {
+    // Try primary route first: POST /ai/summaries/generate
     try {
         const res = await api.post("/ai/summaries/generate", payload);
         return res.data; // { success: true, jobId, render_status, rendered_pages, total_pages }
     } catch (err) {
+        // If 404, try alternative route: POST /ai/summaries
+        if (err.response?.status === 404) {
+            console.warn("⚠️ [SUMMARY GENERATION] Route /ai/summaries/generate not found, trying /ai/summaries");
+            try {
+                const res = await api.post("/ai/summaries", payload);
+                return res.data;
+            } catch (fallbackErr) {
+                // Both routes failed - fail loudly
+                const routeError = new Error(
+                    "Summary generation endpoint not found. Tried both POST /ai/summaries/generate and POST /ai/summaries. " +
+                    "Please check backend configuration."
+                );
+                routeError.code = "ROUTE_NOT_FOUND";
+                routeError.status = 404;
+                console.error("❌ [SUMMARY GENERATION] Both routes failed:", {
+                    attemptedRoutes: ["/ai/summaries/generate", "/ai/summaries"],
+                    method: "POST",
+                    baseURL: err.config?.baseURL,
+                });
+                throw routeError;
+            }
+        }
         // Handle FILE_NOT_READY gracefully
         if (err.response?.status === 422 && 
             (err.response?.data?.code === "FILE_NOT_READY" || 

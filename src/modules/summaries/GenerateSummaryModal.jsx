@@ -439,84 +439,16 @@ export default function GenerateSummaryModal({
             setRenderProgressRendered(0);
             setRenderProgressTotal(0);
 
-            // Step 1: Call POST /library/prepare-file to trigger rendering
+            // Step 1: Prepare file (triggers rendering and awaits completion)
+            setIsWaitingForRender(true);
             const prepareResult = await prepareFile(selectedFileId);
             
-            // Get initial render status from prepare-file response
-            const initialStatus = prepareResult?.render_status || "pending";
-            const initialRendered = prepareResult?.rendered_pages ?? 0;
-            const initialTotal = prepareResult?.total_pages ?? 0;
+            // Update state from prepareFile response
+            setRenderStatus(prepareResult?.render_status || "completed");
+            setRenderProgressRendered(prepareResult?.rendered_pages ?? 0);
+            setRenderProgressTotal(prepareResult?.total_pages ?? 0);
 
-            // If already completed, skip progress UI entirely and proceed directly
-            if (initialStatus === "completed") {
-                // File already rendered - proceed directly to generation (no progress UI)
-                setIsWaitingForRender(false);
-                setIsGeneratingSummary(true);
-                const result = await apiSummaries.generateSummary(payload);
-                if (result?.jobId) {
-                    onCreated({ jobId: result.jobId, title: title.trim(), file_name: selectedFileName });
-                    onClose();
-                } else {
-                    throw new Error("Invalid response from server");
-                }
-                return;
-            }
-
-            // Update state from backend response (source of truth)
-            setRenderStatus(initialStatus);
-            setRenderProgressRendered(initialRendered);
-            setRenderProgressTotal(initialTotal);
-
-            // Step 2: Poll render status until completed (show progress UI)
-            setIsWaitingForRender(true);
-            // Poll until completed
-            await new Promise((resolve, reject) => {
-                const pollInterval = 1500;
-                let pollCount = 0;
-                const maxPolls = 120;
-
-                const poll = async () => {
-                    try {
-                        const statusData = await apiSummaries.getRenderStatus(selectedFileId);
-                        const status = statusData?.render_status || null;
-                        const rendered = statusData?.rendered_pages ?? 0;
-                        const total = statusData?.total_pages ?? 0;
-
-                        setRenderStatus(status);
-                        setRenderProgressRendered(rendered);
-                        setRenderProgressTotal(total);
-
-                        if (status === "completed") {
-                            resolve();
-                            return;
-                        }
-
-                        pollCount++;
-                        if (pollCount >= maxPolls) {
-                            reject(new Error("Rendering timeout"));
-                            return;
-                        }
-
-                        setTimeout(poll, pollInterval);
-                    } catch (err) {
-                        if (err.response?.status === 404) {
-                            // Endpoint not available, proceed anyway
-                            resolve();
-                        } else {
-                            pollCount++;
-                            if (pollCount >= maxPolls) {
-                                reject(err);
-                            } else {
-                                setTimeout(poll, pollInterval);
-                            }
-                        }
-                    }
-                };
-
-                poll();
-            });
-
-            // Step 3: When rendering is completed, proceed with generation
+            // Step 2: When rendering is completed, proceed with generation
             setIsWaitingForRender(false);
             setIsGeneratingSummary(true);
 
@@ -531,10 +463,18 @@ export default function GenerateSummaryModal({
             }
         } catch (err) {
             console.error("Summary generation error:", err);
-            if (err.code === "FILE_NOT_READY" || err.message?.includes("Preparing slides")) {
+            
+            // Fail loudly if route is wrong
+            if (err.code === "ROUTE_NOT_FOUND" || err.status === 404) {
+                const errorMsg = err.message || "Summary generation endpoint not found. Please check backend configuration.";
+                alert(`❌ Error: ${errorMsg}`);
+                setFileNotReadyMessage(errorMsg);
+            } else if (err.code === "FILE_NOT_READY" || err.message?.includes("Preparing slides")) {
                 setFileNotReadyMessage(err.message || "Preparing slides. This usually takes a few seconds.");
             } else {
-                alert("Summary generation failed.");
+                const errorMsg = err.response?.data?.error || err.message || "Summary generation failed.";
+                alert(`❌ Error: ${errorMsg}`);
+                setFileNotReadyMessage(errorMsg);
             }
             setSubmitting(false);
             setIsWaitingForRender(false);

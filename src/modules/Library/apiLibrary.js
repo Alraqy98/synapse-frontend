@@ -166,14 +166,15 @@ export const getItemById = async (id) => {
 };
 
 // ------------------------------------------------------
-// PREPARE FILE (trigger rendering)
+// PREPARE FILE (trigger rendering and await completion)
 // POST /library/prepare-file
 // Returns: { render_status, rendered_pages, total_pages }
-// Await completion and return render status
+// Calls backend render trigger, awaits completion, returns render status
 // ------------------------------------------------------
 export const prepareFile = async (fileId) => {
     if (!fileId) throw new Error("File ID is missing");
     
+    // Step 1: Call backend render trigger (ensureFileRendered)
     const res = await fetch(`${API_BASE}/library/prepare-file`, {
         method: "POST",
         headers: {
@@ -185,11 +186,71 @@ export const prepareFile = async (fileId) => {
 
     const data = await handleJson(res);
     
-    // Return render status (completed / partial / pending)
+    // Get initial render status from prepare-file response
+    let renderStatus = data?.render_status || "pending";
+    let renderedPages = data?.rendered_pages ?? 0;
+    let totalPages = data?.total_pages ?? 0;
+    
+    // Step 2: If already completed, return immediately
+    if (renderStatus === "completed") {
+        return {
+            render_status: renderStatus,
+            rendered_pages: renderedPages,
+            total_pages: totalPages,
+        };
+    }
+    
+    // Step 3: Await completion by polling render status
+    const pollInterval = 1500; // 1.5 seconds
+    let pollCount = 0;
+    const maxPolls = 120; // Max 3 minutes (120 * 1.5s)
+    
+    while (pollCount < maxPolls) {
+        await new Promise(resolve => setTimeout(resolve, pollInterval));
+        
+        try {
+            // Poll render status endpoint
+            const statusRes = await fetch(`${API_BASE}/library/render-status?fileId=${fileId}`, {
+                headers: { ...getAuthHeaders() },
+            });
+            
+            if (!statusRes.ok) {
+                // If endpoint not available (404), return current status
+                if (statusRes.status === 404) {
+                    console.warn("Render status endpoint not available, returning current status");
+                    break;
+                }
+                // For other errors, continue polling
+                pollCount++;
+                continue;
+            }
+            
+            const statusData = await statusRes.json();
+            renderStatus = statusData?.render_status || renderStatus;
+            renderedPages = statusData?.rendered_pages ?? renderedPages;
+            totalPages = statusData?.total_pages ?? totalPages;
+            
+            // If completed, return
+            if (renderStatus === "completed") {
+                return {
+                    render_status: renderStatus,
+                    rendered_pages: renderedPages,
+                    total_pages: totalPages,
+                };
+            }
+        } catch (err) {
+            // On error, continue polling (but don't poll forever)
+            console.warn("Error polling render status:", err);
+        }
+        
+        pollCount++;
+    }
+    
+    // Return final status (may be partial or pending if timeout)
     return {
-        render_status: data?.render_status || "pending",
-        rendered_pages: data?.rendered_pages ?? 0,
-        total_pages: data?.total_pages ?? 0,
+        render_status: renderStatus,
+        rendered_pages: renderedPages,
+        total_pages: totalPages,
     };
 };
 
