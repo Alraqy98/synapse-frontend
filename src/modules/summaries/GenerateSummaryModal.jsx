@@ -308,12 +308,22 @@ export default function GenerateSummaryModal({
     }
 
     // Poll render status from backend until completed
-    async function pollRenderStatus(fileId, payload) {
-        if (renderPollIntervalRef.current) {
-            clearInterval(renderPollIntervalRef.current);
+    async function pollRenderStatus(fileId, jobId, title, fileName) {
+        // Guard: Do NOT start polling unless fileId exists
+        if (!fileId || typeof fileId !== 'string') {
+            console.warn("Cannot start polling: invalid fileId");
+            return;
         }
 
+        // Clear any existing polling interval
+        if (renderPollIntervalRef.current) {
+            clearInterval(renderPollIntervalRef.current);
+            renderPollIntervalRef.current = null;
+        }
+
+        // Initialize state before starting polling
         setIsWaitingForRender(true);
+        setIsGeneratingSummary(false);
         setFileNotReadyMessage(null);
 
         const pollInterval = 1500; // 1.5 seconds (between 1-2s as requested)
@@ -339,27 +349,26 @@ export default function GenerateSummaryModal({
 
                 // Check if rendering is completed
                 if (status === "completed") {
-                    // Stop polling
-                    clearInterval(renderPollIntervalRef.current);
-                    renderPollIntervalRef.current = null;
+                    // Stop polling immediately
+                    if (renderPollIntervalRef.current) {
+                        clearInterval(renderPollIntervalRef.current);
+                        renderPollIntervalRef.current = null;
+                    }
                     setIsWaitingForRender(false);
                     setFileNotReadyMessage(null);
 
-                // Transition to "Generating summary..."
-                setIsGeneratingSummary(true);
-                setIsWaitingForRender(false);
+                    // Transition to "Generating summary..."
+                    setIsGeneratingSummary(true);
 
-                // Generation is already in progress (POST was called earlier)
-                // The jobId was already returned from the initial POST
-                // We don't need to do anything else - the parent component handles job polling
-                // Close modal after a brief delay to show the transition
-                setTimeout(() => {
-                    if (result?.jobId) {
-                        onCreated({ jobId: result.jobId, title: payload.title, file_name: selectedFileName });
-                        onClose();
-                    }
-                }, 500);
-                return;
+                    // Generation is already in progress (POST was called earlier)
+                    // Close modal after a brief delay to show the transition
+                    setTimeout(() => {
+                        if (jobId) {
+                            onCreated({ jobId, title, file_name: fileName });
+                            onClose();
+                        }
+                    }, 500);
+                    return;
                 }
 
                 // Handle partial status (show warning but allow generation)
@@ -369,15 +378,40 @@ export default function GenerateSummaryModal({
 
                 // Timeout after max polls
                 if (pollCount >= maxPolls) {
-                    clearInterval(renderPollIntervalRef.current);
-                    renderPollIntervalRef.current = null;
+                    if (renderPollIntervalRef.current) {
+                        clearInterval(renderPollIntervalRef.current);
+                        renderPollIntervalRef.current = null;
+                    }
                     setIsWaitingForRender(false);
                     setFileNotReadyMessage("Rendering is taking longer than expected. Please try again in a moment.");
                     setSubmitting(false);
                 }
             } catch (err) {
                 console.error("Failed to poll render status:", err);
-                // Continue polling on error
+                
+                // Stop polling on 404 (file not found or endpoint doesn't exist)
+                if (err.response?.status === 404) {
+                    if (renderPollIntervalRef.current) {
+                        clearInterval(renderPollIntervalRef.current);
+                        renderPollIntervalRef.current = null;
+                    }
+                    setIsWaitingForRender(false);
+                    setFileNotReadyMessage("Render status endpoint not available. Generation may proceed with available content.");
+                    setSubmitting(false);
+                    return;
+                }
+                
+                // Continue polling on other errors (network issues, etc.)
+                // But don't poll forever - stop after max attempts
+                if (pollCount >= maxPolls) {
+                    if (renderPollIntervalRef.current) {
+                        clearInterval(renderPollIntervalRef.current);
+                        renderPollIntervalRef.current = null;
+                    }
+                    setIsWaitingForRender(false);
+                    setFileNotReadyMessage("Unable to check render status. Please try again.");
+                    setSubmitting(false);
+                }
             }
         }, pollInterval);
     }
@@ -473,7 +507,7 @@ export default function GenerateSummaryModal({
         }
     }
 
-    // Reset state when modal opens/closes
+    // Reset state when modal opens/closes and cleanup on unmount
     useEffect(() => {
         if (!open) {
             // Reset render states when modal closes
@@ -483,6 +517,7 @@ export default function GenerateSummaryModal({
             setRenderStatus(null);
             setRenderProgressRendered(0);
             setRenderProgressTotal(0);
+            // Clear polling interval immediately
             if (renderPollIntervalRef.current) {
                 clearInterval(renderPollIntervalRef.current);
                 renderPollIntervalRef.current = null;
@@ -495,7 +530,20 @@ export default function GenerateSummaryModal({
             setRenderStatus(null);
             setRenderProgressRendered(0);
             setRenderProgressTotal(0);
+            // Ensure no polling is active when modal opens
+            if (renderPollIntervalRef.current) {
+                clearInterval(renderPollIntervalRef.current);
+                renderPollIntervalRef.current = null;
+            }
         }
+
+        // Cleanup on unmount - prevent polling after component unmounts
+        return () => {
+            if (renderPollIntervalRef.current) {
+                clearInterval(renderPollIntervalRef.current);
+                renderPollIntervalRef.current = null;
+            }
+        };
     }, [open]);
 
     return (
@@ -645,25 +693,26 @@ export default function GenerateSummaryModal({
                     </div>
                 )}
 
-                {(fileNotReadyMessage || isWaitingForRender) && (
+                {(fileNotReadyMessage || isWaitingForRender || isGeneratingSummary) && (
                     <div className="mb-4 p-3 bg-white/5 border border-white/10 rounded-xl">
-                        {isWaitingForRender && selectedFile && (
+                        {isGeneratingSummary && (
+                            <p className="text-sm text-muted">Generating summary…</p>
+                        )}
+                        {isWaitingForRender && !isGeneratingSummary && (
                             <div className="space-y-2">
                                 <p className="text-sm text-muted">
-                                    {(() => {
-                                        const progress = getRenderProgress(selectedFile);
-                                        if (progress.total > 0) {
-                                            return `Preparing slides (${progress.rendered} / ${progress.total})`;
-                                        }
-                                        return "Preparing slides…";
-                                    })()}
+                                    {renderProgressTotal > 0 
+                                        ? `Preparing slides (${renderProgressRendered} / ${renderProgressTotal})`
+                                        : "Preparing slides…"}
                                 </p>
-                                <p className="text-xs text-muted/70">
-                                    Rendering in progress. Generation will start automatically when ready.
-                                </p>
+                                {renderStatus === "partial" && (
+                                    <p className="text-xs text-yellow-400/70">
+                                        Some pages are still rendering. Generation may use partial content.
+                                    </p>
+                                )}
                             </div>
                         )}
-                        {fileNotReadyMessage && !isWaitingForRender && (
+                        {fileNotReadyMessage && !isWaitingForRender && !isGeneratingSummary && (
                             <p className="text-sm text-muted">{fileNotReadyMessage}</p>
                         )}
                     </div>
@@ -679,7 +728,7 @@ export default function GenerateSummaryModal({
                     </button>
                     <button
                         className="px-6 py-2 rounded-xl bg-teal text-black font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled={submitting || !title.trim() || !selectedFileId || (isWaitingForRender && typeof isWaitingForRender !== 'undefined')}
+                        disabled={submitting || !title.trim() || !selectedFileId || isWaitingForRender}
                         onClick={handleSubmit}
                         title={
                             isWaitingForRender 
