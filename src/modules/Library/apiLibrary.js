@@ -166,6 +166,26 @@ export const getItemById = async (id) => {
 };
 
 // ------------------------------------------------------
+// PREPARE FILE (trigger rendering)
+// POST /library/prepare-file
+// Returns: { render_status, rendered_pages, total_pages }
+// ------------------------------------------------------
+export const prepareFile = async (fileId) => {
+    if (!fileId) throw new Error("File ID is missing");
+    const res = await fetch(`${API_BASE}/library/prepare-file`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeaders(),
+        },
+        body: JSON.stringify({ fileId }),
+    });
+
+    const data = await handleJson(res);
+    return data; // { render_status, rendered_pages, total_pages }
+};
+
+// ------------------------------------------------------
 // UPLOAD FILE
 // ------------------------------------------------------
 export const uploadLibraryFile = async (

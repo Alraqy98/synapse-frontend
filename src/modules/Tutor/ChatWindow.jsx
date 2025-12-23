@@ -221,26 +221,33 @@ const ChatWindow = ({ activeSessionId }) => {
         } catch (error) {
             console.error("Error sending message:", error);
             
-            // Check if this is a real backend error (4xx/5xx) vs network/timeout
-            const isNetworkError = error.message?.includes("fetch") || 
-                                  error.message?.includes("network") ||
-                                  error.message?.includes("timeout");
-            
-            if (isNetworkError) {
-                // Network/timeout error - check DB for response that might have been saved
-                responseText = await checkForResponseInDB(activeSessionId);
-                
-                if (responseText && responseText.trim()) {
-                    // Response exists in DB - update message instead of showing error
-                    await typeAssistantMessage(responseText, botId);
-                } else {
-                    // No response in DB - this might be a real error, but don't show error message yet
-                    // Keep the empty message and let user retry
-                    isRealError = false; // Don't show error for network issues
-                }
+            // Handle PNG_NOT_READY gracefully - show calm message, keep chat responsive
+            if (error.code === "PNG_NOT_READY") {
+                responseText = "Slides are still being prepared. Visual understanding will be available once preparation completes.";
+                isRealError = false; // Not a real error, just informational
+                await typeAssistantMessage(responseText, botId);
             } else {
-                // Real backend error (4xx/5xx)
-                isRealError = true;
+                // Check if this is a real backend error (4xx/5xx) vs network/timeout
+                const isNetworkError = error.message?.includes("fetch") || 
+                                      error.message?.includes("network") ||
+                                      error.message?.includes("timeout");
+                
+                if (isNetworkError) {
+                    // Network/timeout error - check DB for response that might have been saved
+                    responseText = await checkForResponseInDB(activeSessionId);
+                    
+                    if (responseText && responseText.trim()) {
+                        // Response exists in DB - update message instead of showing error
+                        await typeAssistantMessage(responseText, botId);
+                    } else {
+                        // No response in DB - this might be a real error, but don't show error message yet
+                        // Keep the empty message and let user retry
+                        isRealError = false; // Don't show error for network issues
+                    }
+                } else {
+                    // Real backend error (4xx/5xx)
+                    isRealError = true;
+                }
             }
         } finally {
             setIsTyping(false);

@@ -344,6 +344,17 @@ export default function GenerateFlashcardsModal({
             setSubmitting(true);
             setFileNotReadyMessage(null);
 
+            // Step 1: Prepare all selected files (trigger rendering)
+            for (const fileId of selectedFiles) {
+                try {
+                    await prepareFile(fileId);
+                } catch (err) {
+                    console.warn(`Failed to prepare file ${fileId}:`, err);
+                    // Continue with other files
+                }
+            }
+
+            // Step 2: Proceed with generation
             // 🔥 BACKEND RETURNS ONLY THE DECK PLACEHOLDER (generating=true)
             const { deck } = await generateFlashcards(payload);
 

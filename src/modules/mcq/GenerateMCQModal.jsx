@@ -4,7 +4,7 @@
 
 import React, { useState, useEffect } from "react";
 import { apiMCQ } from "./apiMCQ";
-import { getLibraryItems, getItemById } from "../Library/apiLibrary";
+import { getLibraryItems, getItemById, prepareFile } from "../Library/apiLibrary";
 import { areFilesReady, isFileReady, getRenderProgress } from "../Library/utils/fileReadiness";
 import { ChevronDown, Check } from "lucide-react";
 
@@ -377,6 +377,18 @@ export default function GenerateMCQModal({
         try {
             setSubmitting(true);
             setFileNotReadyMessage(null);
+
+            // Step 1: Prepare all selected files (trigger rendering)
+            for (const fileId of selectedFiles) {
+                try {
+                    await prepareFile(fileId);
+                } catch (err) {
+                    console.warn(`Failed to prepare file ${fileId}:`, err);
+                    // Continue with other files
+                }
+            }
+
+            // Step 2: Proceed with generation
             await apiMCQ.createMCQDeck(payload);
             onCreated();
             onClose();

@@ -308,7 +308,7 @@ export default function GenerateSummaryModal({
     }
 
     // Poll render status from backend until completed
-    async function pollRenderStatus(fileId, jobId, title, fileName) {
+    async function pollRenderStatus(fileId) {
         // Guard: Do NOT start polling unless fileId exists
         if (!fileId || typeof fileId !== 'string') {
             console.warn("Cannot start polling: invalid fileId");
@@ -356,19 +356,7 @@ export default function GenerateSummaryModal({
                     }
                     setIsWaitingForRender(false);
                     setFileNotReadyMessage(null);
-
-                    // Transition to "Generating summary..."
-                    setIsGeneratingSummary(true);
-
-                    // Generation is already in progress (POST was called earlier)
-                    // Close modal after a brief delay to show the transition
-                    setTimeout(() => {
-                        if (jobId) {
-                            onCreated({ jobId, title, file_name: fileName });
-                            onClose();
-                        }
-                    }, 500);
-                    return;
+                    return true; // Signal completion
                 }
 
                 // Handle partial status (show warning but allow generation)
@@ -385,6 +373,7 @@ export default function GenerateSummaryModal({
                     setIsWaitingForRender(false);
                     setFileNotReadyMessage("Rendering is taking longer than expected. Please try again in a moment.");
                     setSubmitting(false);
+                    return false;
                 }
             } catch (err) {
                 console.error("Failed to poll render status:", err);
@@ -398,7 +387,7 @@ export default function GenerateSummaryModal({
                     setIsWaitingForRender(false);
                     setFileNotReadyMessage("Render status endpoint not available. Generation may proceed with available content.");
                     setSubmitting(false);
-                    return;
+                    return false;
                 }
                 
                 // Continue polling on other errors (network issues, etc.)
@@ -411,6 +400,7 @@ export default function GenerateSummaryModal({
                     setIsWaitingForRender(false);
                     setFileNotReadyMessage("Unable to check render status. Please try again.");
                     setSubmitting(false);
+                    return false;
                 }
             }
         }, pollInterval);
@@ -449,50 +439,82 @@ export default function GenerateSummaryModal({
             setRenderProgressRendered(0);
             setRenderProgressTotal(0);
 
-            // Call POST /ai/summaries/generate (backend responds immediately)
-            const result = await apiSummaries.generateSummary(payload);
+            // Step 1: Call POST /library/prepare-file to trigger rendering
+            const prepareResult = await prepareFile(selectedFileId);
             
-            // Backend responds with render_status, rendered_pages, total_pages
-            const backendStatus = result?.render_status || null;
-            const backendRendered = result?.rendered_pages ?? 0;
-            const backendTotal = result?.total_pages ?? 0;
-            const jobId = result?.jobId;
+            // Get initial render status from prepare-file response
+            const initialStatus = prepareResult?.render_status || null;
+            const initialRendered = prepareResult?.rendered_pages ?? 0;
+            const initialTotal = prepareResult?.total_pages ?? 0;
 
             // Update state from backend response (source of truth)
-            setRenderStatus(backendStatus);
-            setRenderProgressRendered(backendRendered);
-            setRenderProgressTotal(backendTotal);
+            setRenderStatus(initialStatus);
+            setRenderProgressRendered(initialRendered);
+            setRenderProgressTotal(initialTotal);
 
-            // Check render status
-            if (backendStatus === "completed") {
-                // Rendering already completed - proceed directly
-                if (jobId) {
-                    onCreated({ jobId, title: title.trim(), file_name: selectedFileName });
-                    onClose();
-                } else {
-                    throw new Error("Invalid response from server");
-                }
-            } else if (backendStatus === "partial") {
-                // Partial rendering - show warning but allow generation
-                setFileNotReadyMessage("Some pages are still rendering. Generation may use partial content.");
-                // Start polling to track progress
-                await pollRenderStatus(selectedFileId, jobId, title.trim(), selectedFileName);
-                // Generation is already in progress (POST was called)
-                // Just wait for job completion
-            } else if (backendStatus === "pending" || !backendStatus) {
-                // Rendering in progress - start polling
+            // Step 2: Poll render status until completed
+            if (initialStatus !== "completed") {
                 setIsWaitingForRender(true);
-                await pollRenderStatus(selectedFileId, jobId, title.trim(), selectedFileName);
-                // Generation is already in progress (POST was called)
-                // Just wait for job completion
+                // Poll until completed
+                await new Promise((resolve, reject) => {
+                    const pollInterval = 1500;
+                    let pollCount = 0;
+                    const maxPolls = 120;
+
+                    const poll = async () => {
+                        try {
+                            const statusData = await apiSummaries.getRenderStatus(selectedFileId);
+                            const status = statusData?.render_status || null;
+                            const rendered = statusData?.rendered_pages ?? 0;
+                            const total = statusData?.total_pages ?? 0;
+
+                            setRenderStatus(status);
+                            setRenderProgressRendered(rendered);
+                            setRenderProgressTotal(total);
+
+                            if (status === "completed") {
+                                resolve();
+                                return;
+                            }
+
+                            pollCount++;
+                            if (pollCount >= maxPolls) {
+                                reject(new Error("Rendering timeout"));
+                                return;
+                            }
+
+                            setTimeout(poll, pollInterval);
+                        } catch (err) {
+                            if (err.response?.status === 404) {
+                                // Endpoint not available, proceed anyway
+                                resolve();
+                            } else {
+                                pollCount++;
+                                if (pollCount >= maxPolls) {
+                                    reject(err);
+                                } else {
+                                    setTimeout(poll, pollInterval);
+                                }
+                            }
+                        }
+                    };
+
+                    poll();
+                });
+            }
+
+            // Step 3: When rendering is completed, proceed with generation
+            setIsWaitingForRender(false);
+            setIsGeneratingSummary(true);
+
+            // Call POST /ai/summaries/generate
+            const result = await apiSummaries.generateSummary(payload);
+            
+            if (result?.jobId) {
+                onCreated({ jobId: result.jobId, title: title.trim(), file_name: selectedFileName });
+                onClose();
             } else {
-                // Unknown status - proceed anyway
-                if (jobId) {
-                    onCreated({ jobId, title: title.trim(), file_name: selectedFileName });
-                    onClose();
-                } else {
-                    throw new Error("Invalid response from server");
-                }
+                throw new Error("Invalid response from server");
             }
         } catch (err) {
             console.error("Summary generation error:", err);

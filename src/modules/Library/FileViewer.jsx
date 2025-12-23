@@ -176,42 +176,10 @@ const FileViewer = ({ file, onBack }) => {
             return;
         }
         
-        // Priority 3: Attempt backend render once if not already attempted
-        const renderKey = `${file.id}:${activePage}`;
-        if (!renderAttemptedRef.current.has(renderKey) && file?.id) {
-            setIsRendering(true);
-            renderAttemptedRef.current.add(renderKey);
-
-            const token = getSupabaseToken();
-            const url = `${API_URL}/library/item/${file.id}/page/${activePage}/render`;
-
-            fetch(url, {
-                headers: {
-                    Authorization: token ? `Bearer ${token}` : "",
-                },
-            })
-                .then(async (res) => {
-                    if (!res.ok) {
-                        throw new Error("PNG render failed");
-                    }
-                    const blob = await res.blob();
-                    const objectUrl = URL.createObjectURL(blob);
-                    renderedImageUrlsRef.current.set(pageKey, objectUrl);
-                    setRenderedImageUrl(objectUrl);
-                    setPageImageForTutor(objectUrl);
-                })
-                .catch((err) => {
-                    console.warn(`Backend render failed for page ${activePage}:`, err);
-                    // Will fallback to PDF.js
-                })
-                .finally(() => {
-                    setIsRendering(false);
-                });
-        } else {
-            // Already attempted or no file ID - will use PDF.js fallback
-            setRenderedImageUrl(null);
-            setIsRendering(false);
-        }
+        // Priority 3: Use PDF.js fallback (rendering is triggered by prepare-file, not FileViewer)
+        // FileViewer never triggers rendering - it only displays what's available
+        setRenderedImageUrl(null);
+        setIsRendering(false);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activePage, file.id]);
 
