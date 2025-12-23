@@ -4,7 +4,7 @@
 
 import React, { useEffect, useState } from "react";
 import { generateFlashcards } from "./apiFlashcards";
-import { getLibraryItems, getItemById } from "../Library/apiLibrary";
+import { getLibraryItems, getItemById, prepareFile } from "../Library/apiLibrary";
 import { areFilesReady, isFileReady, getRenderProgress } from "../Library/utils/fileReadiness";
 import { Check, ChevronDown } from "lucide-react";
 
@@ -344,17 +344,59 @@ export default function GenerateFlashcardsModal({
             setSubmitting(true);
             setFileNotReadyMessage(null);
 
-            // Step 1: Prepare all selected files (trigger rendering)
+            // Step 1: Prepare all selected files (trigger rendering and wait for completion)
             for (const fileId of selectedFiles) {
                 try {
-                    await prepareFile(fileId);
+                    const prepareResult = await prepareFile(fileId);
+                    // If not completed, poll until completed
+                    if (prepareResult?.render_status !== "completed") {
+                        // Poll render status until completed
+                        await new Promise((resolve, reject) => {
+                            const pollInterval = 1500;
+                            let pollCount = 0;
+                            const maxPolls = 120;
+
+                            const poll = async () => {
+                                try {
+                                    const statusData = await apiSummaries.getRenderStatus(fileId);
+                                    const status = statusData?.render_status || null;
+
+                                    if (status === "completed") {
+                                        resolve();
+                                        return;
+                                    }
+
+                                    pollCount++;
+                                    if (pollCount >= maxPolls) {
+                                        reject(new Error("Rendering timeout"));
+                                        return;
+                                    }
+
+                                    setTimeout(poll, pollInterval);
+                                } catch (err) {
+                                    if (err.response?.status === 404) {
+                                        resolve(); // Endpoint not available, proceed anyway
+                                    } else {
+                                        pollCount++;
+                                        if (pollCount >= maxPolls) {
+                                            reject(err);
+                                        } else {
+                                            setTimeout(poll, pollInterval);
+                                        }
+                                    }
+                                }
+                            };
+
+                            poll();
+                        });
+                    }
                 } catch (err) {
                     console.warn(`Failed to prepare file ${fileId}:`, err);
                     // Continue with other files
                 }
             }
 
-            // Step 2: Proceed with generation
+            // Step 2: Proceed with generation (files are now ready, generator won't trigger rendering again)
             // 🔥 BACKEND RETURNS ONLY THE DECK PLACEHOLDER (generating=true)
             const { deck } = await generateFlashcards(payload);
 

@@ -1,7 +1,7 @@
 // src/modules/summaries/GenerateSummaryModal.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { apiSummaries } from "./apiSummaries";
-import { getLibraryItems, getItemById } from "../Library/apiLibrary";
+import { getLibraryItems, getItemById, prepareFile } from "../Library/apiLibrary";
 import { useFileReadiness, isFileReady, getRenderProgress } from "../Library/utils/fileReadiness";
 import { ChevronDown, Check, X } from "lucide-react";
 
@@ -443,65 +443,78 @@ export default function GenerateSummaryModal({
             const prepareResult = await prepareFile(selectedFileId);
             
             // Get initial render status from prepare-file response
-            const initialStatus = prepareResult?.render_status || null;
+            const initialStatus = prepareResult?.render_status || "pending";
             const initialRendered = prepareResult?.rendered_pages ?? 0;
             const initialTotal = prepareResult?.total_pages ?? 0;
+
+            // If already completed, skip progress UI entirely and proceed directly
+            if (initialStatus === "completed") {
+                // File already rendered - proceed directly to generation (no progress UI)
+                setIsWaitingForRender(false);
+                setIsGeneratingSummary(true);
+                const result = await apiSummaries.generateSummary(payload);
+                if (result?.jobId) {
+                    onCreated({ jobId: result.jobId, title: title.trim(), file_name: selectedFileName });
+                    onClose();
+                } else {
+                    throw new Error("Invalid response from server");
+                }
+                return;
+            }
 
             // Update state from backend response (source of truth)
             setRenderStatus(initialStatus);
             setRenderProgressRendered(initialRendered);
             setRenderProgressTotal(initialTotal);
 
-            // Step 2: Poll render status until completed
-            if (initialStatus !== "completed") {
-                setIsWaitingForRender(true);
-                // Poll until completed
-                await new Promise((resolve, reject) => {
-                    const pollInterval = 1500;
-                    let pollCount = 0;
-                    const maxPolls = 120;
+            // Step 2: Poll render status until completed (show progress UI)
+            setIsWaitingForRender(true);
+            // Poll until completed
+            await new Promise((resolve, reject) => {
+                const pollInterval = 1500;
+                let pollCount = 0;
+                const maxPolls = 120;
 
-                    const poll = async () => {
-                        try {
-                            const statusData = await apiSummaries.getRenderStatus(selectedFileId);
-                            const status = statusData?.render_status || null;
-                            const rendered = statusData?.rendered_pages ?? 0;
-                            const total = statusData?.total_pages ?? 0;
+                const poll = async () => {
+                    try {
+                        const statusData = await apiSummaries.getRenderStatus(selectedFileId);
+                        const status = statusData?.render_status || null;
+                        const rendered = statusData?.rendered_pages ?? 0;
+                        const total = statusData?.total_pages ?? 0;
 
-                            setRenderStatus(status);
-                            setRenderProgressRendered(rendered);
-                            setRenderProgressTotal(total);
+                        setRenderStatus(status);
+                        setRenderProgressRendered(rendered);
+                        setRenderProgressTotal(total);
 
-                            if (status === "completed") {
-                                resolve();
-                                return;
-                            }
+                        if (status === "completed") {
+                            resolve();
+                            return;
+                        }
 
+                        pollCount++;
+                        if (pollCount >= maxPolls) {
+                            reject(new Error("Rendering timeout"));
+                            return;
+                        }
+
+                        setTimeout(poll, pollInterval);
+                    } catch (err) {
+                        if (err.response?.status === 404) {
+                            // Endpoint not available, proceed anyway
+                            resolve();
+                        } else {
                             pollCount++;
                             if (pollCount >= maxPolls) {
-                                reject(new Error("Rendering timeout"));
-                                return;
-                            }
-
-                            setTimeout(poll, pollInterval);
-                        } catch (err) {
-                            if (err.response?.status === 404) {
-                                // Endpoint not available, proceed anyway
-                                resolve();
+                                reject(err);
                             } else {
-                                pollCount++;
-                                if (pollCount >= maxPolls) {
-                                    reject(err);
-                                } else {
-                                    setTimeout(poll, pollInterval);
-                                }
+                                setTimeout(poll, pollInterval);
                             }
                         }
-                    };
+                    }
+                };
 
-                    poll();
-                });
-            }
+                poll();
+            });
 
             // Step 3: When rendering is completed, proceed with generation
             setIsWaitingForRender(false);

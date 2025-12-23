@@ -169,9 +169,11 @@ export const getItemById = async (id) => {
 // PREPARE FILE (trigger rendering)
 // POST /library/prepare-file
 // Returns: { render_status, rendered_pages, total_pages }
+// Await completion and return render status
 // ------------------------------------------------------
 export const prepareFile = async (fileId) => {
     if (!fileId) throw new Error("File ID is missing");
+    
     const res = await fetch(`${API_BASE}/library/prepare-file`, {
         method: "POST",
         headers: {
@@ -182,7 +184,13 @@ export const prepareFile = async (fileId) => {
     });
 
     const data = await handleJson(res);
-    return data; // { render_status, rendered_pages, total_pages }
+    
+    // Return render status (completed / partial / pending)
+    return {
+        render_status: data?.render_status || "pending",
+        rendered_pages: data?.rendered_pages ?? 0,
+        total_pages: data?.total_pages ?? 0,
+    };
 };
 
 // ------------------------------------------------------
