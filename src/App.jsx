@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import "./styles.css";
 import logo from "./assets/synapse-logo.png";
@@ -25,6 +25,7 @@ import {
   BarChart2,
   Settings,
   Hexagon,
+  Bell,
 } from "lucide-react";
 
 import TutorPage from "./modules/Tutor/TutorPage";
@@ -122,6 +123,38 @@ const SynapseOS = () => {
   const [authScreen, setAuthScreen] = useState("landing");
   const [tempUserData, setTempUserData] = useState(null);
   const [profile, setProfile] = useState(null);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const notificationsRef = useRef(null);
+
+  // Notification data model (temporary / local)
+  const [notifications] = useState([
+    {
+      id: "1",
+      title: "OCR completed",
+      description: "Cardiology Lecture 3",
+      type: "success",
+      createdAt: new Date().toISOString(),
+      read: false,
+    },
+    {
+      id: "2",
+      title: "Render completed",
+      description: "Pathology Notes Chapter 5",
+      type: "success",
+      createdAt: new Date(Date.now() - 3600000).toISOString(),
+      read: false,
+    },
+    {
+      id: "3",
+      title: "Summary generated",
+      description: "Biochemistry Review",
+      type: "info",
+      createdAt: new Date(Date.now() - 7200000).toISOString(),
+      read: true,
+    },
+  ]);
+
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
   // Fetch profile
   const fetchProfile = async () => {
@@ -187,6 +220,26 @@ const SynapseOS = () => {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Close notifications dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        notificationsRef.current &&
+        !notificationsRef.current.contains(event.target)
+      ) {
+        setNotificationsOpen(false);
+      }
+    };
+
+    if (notificationsOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [notificationsOpen]);
 
   // /auth/callback
   if (window.location.pathname.startsWith("/auth/callback")) {
@@ -291,8 +344,58 @@ const SynapseOS = () => {
             </span>
           </div>
 
-          {/* RIGHT: Profile */}
-          <div className="flex items-center gap-3">
+          {/* RIGHT: Notifications + Profile */}
+          <div className="flex items-center gap-3 relative">
+            {/* Notification Icon */}
+            <div className="relative" ref={notificationsRef}>
+              <button
+                className="relative p-2 rounded-lg hover:bg-white/5 transition"
+                onClick={() => setNotificationsOpen((prev) => !prev)}
+                aria-label="Notifications"
+              >
+                <Bell size={20} className="text-muted hover:text-white" />
+
+                {/* Unread indicator */}
+                {unreadCount > 0 && (
+                  <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-teal" />
+                )}
+              </button>
+
+              {/* Notifications Dropdown */}
+              {notificationsOpen && (
+                <div className="absolute right-0 top-12 z-50 w-80 rounded-xl bg-[#1a1d24] border border-white/10 shadow-xl">
+                  <div className="p-3 text-sm font-semibold text-white border-b border-white/5">
+                    Notifications
+                  </div>
+
+                  <div className="max-h-80 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="p-4 text-sm text-muted text-center">
+                        No notifications yet
+                      </div>
+                    ) : (
+                      notifications.map((n) => (
+                        <div
+                          key={n.id}
+                          className={`p-3 text-sm hover:bg-white/5 transition border-b border-white/5 last:border-b-0 ${
+                            !n.read ? "bg-white/2" : ""
+                          }`}
+                        >
+                          <div className="font-medium text-white">{n.title}</div>
+                          <div className="text-muted text-xs mt-1">
+                            {n.description}
+                          </div>
+                          <div className="text-muted text-[10px] mt-1">
+                            {new Date(n.createdAt).toLocaleString()}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
             {profile && (
               <>
                 <div className="text-right hidden md:block">
