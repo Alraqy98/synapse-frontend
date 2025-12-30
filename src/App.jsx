@@ -120,15 +120,8 @@ function FlashcardsModule() {
 const SynapseOS = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authScreen, setAuthScreen] = useState("landing");
-  const [theme, setTheme] = useState("dark");
   const [tempUserData, setTempUserData] = useState(null);
   const [profile, setProfile] = useState(null);
-
-  // Theme
-  useEffect(() => {
-    document.documentElement.classList.remove("light", "dark");
-    document.documentElement.classList.add(theme);
-  }, [theme]);
 
   // Fetch profile
   const fetchProfile = async () => {
@@ -298,15 +291,8 @@ const SynapseOS = () => {
             </span>
           </div>
 
-          {/* RIGHT: Theme + Profile */}
+          {/* RIGHT: Profile */}
           <div className="flex items-center gap-3">
-            <button
-              className="btn-secondary px-3 py-1 text-xs"
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            >
-              {theme === "dark" ? "Light Mode" : "Dark Mode"}
-            </button>
-
             {profile && (
               <>
                 <div className="text-right hidden md:block">

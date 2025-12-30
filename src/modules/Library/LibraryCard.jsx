@@ -12,7 +12,6 @@ import {
     Edit3,
     ArrowLeftRight,
 } from "lucide-react";
-import { getFileProcessingStatus } from "./utils/fileReadiness";
 
 const LibraryCard = ({
     item,
@@ -56,12 +55,6 @@ const LibraryCard = ({
     const formattedDate = item.updated_at
         ? new Date(item.updated_at).toLocaleDateString()
         : "";
-
-    // Get file processing status (Ready or Processing)
-    // Called on every render to ensure it reflects the latest render_state from backend
-    // Uses ONLY terminal states (status and ocr_status) - no derived logic or counters
-    // Do NOT memoize this - it must be reactive to file object changes
-    const processingStatus = getFileProcessingStatus(item);
 
     /* ---------------------------
        CLOSE MENU OUTSIDE CLICK
@@ -209,22 +202,6 @@ const LibraryCard = ({
                 >
                     {isFolder ? "Folder" : item.uiCategory || "File"}
                 </span>
-
-                {/* File processing status indicator (files only) */}
-                {!isFolder && (
-                    <span
-                        className={`px-2 py-0.5 rounded-full border border-white/5 ${
-                            processingStatus === "Ready"
-                                ? "text-teal/80"
-                                : "text-muted"
-                        }`}
-                        style={{
-                            backgroundColor: "rgba(255,255,255,0.05)",
-                        }}
-                    >
-                        {processingStatus}
-                    </span>
-                )}
 
                 {formattedDate && <span>{formattedDate}</span>}
             </div>
