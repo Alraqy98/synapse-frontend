@@ -44,7 +44,7 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
     const messagesInitializedRef = useRef(false);
 
     // Text selection state
-    const [selectedText, setSelectedText] = useState(null);
+    const [selectedText, setSelectedText] = useState("");
     const [selectionBubble, setSelectionBubble] = useState(null);
     const selectionRef = useRef(null);
 
@@ -107,64 +107,76 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
         chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
 
-    // Handle text selection
+    // Handle text selection - capture on mouseup to preserve selection
+    const handleMouseUp = () => {
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0) {
+            setSelectedText("");
+            setSelectionBubble(null);
+            return;
+        }
+
+        const range = selection.getRangeAt(0);
+        const text = selection.toString().trim();
+
+        if (!text || text.length < 3) {
+            setSelectedText("");
+            setSelectionBubble(null);
+            return;
+        }
+
+        // Get bounding rect for bubble positioning
+        const rect = range.getBoundingClientRect();
+        setSelectedText(text);
+        setSelectionBubble({
+            top: rect.top - 40,
+            left: rect.left + rect.width / 2,
+        });
+    };
+
+    // Close bubble when clicking outside
     useEffect(() => {
-        const handleSelection = () => {
-            const selection = window.getSelection();
-            if (!selection || selection.rangeCount === 0) {
-                setSelectedText(null);
-                setSelectionBubble(null);
-                return;
-            }
-
-            const range = selection.getRangeAt(0);
-            const text = range.toString().trim();
-
-            if (!text || text.length < 3) {
-                setSelectedText(null);
-                setSelectionBubble(null);
-                return;
-            }
-
-            // Get bounding rect for bubble positioning
-            const rect = range.getBoundingClientRect();
-            setSelectedText(text);
-            setSelectionBubble({
-                top: rect.top - 40,
-                left: rect.left + rect.width / 2,
-            });
-        };
-
         const handleClick = (e) => {
+            // Don't close if clicking the bubble itself
+            if (selectionRef.current && selectionRef.current.contains(e.target)) {
+                return;
+            }
+
             // Close bubble if clicking outside
-            if (selectionRef.current && !selectionRef.current.contains(e.target)) {
-                const selection = window.getSelection();
-                if (selection) selection.removeAllRanges();
-                setSelectedText(null);
+            const selection = window.getSelection();
+            if (selection && selection.rangeCount > 0) {
+                // Only clear if selection is empty or very small
+                const text = selection.toString().trim();
+                if (text.length < 3) {
+                    selection.removeAllRanges();
+                    setSelectedText("");
+                    setSelectionBubble(null);
+                }
+            } else {
+                setSelectedText("");
                 setSelectionBubble(null);
             }
         };
 
-        document.addEventListener("selectionchange", handleSelection);
         document.addEventListener("mousedown", handleClick);
-
         return () => {
-            document.removeEventListener("selectionchange", handleSelection);
             document.removeEventListener("mousedown", handleClick);
         };
     }, []);
 
     const handleAskAstra = async () => {
-        if (!selectedText) return;
+        // Use stored selection text, NOT window.getSelection()
+        if (!selectedText || selectedText.trim().length < 3) return;
 
-        // Clear selection
+        const textToSend = selectedText.trim();
+
+        // Clear selection and bubble
         window.getSelection()?.removeAllRanges();
-        setSelectedText(null);
+        setSelectedText("");
         setSelectionBubble(null);
 
-        // Open side panel if closed (it's always visible in this layout)
         // Preload context and send message
-        const question = `About this selection: "${selectedText}"`;
+        const question = `About this selection: "${textToSend}"`;
         setChatInput(question);
 
         // Auto-send the message
@@ -202,20 +214,27 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
             }
 
             // Find the section containing selected text for context
+            // Note: selectedText is passed via prefilledMessage, so we check msg
             let sectionContext = null;
-            if (selectedText && summary?.sections) {
-                for (const section of summary.sections) {
-                    if (
-                        section.content &&
-                        section.content.includes(selectedText.substring(0, 50))
-                    ) {
-                        sectionContext = section.heading || section.title;
-                        break;
+            const msgText = prefilledMessage || msg;
+            if (msgText && msgText.includes('About this selection:') && summary?.sections) {
+                // Extract the selection text from the message
+                const match = msgText.match(/About this selection: "([^"]+)"/);
+                if (match && match[1]) {
+                    const selectionText = match[1].substring(0, 50);
+                    for (const section of summary.sections) {
+                        if (
+                            section.content &&
+                            section.content.includes(selectionText)
+                        ) {
+                            sectionContext = section.heading || section.title;
+                            break;
+                        }
                     }
                 }
             }
 
-            const contextMessage = selectedText
+            const contextMessage = msgText && msgText.includes('About this selection:')
                 ? `[Summary: ${summary?.title}${sectionContext ? ` | Section: ${sectionContext}` : ""}${summary?.file_id ? ` | File ID: ${summary.file_id}` : ""}] ${msg}`
                 : `[Summary: ${summary?.title}${summary?.file_id ? ` | File ID: ${summary.file_id}` : ""}] ${msg}`;
 
@@ -513,30 +532,32 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
             return (
                 <div
                     className="text-gray-300 leading-loose text-[15px] summary-content"
-                    style={{ userSelect: 'text' }}
+                    style={{ userSelect: 'text', pointerEvents: 'auto' }}
                     dangerouslySetInnerHTML={{ __html: htmlContent }}
                 />
             );
         }
 
         return (
-            <div className="space-y-5" style={{ userSelect: 'text' }}>
+            <div className="space-y-5" style={{ userSelect: 'text', pointerEvents: 'auto' }}>
                 {blocks.map((block, blockIdx) => (
-                    <div key={blockIdx} className="space-y-3">
+                    <div key={blockIdx} className="space-y-3" style={{ userSelect: 'text', pointerEvents: 'auto' }}>
                         {block.heading && (
-                            <h4 className="text-sm font-semibold text-muted uppercase tracking-wide mb-2">
+                            <h4 className="text-sm font-semibold text-muted uppercase tracking-wide mb-2" style={{ userSelect: 'text', pointerEvents: 'auto' }}>
                                 {block.heading}
                             </h4>
                         )}
-                        <ul className="space-y-3">
+                        <ul className="space-y-3" style={{ userSelect: 'text', pointerEvents: 'auto' }}>
                             {block.items.map((item, itemIdx) => (
                                 <li
                                     key={itemIdx}
                                     className="text-gray-300 flex items-start gap-3 leading-loose text-[15px]"
+                                    style={{ userSelect: 'text', pointerEvents: 'auto' }}
                                 >
-                                    <span className="text-teal mt-1.5 font-bold flex-shrink-0">•</span>
+                                    <span className="text-teal mt-1.5 font-bold flex-shrink-0" style={{ userSelect: 'text', pointerEvents: 'auto' }}>•</span>
                                     <span 
                                         className="flex-1"
+                                        style={{ userSelect: 'text', pointerEvents: 'auto' }}
                                         dangerouslySetInnerHTML={{ __html: item.text }}
                                     />
                                 </li>
@@ -552,9 +573,9 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
         if (!summary) return null;
 
         return (
-            <div className="prose prose-invert max-w-none" style={{ userSelect: 'text' }}>
+            <div className="prose prose-invert max-w-none" style={{ userSelect: 'text', pointerEvents: 'auto' }}>
                 {/* Title */}
-                <h1 className="text-3xl font-bold text-white mb-3">
+                <h1 className="text-3xl font-bold text-white mb-3" style={{ userSelect: 'text', pointerEvents: 'auto' }}>
                     {summary.title}
                 </h1>
 
@@ -593,11 +614,11 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                                 <div 
                                     key={idx} 
                                     className="rounded-2xl border border-white/10 bg-black/40 p-6 hover:border-white/15 transition-colors"
-                                    style={{ userSelect: 'text' }}
+                                    style={{ userSelect: 'text', pointerEvents: 'auto' }}
                                 >
-                                    <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                                    <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2" style={{ userSelect: 'text', pointerEvents: 'auto' }}>
                                         {sectionIcon}
-                                        <span>{section.heading}</span>
+                                        <span style={{ userSelect: 'text', pointerEvents: 'auto' }}>{section.heading}</span>
                                     </h2>
                                     {renderStructuredContent(section.content)}
                                 </div>
@@ -624,15 +645,16 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                                 <div 
                                     key={idx} 
                                     className="rounded-2xl border border-white/10 bg-black/40 p-6 overflow-x-auto"
-                                    style={{ userSelect: 'text' }}
+                                    style={{ userSelect: 'text', pointerEvents: 'auto' }}
                                 >
-                                    <table className="w-full border-collapse">
+                                    <table className="w-full border-collapse" style={{ userSelect: 'text', pointerEvents: 'auto' }}>
                                         <thead>
                                             <tr className="bg-white/5">
                                                 {table.headers.map((header, hIdx) => (
                                                     <th
                                                         key={hIdx}
                                                         className="border border-white/10 px-4 py-3 text-left text-sm font-bold text-white"
+                                                        style={{ userSelect: 'text', pointerEvents: 'auto' }}
                                                     >
                                                         {header}
                                                     </th>
@@ -644,11 +666,13 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                                                 <tr
                                                     key={rIdx}
                                                     className="hover:bg-white/5 transition-colors"
+                                                    style={{ userSelect: 'text', pointerEvents: 'auto' }}
                                                 >
                                                     {row.map((cell, cIdx) => (
                                                         <td
                                                             key={cIdx}
                                                             className="border border-white/10 px-4 py-3 text-sm text-gray-300 leading-relaxed"
+                                                            style={{ userSelect: 'text', pointerEvents: 'auto' }}
                                                         >
                                                             {cell}
                                                         </td>
@@ -665,12 +689,12 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
 
                 {/* Key Takeaways - enforce canonical schema */}
                 {summary.key_takeaways && summary.key_takeaways.length > 0 && (
-                    <div className="mt-8 rounded-2xl border border-white/10 bg-black/40 p-6" style={{ userSelect: 'text' }}>
-                        <h2 className="text-xl font-bold text-white mb-5 flex items-center gap-2">
+                    <div className="mt-8 rounded-2xl border border-white/10 bg-black/40 p-6" style={{ userSelect: 'text', pointerEvents: 'auto' }}>
+                        <h2 className="text-xl font-bold text-white mb-5 flex items-center gap-2" style={{ userSelect: 'text', pointerEvents: 'auto' }}>
                             <List size={18} className="text-teal" />
-                            <span>Key Takeaways</span>
+                            <span style={{ userSelect: 'text', pointerEvents: 'auto' }}>Key Takeaways</span>
                         </h2>
-                        <ul className="space-y-4">
+                        <ul className="space-y-4" style={{ userSelect: 'text', pointerEvents: 'auto' }}>
                             {summary.key_takeaways.map((takeaway, idx) => {
                                 // Enforce required field
                                 if (takeaway === undefined || takeaway === null || takeaway === "") {
@@ -682,9 +706,10 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                                     <li
                                         key={idx}
                                         className="text-gray-300 flex items-start gap-3 leading-loose text-[15px]"
+                                        style={{ userSelect: 'text', pointerEvents: 'auto' }}
                                     >
-                                        <span className="text-teal mt-1.5 font-bold flex-shrink-0">•</span>
-                                        <span className="flex-1">{takeaway}</span>
+                                        <span className="text-teal mt-1.5 font-bold flex-shrink-0" style={{ userSelect: 'text', pointerEvents: 'auto' }}>•</span>
+                                        <span className="flex-1" style={{ userSelect: 'text', pointerEvents: 'auto' }}>{takeaway}</span>
                                     </li>
                                 );
                             })}
@@ -694,12 +719,12 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
 
                 {/* References - enforce canonical schema */}
                 {summary.references && summary.references.length > 0 && (
-                    <div className="mt-8 rounded-2xl border border-white/10 bg-black/40 p-6" style={{ userSelect: 'text' }}>
-                        <h2 className="text-xl font-bold text-white mb-5 flex items-center gap-2">
+                    <div className="mt-8 rounded-2xl border border-white/10 bg-black/40 p-6" style={{ userSelect: 'text', pointerEvents: 'auto' }}>
+                        <h2 className="text-xl font-bold text-white mb-5 flex items-center gap-2" style={{ userSelect: 'text', pointerEvents: 'auto' }}>
                             <BookOpen size={18} className="text-teal" />
-                            <span>References</span>
+                            <span style={{ userSelect: 'text', pointerEvents: 'auto' }}>References</span>
                         </h2>
-                        <ul className="space-y-3">
+                        <ul className="space-y-3" style={{ userSelect: 'text', pointerEvents: 'auto' }}>
                             {summary.references.map((ref, idx) => {
                                 // Enforce required field - assume canonical structure
                                 if (!ref || (typeof ref === 'object' && !ref.text)) {
@@ -711,9 +736,9 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                                 const refPage = typeof ref === 'object' ? ref.page : null;
                                 
                                 return (
-                                    <li key={idx} className="text-sm text-muted leading-relaxed">
-                                        {refPage && <span className="text-teal/70 font-medium">Page {refPage}: </span>}
-                                        <span>{refText}</span>
+                                    <li key={idx} className="text-sm text-muted leading-relaxed" style={{ userSelect: 'text', pointerEvents: 'auto' }}>
+                                        {refPage && <span className="text-teal/70 font-medium" style={{ userSelect: 'text', pointerEvents: 'auto' }}>Page {refPage}: </span>}
+                                        <span style={{ userSelect: 'text', pointerEvents: 'auto' }}>{refText}</span>
                                     </li>
                                 );
                             })}
@@ -748,6 +773,34 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
     return (
         <>
             <style>{`
+                /* Ensure all summary text is selectable */
+                .summary-content-container,
+                .summary-content-container * {
+                    user-select: text;
+                    -webkit-user-select: text;
+                    -moz-user-select: text;
+                    -ms-user-select: text;
+                }
+                
+                .summary-content-container span,
+                .summary-content-container p,
+                .summary-content-container li,
+                .summary-content-container td,
+                .summary-content-container th,
+                .summary-content-container h1,
+                .summary-content-container h2,
+                .summary-content-container h3,
+                .summary-content-container h4 {
+                    user-select: text !important;
+                    pointer-events: auto !important;
+                }
+                
+                /* Prevent selection on popup */
+                .ask-astra-popup {
+                    user-select: none !important;
+                    pointer-events: auto !important;
+                }
+                
                 .summary-content p {
                     margin-bottom: 1rem;
                     line-height: 1.75;
@@ -875,7 +928,11 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                 </div>
 
                 {/* Content Area */}
-                <div className="flex-1 overflow-y-auto p-8" style={{ userSelect: 'text' }}>
+                <div 
+                    className="flex-1 overflow-y-auto p-8 summary-content-container" 
+                    style={{ userSelect: 'text' }}
+                    onMouseUp={handleMouseUp}
+                >
                     <div className="max-w-4xl mx-auto">{renderContent()}</div>
                 </div>
             </div>
@@ -944,18 +1001,22 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
             {selectedText && selectionBubble && (
                 <div
                     ref={selectionRef}
-                    className="fixed z-50 bg-teal text-black px-4 py-2 rounded-lg shadow-lg cursor-pointer hover:bg-teal-neon transition"
+                    className="fixed z-50 bg-teal text-black px-4 py-2 rounded-lg shadow-lg cursor-pointer hover:bg-teal-neon transition ask-astra-popup"
                     style={{
                         top: `${selectionBubble.top}px`,
                         left: `${selectionBubble.left}px`,
                         transform: "translateX(-50%)",
+                        userSelect: 'none',
                     }}
-                    onClick={handleAskAstra}
                 >
-                    <div className="flex items-center gap-2 text-sm font-medium">
+                    <button
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={handleAskAstra}
+                        className="flex items-center gap-2 text-sm font-medium w-full h-full"
+                    >
                         <Sparkles size={14} />
                         Ask Astra
-                    </div>
+                    </button>
                 </div>
             )}
 
