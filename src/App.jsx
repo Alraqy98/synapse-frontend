@@ -127,7 +127,7 @@ const SynapseOS = () => {
   const notificationsRef = useRef(null);
 
   // Notification data model (temporary / local)
-  const [notifications] = useState([
+  const [notifications, setNotifications] = useState([
     {
       id: "1",
       title: "OCR completed",
@@ -155,6 +155,30 @@ const SynapseOS = () => {
   ]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+
+  // Format relative time helper
+  const formatRelativeTime = (dateString) => {
+    const date = new Date(dateString);
+    const diffMs = Date.now() - date.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    const diffHr = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHr / 24);
+
+    if (diffMin < 1) return "Just now";
+    if (diffMin < 60) return `${diffMin} min ago`;
+    if (diffHr < 24) return `${diffHr} hour${diffHr > 1 ? "s" : ""} ago`;
+    if (diffDay === 1) return "Yesterday";
+    if (diffDay < 7) return `${diffDay} days ago`;
+
+    return date.toLocaleDateString();
+  };
+
+  // Clear all notifications handler
+  const handleClearAll = async () => {
+    setNotifications([]);
+    // Optional: mark all as read in backend
+    // await fetch("/api/notifications/clear", { method: "POST" });
+  };
 
   // Fetch profile
   const fetchProfile = async () => {
@@ -364,8 +388,19 @@ const SynapseOS = () => {
               {/* Notifications Dropdown */}
               {notificationsOpen && (
                 <div className="absolute right-0 top-12 z-50 w-80 rounded-xl bg-[#1a1d24] border border-white/10 shadow-xl">
-                  <div className="p-3 text-sm font-semibold text-white border-b border-white/5">
-                    Notifications
+                  <div className="flex items-center justify-between p-3 border-b border-white/5">
+                    <span className="text-sm font-semibold text-white">
+                      Notifications
+                    </span>
+
+                    {notifications.length > 0 && (
+                      <button
+                        onClick={handleClearAll}
+                        className="text-xs text-muted hover:text-red-400 transition"
+                      >
+                        Clear all
+                      </button>
+                    )}
                   </div>
 
                   <div className="max-h-80 overflow-y-auto">
@@ -386,7 +421,7 @@ const SynapseOS = () => {
                             {n.description}
                           </div>
                           <div className="text-muted text-[10px] mt-1">
-                            {new Date(n.createdAt).toLocaleString()}
+                            {formatRelativeTime(n.createdAt)}
                           </div>
                         </div>
                       ))
