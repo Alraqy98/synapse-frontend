@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import "./styles.css";
 import logo from "./assets/synapse-logo.png";
 
@@ -37,6 +38,9 @@ import ReviewScreen from "./modules/flashcards/ReviewScreen";
 
 // SUMMARIES
 import SummariesTab from "./modules/summaries/SummariesTab";
+
+// COMPONENTS
+import SidebarItem from "./components/SidebarItem";
 
 // TEMP placeholders
 const Placeholder = ({ label }) => (
@@ -248,46 +252,66 @@ const SynapseOS = () => {
   }
 
   // Sidebar
-  const Sidebar = () => (
-    <aside className="w-20 bg-void border-r border-white/5 flex flex-col items-center py-6 z-40 h-full fixed left-0 top-0">
-      <div className="mb-8 flex items-center justify-center">
-        <img
-          src={logo}
-          alt="Synapse Logo"
-          className="h-9 w-auto drop-shadow-[0_0_14px_rgba(0,200,180,0.65)]"
-        />
-      </div>
+  const Sidebar = () => {
+    const handleNavigation = (moduleId) => {
+      const routes = {
+        library: "/library",
+        tutor: "/tutor",
+        flash: "/flashcards",
+        mcq: "/mcq",
+        summaries: "/summaries",
+        osce: "/osce",
+        oral: "/oral",
+        plan: "/planner",
+        stat: "/analytics",
+        settings: "/settings",
+      };
+      navigate(routes[moduleId] || "/tutor");
+    };
 
-      <nav className="flex flex-col gap-4 w-full px-2">
-        {[
-          { id: "library", icon: Folder },
-          { id: "tutor", icon: Brain },
-          { id: "flash", icon: Zap },
-          { id: "mcq", icon: CheckSquare },
-          { id: "summaries", icon: BookOpen },
-          { id: "osce", icon: Activity },
-          { id: "oral", icon: Mic },
-          { id: "plan", icon: Calendar },
-          { id: "stat", icon: BarChart2 },
-        ].map((item) => (
-          <button
-            key={item.id}
-            onClick={() => setModule(item.id)}
-            className={`nav-item ${module === item.id ? "active" : ""}`}
-          >
-            <item.icon size={20} />
-          </button>
-        ))}
-      </nav>
+    return (
+      <aside className="w-20 bg-void border-r border-white/5 flex flex-col items-center py-6 z-40 h-full fixed left-0 top-0">
+        <div className="mb-8 flex items-center justify-center">
+          <img
+            src={logo}
+            alt="Synapse Logo"
+            className="h-9 w-auto drop-shadow-[0_0_14px_rgba(0,200,180,0.65)]"
+          />
+        </div>
 
-      <button
-        onClick={() => setModule("settings")}
-        className={`nav-item mt-auto ${module === "settings" ? "active" : ""}`}
-      >
-        <Settings size={20} />
-      </button>
-    </aside>
-  );
+        <nav className="flex flex-col gap-4 w-full px-2">
+          {[
+            { id: "library", icon: Folder, label: "Library" },
+            { id: "tutor", icon: Brain, label: "Tutor" },
+            { id: "flash", icon: Zap, label: "Flashcards" },
+            { id: "mcq", icon: CheckSquare, label: "MCQ" },
+            { id: "summaries", icon: BookOpen, label: "Summaries" },
+            { id: "osce", icon: Activity, label: "OSCE" },
+            { id: "oral", icon: Mic, label: "Oral Exam" },
+            { id: "plan", icon: Calendar, label: "Planner" },
+            { id: "stat", icon: BarChart2, label: "Analytics" },
+          ].map((item) => (
+            <SidebarItem
+              key={item.id}
+              icon={item.icon}
+              label={item.label}
+              onClick={() => handleNavigation(item.id)}
+              isActive={module === item.id}
+            />
+          ))}
+        </nav>
+
+        <div className="mt-auto">
+          <SidebarItem
+            icon={Settings}
+            label="Settings"
+            onClick={() => handleNavigation("settings")}
+            isActive={module === "settings"}
+          />
+        </div>
+      </aside>
+    );
+  };
 
   // MAIN UI
   return (
@@ -343,36 +367,63 @@ const SynapseOS = () => {
 
         {/* CONTENT */}
         <div className="flex-1 flex flex-col overflow-hidden relative">
-          {module === "library" && <LibraryPage />}
-          {module === "tutor" && <TutorPage />}
-
-          {[
-            "flash",
-            "osce",
-            "oral",
-            "summaries",
-            "plan",
-            "stat",
-            "settings",
-            "mcq",
-          ].includes(module) && (
+          <Routes>
+            <Route path="/" element={<Navigate to="/tutor" replace />} />
+            
+            {/* Library routes */}
+            <Route path="/library" element={<LibraryPage />} />
+            <Route path="/library/:fileId" element={<LibraryPage />} />
+            <Route path="/library/:fileId/page/:pageNumber" element={<LibraryPage />} />
+            
+            {/* Other module routes */}
+            <Route path="/tutor" element={<TutorPage />} />
+            <Route path="/flashcards" element={
               <div className="flex-1 overflow-y-auto p-6">
-                {module === "flash" && <FlashcardsModule />}
-                {module === "osce" && <OSCEModule />}
-                {module === "oral" && <OralExamModule />}
-                {module === "summaries" && <SummariesModule />}
-                {module === "plan" && <PlannerModule />}
-                {module === "stat" && <AnalyticsModule />}
-
-                {module === "settings" && (
-                  <SettingsPage
-                    profile={profile}
-                    onLogout={() => setIsAuthenticated(false)}
-                  />
-                )}
-                {module === "mcq" && <MCQTab />}
+                <FlashcardsModule />
               </div>
-            )}
+            } />
+            <Route path="/mcq" element={
+              <div className="flex-1 overflow-y-auto p-6">
+                <MCQTab />
+              </div>
+            } />
+            <Route path="/summaries" element={
+              <div className="flex-1 overflow-y-auto p-6">
+                <SummariesModule />
+              </div>
+            } />
+            <Route path="/osce" element={
+              <div className="flex-1 overflow-y-auto p-6">
+                <OSCEModule />
+              </div>
+            } />
+            <Route path="/oral" element={
+              <div className="flex-1 overflow-y-auto p-6">
+                <OralExamModule />
+              </div>
+            } />
+            <Route path="/planner" element={
+              <div className="flex-1 overflow-y-auto p-6">
+                <PlannerModule />
+              </div>
+            } />
+            <Route path="/analytics" element={
+              <div className="flex-1 overflow-y-auto p-6">
+                <AnalyticsModule />
+              </div>
+            } />
+            <Route path="/settings" element={
+              <div className="flex-1 overflow-y-auto p-6">
+                <SettingsPage
+                  profile={profile}
+                  onLogout={() => setIsAuthenticated(false)}
+                />
+              </div>
+            } />
+            
+            {/* Catch-all redirect */}
+            <Route path="*" element={<Navigate to="/tutor" replace />} />
+          </Routes>
         </div>
       </main>
     </div>

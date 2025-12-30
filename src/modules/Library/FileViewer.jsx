@@ -4,6 +4,7 @@
 // -------------------------------------------------------------
 
 import React, { useState, useRef, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import {
     ArrowLeft,
     Sparkles,
@@ -52,7 +53,9 @@ function getSupabaseToken() {
 // =====================================================================
 // MAIN VIEWER
 // =====================================================================
-const FileViewer = ({ file, onBack }) => {
+const FileViewer = ({ file, onBack, initialPage = 1 }) => {
+    const { fileId: urlFileId, pageNumber: urlPageNumber } = useParams();
+    const navigate = useNavigate();
     // UI
     const [activeAction, setActiveAction] = useState(null);
     const [actionResult, setActionResult] = useState(null);
@@ -72,7 +75,9 @@ const FileViewer = ({ file, onBack }) => {
     const messagesInitializedRef = useRef(false); // Track if messages have been loaded from backend
 
     // Page renderer
-    const [activePage, setActivePage] = useState(1);
+    // Sync activePage with URL params
+    const urlPage = urlPageNumber ? Number(urlPageNumber) : null;
+    const [activePage, setActivePage] = useState(urlPage || initialPage || 1);
     const [pageImageForTutor, setPageImageForTutor] = useState(null);
     const [renderedImageUrl, setRenderedImageUrl] = useState(null); // Store rendered image URL per page
     const [isRendering, setIsRendering] = useState(false);
@@ -86,6 +91,26 @@ const FileViewer = ({ file, onBack }) => {
     const renderedImageUrlsRef = useRef(new Map()); // Store rendered image URLs: `${file.id}:${page}` -> URL
 
     const pages = file.page_contents || [];
+    
+    // Sync activePage with URL params when they change
+    useEffect(() => {
+        if (urlPage && urlPage !== activePage) {
+            setActivePage(urlPage);
+        }
+    }, [urlPage]);
+    
+    // Update URL when activePage changes (but not from URL change)
+    const goToPage = (page) => {
+        const normalizedPage = Math.max(1, Math.min(page, totalPages));
+        setActivePage(normalizedPage);
+        if (file?.id) {
+            if (normalizedPage === 1) {
+                navigate(`/library/${file.id}`, { replace: true });
+            } else {
+                navigate(`/library/${file.id}/page/${normalizedPage}`, { replace: true });
+            }
+        }
+    };
 
     // =====================================================================
     // LOAD PDF TO DETERMINE PAGE COUNT (single source of truth)
@@ -132,13 +157,15 @@ const FileViewer = ({ file, onBack }) => {
 
     // Reset refs and state when file changes
     useEffect(() => {
-        setActivePage(1);
+        // Use URL page or initialPage, default to 1
+        const startPage = urlPage || initialPage || 1;
+        setActivePage(startPage);
         setPageImageForTutor(null);
         setRenderedImageUrl(null);
         renderAttemptedRef.current = new Set();
         imageLoadFailedRef.current = new Set();
         renderedImageUrlsRef.current = new Map();
-    }, [file.id]);
+    }, [file.id, urlPage, initialPage]);
 
     // =====================================================================
     // GET CURRENT PAGE IMAGE URL (from page_contents, no backend call)
@@ -433,8 +460,10 @@ const FileViewer = ({ file, onBack }) => {
         chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [chatMessages]);
 
-    const bumpPage = (d) =>
-        setActivePage((p) => Math.max(1, Math.min(p + d, totalPages)));
+    const bumpPage = (d) => {
+        const newPage = Math.max(1, Math.min(activePage + d, totalPages));
+        goToPage(newPage);
+    };
 
     // =====================================================================
     // RENDER UI
@@ -469,14 +498,13 @@ const FileViewer = ({ file, onBack }) => {
                                     value={activePage}
                                     min={1}
                                     max={totalPages}
-                                    onChange={(e) =>
-                                        setActivePage(
-                                            Math.max(
-                                                1,
-                                                Math.min(Number(e.target.value), totalPages)
-                                            )
-                                        )
-                                    }
+                                    onChange={(e) => {
+                                        const newPage = Math.max(
+                                            1,
+                                            Math.min(Number(e.target.value), totalPages)
+                                        );
+                                        goToPage(newPage);
+                                    }}
                                     className="w-12 bg-transparent text-center text-xs outline-none"
                                 />
 

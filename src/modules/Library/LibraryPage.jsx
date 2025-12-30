@@ -1,6 +1,7 @@
 // src/modules/Library/LibraryPage.jsx
 
 import React, { useState, useEffect } from "react";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 
 import LibraryFilters from "./LibraryFilters";
 import LibraryGrid from "./LibraryGrid";
@@ -21,10 +22,14 @@ import {
 } from "./apiLibrary";
 
 const LibraryPage = () => {
+    const { fileId, pageNumber } = useParams();
+    const navigate = useNavigate();
+    const location = useLocation();
+    
     const [items, setItems] = useState([]);
     const [activeFilter, setActiveFilter] = useState("All");
-    const [view, setView] = useState("grid");
     const [selectedFile, setSelectedFile] = useState(null);
+    const [isLoadingFile, setIsLoadingFile] = useState(false);
 
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [showFolderModal, setShowFolderModal] = useState(false);
@@ -96,6 +101,29 @@ const LibraryPage = () => {
     };
 
     // ----------------------------------------------
+    // LOAD FILE FROM URL PARAMS
+    // ----------------------------------------------
+    useEffect(() => {
+        if (fileId) {
+            const loadFile = async () => {
+                try {
+                    setIsLoadingFile(true);
+                    const full = await getItemById(fileId);
+                    setSelectedFile(full);
+                } catch (err) {
+                    console.error("Failed to load file:", err);
+                    navigate("/library");
+                } finally {
+                    setIsLoadingFile(false);
+                }
+            };
+            loadFile();
+        } else {
+            setSelectedFile(null);
+        }
+    }, [fileId, navigate]);
+
+    // ----------------------------------------------
     // OPEN FILE OR FOLDER
     // ----------------------------------------------
     const handleOpen = async (item) => {
@@ -108,21 +136,12 @@ const LibraryPage = () => {
             return;
         }
 
-        try {
-            setIsOpening(true);
-            const full = await getItemById(item.id);
-            setSelectedFile(full);
-            setView("viewer");
-        } catch {
-            alert("Failed to open file");
-        } finally {
-            setIsOpening(false);
-        }
+        // Navigate to file URL
+        navigate(`/library/${item.id}`);
     };
 
     const handleBack = () => {
-        setSelectedFile(null);
-        setView("grid");
+        navigate("/library");
     };
 
     // ----------------------------------------------
@@ -192,10 +211,25 @@ const LibraryPage = () => {
     };
 
     // ----------------------------------------------
-    // VIEWER MODE
+    // VIEWER MODE (when fileId is in URL)
     // ----------------------------------------------
-    if (view === "viewer" && selectedFile) {
-        return <FileViewer file={selectedFile} onBack={handleBack} />;
+    if (fileId && selectedFile) {
+        return (
+            <FileViewer 
+                file={selectedFile} 
+                onBack={handleBack}
+                initialPage={pageNumber ? Number(pageNumber) : 1}
+            />
+        );
+    }
+    
+    // Show loading state while file is being loaded
+    if (fileId && isLoadingFile) {
+        return (
+            <div className="flex-1 flex items-center justify-center">
+                <div className="text-muted">Loading file...</div>
+            </div>
+        );
     }
 
     // ----------------------------------------------
