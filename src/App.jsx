@@ -126,33 +126,8 @@ const SynapseOS = () => {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const notificationsRef = useRef(null);
 
-  // Notification data model (temporary / local)
-  const [notifications, setNotifications] = useState([
-    {
-      id: "1",
-      title: "OCR completed",
-      description: "Cardiology Lecture 3",
-      type: "success",
-      createdAt: new Date().toISOString(),
-      read: false,
-    },
-    {
-      id: "2",
-      title: "Render completed",
-      description: "Pathology Notes Chapter 5",
-      type: "success",
-      createdAt: new Date(Date.now() - 3600000).toISOString(),
-      read: false,
-    },
-    {
-      id: "3",
-      title: "Summary generated",
-      description: "Biochemistry Review",
-      type: "info",
-      createdAt: new Date(Date.now() - 7200000).toISOString(),
-      read: true,
-    },
-  ]);
+  // Notifications state - empty initial state, fetched from backend only
+  const [notifications, setNotifications] = useState([]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -173,11 +148,73 @@ const SynapseOS = () => {
     return date.toLocaleDateString();
   };
 
-  // Clear all notifications handler
+  // Fetch notifications from backend
+  const fetchNotifications = async () => {
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        setNotifications([]);
+        return;
+      }
+
+      const API_BASE = import.meta.env.VITE_API_URL?.replace(/\/$/, "");
+      if (!API_BASE) {
+        console.error("VITE_API_URL is missing");
+        return;
+      }
+
+      const res = await fetch(`${API_BASE}/notifications`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        console.error("Failed to fetch notifications:", res.status);
+        setNotifications([]);
+        return;
+      }
+
+      const data = await res.json();
+      const notificationsList = data.notifications || data || [];
+      setNotifications(notificationsList);
+
+      // Debug check
+      console.log("NOTIFICATIONS FROM API", notificationsList);
+    } catch (err) {
+      console.error("Error fetching notifications:", err);
+      setNotifications([]);
+    }
+  };
+
+  // Clear all notifications handler - calls backend and refetches
   const handleClearAll = async () => {
-    setNotifications([]);
-    // Optional: mark all as read in backend
-    // await fetch("/api/notifications/clear", { method: "POST" });
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) return;
+
+      const API_BASE = import.meta.env.VITE_API_URL?.replace(/\/$/, "");
+      if (!API_BASE) {
+        console.error("VITE_API_URL is missing");
+        return;
+      }
+
+      // Mark all as read in backend
+      await fetch(`${API_BASE}/notifications/read-all`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      // Refetch notifications from backend
+      await fetchNotifications();
+    } catch (err) {
+      console.error("Error clearing notifications:", err);
+      // Still refetch to sync state
+      await fetchNotifications();
+    }
   };
 
   // Fetch profile
@@ -244,6 +281,13 @@ const SynapseOS = () => {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Fetch notifications on mount and when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchNotifications();
+    }
+  }, [isAuthenticated]);
 
   // Close notifications dropdown when clicking outside
   useEffect(() => {
@@ -418,10 +462,10 @@ const SynapseOS = () => {
                         >
                           <div className="font-medium text-white">{n.title}</div>
                           <div className="text-muted text-xs mt-1">
-                            {n.description}
+                            {n.description || n.body || ""}
                           </div>
                           <div className="text-muted text-[10px] mt-1">
-                            {formatRelativeTime(n.createdAt)}
+                            {formatRelativeTime(n.createdAt || n.created_at)}
                           </div>
                         </div>
                       ))
