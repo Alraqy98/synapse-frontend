@@ -1,6 +1,6 @@
 // src/modules/Library/LibraryPage.jsx
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 
 import LibraryFilters from "./LibraryFilters";
@@ -46,6 +46,23 @@ const LibraryPage = () => {
         { label: "All", folderId: null },
     ]);
 
+    // Ref to track polling state without causing re-renders
+    const pollingIntervalRef = useRef(null);
+    const itemsRef = useRef([]);
+
+    // Helper to check if files are processing (uses terminal states only)
+    const hasProcessingFiles = (files) => {
+        return files.some(file => {
+            if (file.is_folder) return false;
+            const renderState = file.render_state || file.file_render_state;
+            if (!renderState) return true; // No render_state means might be processing
+            // Terminal state check: both must be "completed"
+            const isReady = renderState.status === "completed" && 
+                          renderState.ocr_status === "completed";
+            return !isReady;
+        });
+    };
+
     // ----------------------------------------------
     // LOAD ITEMS
     // ----------------------------------------------
@@ -57,6 +74,7 @@ const LibraryPage = () => {
             setIsLoading(true);
             const data = await getLibraryItems(filter, folderId);
             setItems(data);
+            itemsRef.current = data; // Update ref without causing re-render
         } catch (err) {
             console.error("Failed loading library items:", err);
         } finally {
@@ -72,26 +90,46 @@ const LibraryPage = () => {
         loadItems(activeFilter, currentFolder?.id || null);
     }, [activeFilter, currentFolder?.id]);
 
-    // Poll file list to refresh render_state after upload
+    // Conditional polling ONLY when files are processing
+    // Do NOT depend on items array - use ref instead to avoid infinite loops
     useEffect(() => {
-        // Only poll if there are files that might be processing
-        const hasProcessingFiles = items.some(item => {
-            if (item.is_folder) return false;
-            const renderState = item.render_state || item.file_render_state;
-            if (!renderState) return true; // No render_state means might be processing
-            const isReady = renderState.status === "completed" && renderState.ocr_status === "completed";
-            return !isReady;
-        });
+        // Clear any existing polling when filter/folder changes
+        if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+        }
 
-        if (!hasProcessingFiles) return;
+        // Check if polling is needed before starting
+        const currentItems = itemsRef.current;
+        if (!hasProcessingFiles(currentItems)) {
+            return; // All files are ready, no polling needed
+        }
 
-        // Poll every 4 seconds to refresh render_state
-        const pollInterval = setInterval(() => {
+        // Start polling - checks itemsRef inside interval to avoid dependency on items
+        pollingIntervalRef.current = setInterval(() => {
+            // Check current items using ref (doesn't trigger re-renders)
+            const itemsToCheck = itemsRef.current;
+            
+            if (!hasProcessingFiles(itemsToCheck)) {
+                // All files are ready, stop polling
+                if (pollingIntervalRef.current) {
+                    clearInterval(pollingIntervalRef.current);
+                    pollingIntervalRef.current = null;
+                }
+                return;
+            }
+
+            // Files are still processing, fetch latest state
             loadItems(activeFilter, currentFolder?.id || null);
         }, 4000);
 
-        return () => clearInterval(pollInterval);
-    }, [items, activeFilter, currentFolder?.id]);
+        return () => {
+            if (pollingIntervalRef.current) {
+                clearInterval(pollingIntervalRef.current);
+                pollingIntervalRef.current = null;
+            }
+        };
+    }, [activeFilter, currentFolder?.id]); // Only depend on filter/folder, NOT items
 
     // ----------------------------------------------
     // FILTER CHANGE
