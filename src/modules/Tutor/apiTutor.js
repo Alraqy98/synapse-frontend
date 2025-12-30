@@ -213,6 +213,79 @@ export const sendMessageToTutor = async ({
 };
 
 /* --------------------------------------------------
+   SUMMARY-AWARE ASTRA CHAT
+-------------------------------------------------- */
+export const sendSummaryMessageToTutor = async ({
+    sessionId,
+    message,
+    summaryId,
+    summaryTitle,
+    selectionText = null,
+    fileId = null,
+    resourceSelection = null,
+}) => {
+    const token = await getToken();
+
+    // Create structured payload for summary messages
+    // If selectionText is provided, it's a selection-based message
+    const payload = {
+        role: "user",
+        type: selectionText ? "selection" : "message",
+        source: "summary",
+        summaryId: summaryId, // REQUIRED
+        title: summaryTitle || null, // OPTIONAL but recommended
+        content: selectionText || message, // Selection text if available, otherwise the message
+        createdAt: new Date().toISOString(), // REQUIRED
+        sessionId: sessionId,
+        message: message, // The full message including context
+        fileId: fileId,
+        resourceSelection: resourceSelection || {
+            scope: selectionText ? "selected" : "all",
+            file_ids: fileId ? [fileId] : [],
+            folder_ids: [],
+            include_books: true,
+            strictResources: false,
+        },
+    };
+
+    console.log("[SUMMARY ASTRA PAYLOAD]", {
+        summaryId,
+        summaryTitle,
+        type: payload.type,
+        selectionText: selectionText ? selectionText.substring(0, 60) : null,
+        createdAt: payload.createdAt,
+        source: payload.source,
+        endpoint: "/ai/tutor/chat",
+    });
+
+    const res = await fetch(`${API_BASE}/ai/tutor/chat`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+    });
+
+    const data = await res.json();
+    if (!data.success) {
+        const backendError = data.error || data.message || "Chat failed";
+        console.error("[SUMMARY ASTRA BACKEND ERROR]", {
+            success: data.success,
+            error: backendError,
+            fullResponse: data,
+            summaryId,
+        });
+        throw new Error(backendError);
+    }
+
+    return {
+        text: data.answer?.answer || data.answer || "",
+        raw: data.answer,
+    };
+};
+
+/* --------------------------------------------------
    DUMMY uploadFile EXPORT (FIXES FRONTEND CRASH)
 -------------------------------------------------- */
 export const uploadFile = async () => {

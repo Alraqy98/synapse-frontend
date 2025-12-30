@@ -19,6 +19,7 @@ import { generateImportCode } from "./utils/summaryCode";
 import { apiSummaries } from "./apiSummaries";
 import {
     sendMessageToTutor,
+    sendSummaryMessageToTutor,
     createNewSession,
     getSessionMessages,
 } from "../Tutor/apiTutor";
@@ -165,27 +166,128 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
     }, []);
 
     const handleAskAstra = async () => {
-        // Use stored selection text, NOT window.getSelection()
+        // Guard against empty selection
         if (!selectedText || selectedText.trim().length < 3) return;
 
         const textToSend = selectedText.trim();
 
         // Clear selection and bubble
         window.getSelection()?.removeAllRanges();
-        setSelectedText("");
         setSelectionBubble(null);
 
-        // Preload context and send message
-        const question = `About this selection: "${textToSend}"`;
-        setChatInput(question);
+        // Create structured payload
+        const payload = {
+            role: "user",
+            type: "selection",
+            source: "summary",
+            summaryId: summary?.id, // REQUIRED
+            title: summary?.title || null, // OPTIONAL but recommended
+            content: textToSend, // REQUIRED - the selected text
+            createdAt: new Date().toISOString(), // REQUIRED
+        };
 
-        // Auto-send the message
+        // Update UI preview text (visual only)
+        const previewText = `About this selection: "${textToSend.slice(0, 60)}${textToSend.length > 60 ? '...' : ''}"`;
+        setChatInput(previewText);
+
+        // Auto-send the message with structured payload
         setTimeout(() => {
-            handleChatSend(question);
+            handleChatSend(null, payload);
         }, 100);
     };
 
-    const handleChatSend = async (prefilledMessage = null) => {
+    const handleChatSend = async (prefilledMessage = null, structuredPayload = null) => {
+        // If structured payload is provided (from selection), use it
+        if (structuredPayload) {
+            const msg = prefilledMessage || chatInput;
+            if (!msg.trim()) return;
+
+            setChatInput("");
+
+            const userMsgId = `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            const userMsg = { 
+                id: userMsgId, 
+                role: "user", 
+                content: msg 
+            };
+
+            setMessages((prev) => [...prev, userMsg]);
+            setIsTyping(true);
+
+            try {
+                let currentSessionId = sessionId;
+
+                if (!currentSessionId) {
+                    const session = await createNewSession(
+                        `Summary: ${summary?.title || "Untitled"}`
+                    );
+                    currentSessionId = session.id;
+                    setSessionId(currentSessionId);
+
+                    localStorage.setItem(
+                        `synapse_summary_session_${summary.id}`,
+                        String(currentSessionId)
+                    );
+                }
+
+                // Find the section containing selected text for context
+                let sectionContext = null;
+                if (structuredPayload.content && summary?.sections) {
+                    const selectionText = structuredPayload.content.substring(0, 50);
+                    for (const section of summary.sections) {
+                        if (
+                            section.content &&
+                            section.content.includes(selectionText)
+                        ) {
+                            sectionContext = section.heading || section.title;
+                            break;
+                        }
+                    }
+                }
+
+                // Build context message
+                const contextMessage = `[Summary: ${summary?.title}${sectionContext ? ` | Section: ${sectionContext}` : ""}${summary?.file_id ? ` | File ID: ${summary.file_id}` : ""}] About this selection: "${structuredPayload.content}"`;
+
+                // Send structured payload to Astra
+                const res = await sendSummaryMessageToTutor({
+                    sessionId: currentSessionId,
+                    message: contextMessage,
+                    summaryId: structuredPayload.summaryId,
+                    summaryTitle: structuredPayload.title,
+                    selectionText: structuredPayload.content,
+                    fileId: summary?.file_id || null,
+                    resourceSelection: {
+                        scope: "selected",
+                        file_ids: summary?.file_id ? [summary.file_id] : [],
+                        folder_ids: [],
+                        include_books: true,
+                    },
+                });
+
+                const assistantMsgId = `assistant-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                const assistantMsg = {
+                    id: assistantMsgId,
+                    role: "assistant",
+                    content: res.text || "",
+                };
+
+                setMessages((prev) => [...prev, assistantMsg]);
+            } catch (err) {
+                console.error("Chat error:", err);
+                const errorMsg = {
+                    id: `error-${Date.now()}`,
+                    role: "assistant",
+                    content: err.message || "Sorry, I was unable to answer. Please try again.",
+                };
+                setMessages((prev) => [...prev, errorMsg]);
+            } finally {
+                setIsTyping(false);
+                setSelectedText(""); // Clear selection after sending
+            }
+            return;
+        }
+
+        // Regular chat message (not from selection)
         const msg = prefilledMessage || chatInput;
         if (!msg.trim()) return;
 
@@ -213,37 +315,21 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                 );
             }
 
-            // Find the section containing selected text for context
-            // Note: selectedText is passed via prefilledMessage, so we check msg
-            let sectionContext = null;
-            const msgText = prefilledMessage || msg;
-            if (msgText && msgText.includes('About this selection:') && summary?.sections) {
-                // Extract the selection text from the message
-                const match = msgText.match(/About this selection: "([^"]+)"/);
-                if (match && match[1]) {
-                    const selectionText = match[1].substring(0, 50);
-                    for (const section of summary.sections) {
-                        if (
-                            section.content &&
-                            section.content.includes(selectionText)
-                        ) {
-                            sectionContext = section.heading || section.title;
-                            break;
-                        }
-                    }
-                }
-            }
+            // For regular messages, use a simpler context
+            const contextMessage = `[Summary: ${summary?.title}${summary?.file_id ? ` | File ID: ${summary.file_id}` : ""}] ${msg}`;
 
-            const contextMessage = msgText && msgText.includes('About this selection:')
-                ? `[Summary: ${summary?.title}${sectionContext ? ` | Section: ${sectionContext}` : ""}${summary?.file_id ? ` | File ID: ${summary.file_id}` : ""}] ${msg}`
-                : `[Summary: ${summary?.title}${summary?.file_id ? ` | File ID: ${summary.file_id}` : ""}] ${msg}`;
-
-            const res = await sendMessageToTutor({
+            // For regular messages, we still need to use a compatible endpoint
+            // Since sendMessageToTutor requires fileId and page, we'll use sendSummaryMessageToTutor
+            // but without the selection-specific fields
+            const res = await sendSummaryMessageToTutor({
                 sessionId: currentSessionId,
                 message: contextMessage,
+                summaryId: summary?.id,
+                summaryTitle: summary?.title || null,
+                selectionText: null, // Not a selection
                 fileId: summary?.file_id || null,
                 resourceSelection: {
-                    scope: "selected",
+                    scope: "all",
                     file_ids: summary?.file_id ? [summary.file_id] : [],
                     folder_ids: [],
                     include_books: true,
@@ -263,7 +349,7 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
             const errorMsg = {
                 id: `error-${Date.now()}`,
                 role: "assistant",
-                content: "Sorry, I was unable to answer. Please try again.",
+                content: err.message || "Sorry, I was unable to answer. Please try again.",
             };
             setMessages((prev) => [...prev, errorMsg]);
         } finally {
