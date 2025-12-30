@@ -32,7 +32,8 @@ export default function SummaryCard({
     if (goal) contextParts.push(goal);
     const contextNote = contextParts.length > 0 ? contextParts.join(" · ") : null;
 
-    const isGenerating = summary.generating === true;
+    // Check for generating status - support both generating flag and status field
+    const isGenerating = summary.generating === true || summary.status === "generating";
 
     return (
         <>

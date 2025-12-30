@@ -39,14 +39,27 @@ export default function SummariesTab() {
         loadSummaries();
     }, []);
 
+    // Poll for all summaries every 15 seconds to catch backend updates
+    useEffect(() => {
+        if (!initialLoadDone) return; // Don't poll until initial load is done
+        
+        const interval = setInterval(() => {
+            loadSummaries();
+        }, 15000); // Poll every 15 seconds
+
+        return () => clearInterval(interval);
+    }, [initialLoadDone]);
+
     // Poll for generating summaries (matching MCQ pattern exactly)
     useEffect(() => {
         if (!summaries.length) return;
-        const generating = summaries.some((s) => s.generating);
+        // Check for both generating flag and status === "generating"
+        const generating = summaries.some((s) => s.generating || s.status === "generating");
         if (!generating) return;
 
         const pollAllGenerating = async () => {
-            const generatingJobs = summaries.filter(s => s.generating);
+            // Filter for both generating flag and status === "generating"
+            const generatingJobs = summaries.filter(s => s.generating || s.status === "generating");
             
             for (const summary of generatingJobs) {
                 try {
@@ -85,9 +98,9 @@ export default function SummariesTab() {
     }, [summaries]);
 
     const openSummary = (id) => {
-        // Don't open generating summaries
+        // Don't open generating summaries - check both generating flag and status
         const summary = summaries.find(s => s.id === id);
-        if (summary?.generating) return;
+        if (summary?.generating || summary?.status === "generating") return;
         
         setSummaryId(id);
         setView("viewer");
