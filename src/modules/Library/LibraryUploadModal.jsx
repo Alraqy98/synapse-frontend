@@ -177,7 +177,7 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null })
                                 <p className="font-medium text-white">{file.name}</p>
                                 <div className="text-sm text-muted mt-1 space-y-1">
                                     <p>
-                                        {(file.size / 1024 / 1024).toFixed(2)} MB
+                                    {(file.size / 1024 / 1024).toFixed(2)} MB
                                         {compressionInfo?.wasCompressed && (
                                             <span className="text-teal ml-2">
                                                 (compressed from {(compressionInfo.originalSize / 1024 / 1024).toFixed(2)} MB)

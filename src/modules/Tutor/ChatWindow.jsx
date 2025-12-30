@@ -310,7 +310,7 @@ const ChatWindow = ({ activeSessionId }) => {
 
             // Use response.text (not response.response)
             const responseText = response.text || response.response || "";
-            
+
             const botMsg = {
                 id: `bot_${Date.now()}`,
                 role: "assistant",
