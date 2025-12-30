@@ -124,8 +124,12 @@ export const areFilesReady = (files) => {
  * Get file processing status for display indicator
  * Uses ONLY backend terminal states - no derived logic, counters, or flags
  * 
- * Returns "Ready" ONLY if both status and ocr_status are "completed"
- * Otherwise returns "Processing"
+ * Returns "Ready" if both status and ocr_status are in terminal states:
+ * - "completed" (fully processed)
+ * - "partial" (partially processed, but usable)
+ * - "failed" (failed but terminal - no more processing)
+ * 
+ * Returns "Processing" if either status is not terminal (e.g., "pending", "running")
  * 
  * This function is called on every render to ensure it reflects the latest
  * render_state from the backend. Do NOT cache or memoize this result.
@@ -161,18 +165,34 @@ export const getFileProcessingStatus = (file) => {
         return "Processing";
     }
 
-    // Show "Ready" ONLY if both status and ocr_status are "completed"
     // Read directly from render_state - never cache or derive from other sources
     // Do NOT use rendered_pages, ocr_pages_completed, total_pages, or any counters
     const status = renderState.status;
     const ocr_status = renderState.ocr_status;
 
-    // Terminal state check: both must be "completed"
-    if (status === "completed" && ocr_status === "completed") {
+    // Terminal states: completed, partial, failed
+    // Non-terminal states: pending, running, null, undefined
+    const terminalStates = ["completed", "partial", "failed"];
+    const isStatusTerminal = terminalStates.includes(status);
+    const isOcrStatusTerminal = terminalStates.includes(ocr_status);
+
+    // Log readiness check for diagnosis
+    console.log("[UI_READINESS]", {
+        fileId: file.id,
+        fileName: file.title,
+        status: status,
+        ocr_status: ocr_status,
+        isStatusTerminal: isStatusTerminal,
+        isOcrStatusTerminal: isOcrStatusTerminal,
+        result: isStatusTerminal && isOcrStatusTerminal ? "Ready" : "Processing"
+    });
+
+    // Show "Ready" if BOTH status and ocr_status are in terminal states
+    if (isStatusTerminal && isOcrStatusTerminal) {
         return "Ready";
     }
 
-    // Otherwise show "Processing"
+    // Otherwise show "Processing" (one or both are still processing)
     return "Processing";
 };
 

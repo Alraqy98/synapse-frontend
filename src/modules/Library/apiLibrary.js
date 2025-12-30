@@ -82,7 +82,7 @@ const handleJson = async (res) => {
 const mapItemFromApi = (item) => {
     const isFolder = item.is_folder === true;
 
-    return {
+    const mappedItem = {
         id: item.id,                       // 🔥 FORCE TRUE UUID, never title
         title: item.title,
         parent_id: item.parent_id,
@@ -109,6 +109,20 @@ const mapItemFromApi = (item) => {
         render_state: item.render_state || item.file_render_state || null,
         file_render_state: item.file_render_state || item.render_state || null // Keep for backwards compatibility
     };
+
+    // DIAGNOSTIC: Log mapped item for first file (to trace data flow)
+    if (!isFolder && mappedItem.id) {
+        console.log("[API_DIAG] Mapped library item", {
+            id: mappedItem.id,
+            title: mappedItem.title,
+            originalRenderState: item.render_state,
+            originalFileRenderState: item.file_render_state,
+            mappedRenderState: mappedItem.render_state,
+            mappedFileRenderState: mappedItem.file_render_state,
+        });
+    }
+
+    return mappedItem;
 };
 
 
@@ -134,6 +148,25 @@ export const getLibraryItems = async (
         );
 
         const data = await handleJson(res);
+        
+        // DIAGNOSTIC: Log raw API response for first file item
+        if (data.items && data.items.length > 0) {
+            const firstFile = data.items.find(item => !item.is_folder);
+            if (firstFile) {
+                console.log("[API_DIAG] Raw /library/children response", {
+                    endpoint: `/library/children?parent_id=${parentId}&category=${cat}`,
+                    firstFile: {
+                        id: firstFile.id,
+                        title: firstFile.title,
+                        render_state: firstFile.render_state,
+                        file_render_state: firstFile.file_render_state,
+                        hasRenderState: !!firstFile.render_state,
+                        hasFileRenderState: !!firstFile.file_render_state,
+                    }
+                });
+            }
+        }
+        
         return (data.items || []).map(mapItemFromApi);
     }
 
@@ -143,6 +176,25 @@ export const getLibraryItems = async (
             headers,
         });
         const data = await handleJson(res);
+        
+        // DIAGNOSTIC: Log raw API response for first file item
+        if (data.items && data.items.length > 0) {
+            const firstFile = data.items.find(item => !item.is_folder);
+            if (firstFile) {
+                console.log("[API_DIAG] Raw /library/root response (all)", {
+                    endpoint: `/library/root?category=all`,
+                    firstFile: {
+                        id: firstFile.id,
+                        title: firstFile.title,
+                        render_state: firstFile.render_state,
+                        file_render_state: firstFile.file_render_state,
+                        hasRenderState: !!firstFile.render_state,
+                        hasFileRenderState: !!firstFile.file_render_state,
+                    }
+                });
+            }
+        }
+        
         return (data.items || []).map(mapItemFromApi);
     }
 
@@ -154,6 +206,25 @@ export const getLibraryItems = async (
     );
 
     const data = await handleJson(res);
+    
+    // DIAGNOSTIC: Log raw API response for first file item
+    if (data.items && data.items.length > 0) {
+        const firstFile = data.items.find(item => !item.is_folder);
+        if (firstFile) {
+            console.log("[API_DIAG] Raw /library/root response (category)", {
+                endpoint: `/library/root?category=${encodeURIComponent(cat)}`,
+                firstFile: {
+                    id: firstFile.id,
+                    title: firstFile.title,
+                    render_state: firstFile.render_state,
+                    file_render_state: firstFile.file_render_state,
+                    hasRenderState: !!firstFile.render_state,
+                    hasFileRenderState: !!firstFile.file_render_state,
+                }
+            });
+        }
+    }
+    
     return (data.items || []).map(mapItemFromApi);
 };
 
