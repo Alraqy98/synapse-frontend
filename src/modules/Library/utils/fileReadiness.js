@@ -143,8 +143,21 @@ export const getFileProcessingStatus = (file) => {
     // Backend may return as render_state or file_render_state
     const renderState = file.render_state || file.file_render_state;
     
-    // If render_state doesn't exist, default to "Processing" (conservative)
+    // If render_state doesn't exist, log error and default to "Processing" (temporary)
+    // Backend MUST ALWAYS include render_state - this is a safety fallback only
     if (!renderState) {
+        if (file.id) {
+            console.error(
+                "[LIBRARY_UI] Missing render_state in API response",
+                {
+                    fileId: file.id,
+                    fileName: file.title,
+                    hasRenderState: !!file.render_state,
+                    hasFileRenderState: !!file.file_render_state,
+                    message: "Backend API must include render_state object for all file items. Showing 'Processing' as temporary fallback."
+                }
+            );
+        }
         return "Processing";
     }
 
