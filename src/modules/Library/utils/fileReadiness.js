@@ -120,3 +120,36 @@ export const areFilesReady = (files) => {
     return files.every(file => isFileReady(file));
 };
 
+/**
+ * Get file processing status for display indicator
+ * Returns "Ready" ONLY if both render_status and ocr_status are "completed"
+ * Otherwise returns "Processing"
+ * @param {object} file - File object
+ * @returns {string} "Ready" | "Processing"
+ */
+export const getFileProcessingStatus = (file) => {
+    // Folders are always "Ready"
+    if (!file || file.is_folder) {
+        return "Ready";
+    }
+
+    // Use file_render_state as single source of truth
+    const renderState = file.file_render_state;
+    
+    // If file_render_state doesn't exist, default to "Processing" (conservative)
+    if (!renderState) {
+        return "Processing";
+    }
+
+    // Show "Ready" ONLY if both status and ocr_status are "completed"
+    const renderStatus = renderState.status === "completed";
+    const ocrStatus = renderState.ocr_status === "completed";
+
+    if (renderStatus && ocrStatus) {
+        return "Ready";
+    }
+
+    // Otherwise show "Processing"
+    return "Processing";
+};
+

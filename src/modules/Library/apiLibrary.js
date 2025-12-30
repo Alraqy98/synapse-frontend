@@ -103,7 +103,9 @@ const mapItemFromApi = (item) => {
         mimetype: item.mime_type || item.mimetype || null,
         ingestion_status: item.ingestion_status || (isFolder ? null : "ready"), // Default to "ready" for backwards compatibility
         total_pages: item.total_pages || item.page_count || 0,
-        rendered_pages: item.rendered_pages || 0
+        rendered_pages: item.rendered_pages || 0,
+        // File render state (source of truth for processing indicator)
+        file_render_state: item.file_render_state || null
     };
 };
 
