@@ -1,18 +1,19 @@
 // src/components/SidebarItem.jsx
-import React from "react";
+import { NavLink } from "react-router-dom";
 
-export default function SidebarItem({ icon: Icon, label, onClick, isActive = false, className = "" }) {
+export default function SidebarItem({ icon: Icon, label, to, className = "" }) {
     return (
-        <div className={`group relative flex items-center ${className}`}>
-            <button
-                onClick={onClick}
-                className={`
-                    nav-item w-full flex items-center justify-center
-                    ${isActive ? "active" : ""}
-                `}
-            >
-                <Icon size={20} />
-            </button>
+        <NavLink
+            to={to}
+            className={({ isActive }) =>
+                `group relative flex items-center rounded-lg w-full ${className} ${
+                    isActive ? "bg-neutral-800" : ""
+                } hover:bg-neutral-800 transition`
+            }
+        >
+            <div className="p-3">
+                <Icon size={22} />
+            </div>
 
             <span
                 className="
@@ -21,15 +22,13 @@ export default function SidebarItem({ icon: Icon, label, onClick, isActive = fal
                     rounded-md bg-black px-3 py-1
                     text-sm text-white
                     opacity-0 group-hover:opacity-100
-                    transition-opacity duration-200
+                    transition
                     pointer-events-none
-                    z-50
-                    shadow-lg
                 "
             >
                 {label}
             </span>
-        </div>
+        </NavLink>
     );
 }
 

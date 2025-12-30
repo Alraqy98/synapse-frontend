@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import "./styles.css";
 import logo from "./assets/synapse-logo.png";
 
@@ -120,7 +120,6 @@ function FlashcardsModule() {
 const SynapseOS = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authScreen, setAuthScreen] = useState("landing");
-  const [module, setModule] = useState("tutor");
   const [theme, setTheme] = useState("dark");
   const [tempUserData, setTempUserData] = useState(null);
   const [profile, setProfile] = useState(null);
@@ -253,22 +252,6 @@ const SynapseOS = () => {
 
   // Sidebar
   const Sidebar = () => {
-    const handleNavigation = (moduleId) => {
-      const routes = {
-        library: "/library",
-        tutor: "/tutor",
-        flash: "/flashcards",
-        mcq: "/mcq",
-        summaries: "/summaries",
-        osce: "/osce",
-        oral: "/oral",
-        plan: "/planner",
-        stat: "/analytics",
-        settings: "/settings",
-      };
-      navigate(routes[moduleId] || "/tutor");
-    };
-
     return (
       <aside className="w-20 bg-void border-r border-white/5 flex flex-col items-center py-6 z-40 h-full fixed left-0 top-0">
         <div className="mb-8 flex items-center justify-center">
@@ -280,34 +263,19 @@ const SynapseOS = () => {
         </div>
 
         <nav className="flex flex-col gap-4 w-full px-2">
-          {[
-            { id: "library", icon: Folder, label: "Library" },
-            { id: "tutor", icon: Brain, label: "Tutor" },
-            { id: "flash", icon: Zap, label: "Flashcards" },
-            { id: "mcq", icon: CheckSquare, label: "MCQ" },
-            { id: "summaries", icon: BookOpen, label: "Summaries" },
-            { id: "osce", icon: Activity, label: "OSCE" },
-            { id: "oral", icon: Mic, label: "Oral Exam" },
-            { id: "plan", icon: Calendar, label: "Planner" },
-            { id: "stat", icon: BarChart2, label: "Analytics" },
-          ].map((item) => (
-            <SidebarItem
-              key={item.id}
-              icon={item.icon}
-              label={item.label}
-              onClick={() => handleNavigation(item.id)}
-              isActive={module === item.id}
-            />
-          ))}
+          <SidebarItem icon={Folder} label="Library" to="/library" />
+          <SidebarItem icon={Brain} label="Tutor" to="/tutor" />
+          <SidebarItem icon={Zap} label="Flashcards" to="/flashcards" />
+          <SidebarItem icon={CheckSquare} label="MCQ" to="/mcq" />
+          <SidebarItem icon={BookOpen} label="Summaries" to="/summaries" />
+          <SidebarItem icon={Activity} label="OSCE" to="/osce" />
+          <SidebarItem icon={Mic} label="Oral Exam" to="/oral" />
+          <SidebarItem icon={Calendar} label="Planner" to="/planner" />
+          <SidebarItem icon={BarChart2} label="Analytics" to="/analytics" />
         </nav>
 
         <div className="mt-auto">
-          <SidebarItem
-            icon={Settings}
-            label="Settings"
-            onClick={() => handleNavigation("settings")}
-            isActive={module === "settings"}
-          />
+          <SidebarItem icon={Settings} label="Settings" to="/settings" />
         </div>
       </aside>
     );
