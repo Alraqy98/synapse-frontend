@@ -122,13 +122,15 @@ export const areFilesReady = (files) => {
 
 /**
  * Get file processing status for display indicator
+ * Uses ONLY backend terminal states - no derived logic, counters, or flags
+ * 
  * Returns "Ready" ONLY if both status and ocr_status are "completed"
  * Otherwise returns "Processing"
  * 
  * This function is called on every render to ensure it reflects the latest
- * file_render_state from the backend. Do NOT cache or memoize this result.
+ * render_state from the backend. Do NOT cache or memoize this result.
  * 
- * @param {object} file - File object with file_render_state
+ * @param {object} file - File object with render_state
  * @returns {string} "Ready" | "Processing"
  */
 export const getFileProcessingStatus = (file) => {
@@ -137,19 +139,22 @@ export const getFileProcessingStatus = (file) => {
         return "Ready";
     }
 
-    // Use file_render_state as single source of truth (always read from latest file object)
-    const renderState = file.file_render_state;
+    // Use render_state as single source of truth (check both possible property names)
+    // Backend may return as render_state or file_render_state
+    const renderState = file.render_state || file.file_render_state;
     
-    // If file_render_state doesn't exist, default to "Processing" (conservative)
+    // If render_state doesn't exist, default to "Processing" (conservative)
     if (!renderState) {
         return "Processing";
     }
 
     // Show "Ready" ONLY if both status and ocr_status are "completed"
-    // Read directly from file_render_state - never cache or derive from other sources
+    // Read directly from render_state - never cache or derive from other sources
+    // Do NOT use rendered_pages, ocr_pages_completed, total_pages, or any counters
     const status = renderState.status;
     const ocr_status = renderState.ocr_status;
 
+    // Terminal state check: both must be "completed"
     if (status === "completed" && ocr_status === "completed") {
         return "Ready";
     }

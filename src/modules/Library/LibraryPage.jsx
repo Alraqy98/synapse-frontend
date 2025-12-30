@@ -72,6 +72,27 @@ const LibraryPage = () => {
         loadItems(activeFilter, currentFolder?.id || null);
     }, [activeFilter, currentFolder?.id]);
 
+    // Poll file list to refresh render_state after upload
+    useEffect(() => {
+        // Only poll if there are files that might be processing
+        const hasProcessingFiles = items.some(item => {
+            if (item.is_folder) return false;
+            const renderState = item.render_state || item.file_render_state;
+            if (!renderState) return true; // No render_state means might be processing
+            const isReady = renderState.status === "completed" && renderState.ocr_status === "completed";
+            return !isReady;
+        });
+
+        if (!hasProcessingFiles) return;
+
+        // Poll every 4 seconds to refresh render_state
+        const pollInterval = setInterval(() => {
+            loadItems(activeFilter, currentFolder?.id || null);
+        }, 4000);
+
+        return () => clearInterval(pollInterval);
+    }, [items, activeFilter, currentFolder?.id]);
+
     // ----------------------------------------------
     // FILTER CHANGE
     // ----------------------------------------------

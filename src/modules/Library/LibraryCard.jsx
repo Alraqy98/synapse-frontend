@@ -58,7 +58,8 @@ const LibraryCard = ({
         : "";
 
     // Get file processing status (Ready or Processing)
-    // Called on every render to ensure it reflects the latest file_render_state from backend
+    // Called on every render to ensure it reflects the latest render_state from backend
+    // Uses ONLY terminal states (status and ocr_status) - no derived logic or counters
     // Do NOT memoize this - it must be reactive to file object changes
     const processingStatus = getFileProcessingStatus(item);
 

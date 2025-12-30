@@ -104,8 +104,10 @@ const mapItemFromApi = (item) => {
         ingestion_status: item.ingestion_status || (isFolder ? null : "ready"), // Default to "ready" for backwards compatibility
         total_pages: item.total_pages || item.page_count || 0,
         rendered_pages: item.rendered_pages || 0,
-        // File render state (source of truth for processing indicator)
-        file_render_state: item.file_render_state || null
+        // Render state (source of truth for processing indicator - terminal states only)
+        // Backend may return as render_state or file_render_state
+        render_state: item.render_state || item.file_render_state || null,
+        file_render_state: item.file_render_state || item.render_state || null // Keep for backwards compatibility
     };
 };
 
