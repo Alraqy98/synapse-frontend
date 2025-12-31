@@ -26,7 +26,7 @@ const AnnouncementsPanel = () => {
                         <div className="text-sm font-semibold text-white">
                             {item.title}
                         </div>
-                        <div className="text-sm text-muted leading-relaxed">
+                        <div className="text-sm text-muted leading-relaxed whitespace-pre-line">
                             {item.body}
                         </div>
                         <div className="text-xs text-muted">{item.date}</div>
