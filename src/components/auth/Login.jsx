@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Mail, Lock, ArrowRight, Hexagon } from 'lucide-react';
+import { Mail, Lock, ArrowRight } from 'lucide-react';
 import AuthInput from './AuthInput';
 import { supabase } from '../../lib/supabaseClient';
+import AppLogo from '../AppLogo';
 
 const Login = ({ onSuccess, onSwitchToSignup }) => {
     const [email, setEmail] = useState('');
@@ -53,8 +54,8 @@ const Login = ({ onSuccess, onSwitchToSignup }) => {
                 <div className="panel p-8 backdrop-blur-xl bg-[#191D22]/80 border border-white/10 rounded-3xl">
 
                     <div className="text-center mb-10">
-                        <div className="inline-flex w-12 h-12 items-center justify-center rounded-xl bg-teal/20 border border-teal/20 text-teal mb-6">
-                            <Hexagon size={24} />
+                        <div className="flex items-center justify-center mb-6">
+                            <AppLogo size={32} />
                         </div>
 
                         <h1 className="text-2xl font-bold text-white mb-2">Welcome Back</h1>

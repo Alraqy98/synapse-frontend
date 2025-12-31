@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import LegalModal from "../LegalModal";
+import AppLogo from "../AppLogo";
 
 const OTP_LENGTH = 6;
 const RESEND_DELAY = 30; // seconds
@@ -116,6 +117,9 @@ const VerifyOtp = ({ email, password, onVerified }) => {
                 onSubmit={handleVerify}
                 className="panel w-full max-w-md p-8 text-center animate-fade-in-up"
             >
+                <div className="flex items-center justify-center mb-6">
+                    <AppLogo size={32} />
+                </div>
                 <h1 className="text-2xl font-bold mb-2">Verify your email</h1>
                 <p className="text-sm text-muted mb-6">
                     Enter the 6-digit code sent to <br />

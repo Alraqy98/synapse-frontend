@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { Mail, Lock, ArrowRight, Hexagon, User } from "lucide-react";
+import { Mail, Lock, ArrowRight, User } from "lucide-react";
 import AuthInput from "./AuthInput";
 import VerifyOtp from "./VerifyOtp";
 import LegalModal from "../LegalModal";
+import AppLogo from "../AppLogo";
 
 const SignUp = ({ onSwitchToLogin }) => {
     const [fullName, setFullName] = useState("");
@@ -100,12 +101,8 @@ const SignUp = ({ onSwitchToLogin }) => {
           border border-white/10 shadow-2xl rounded-3xl"
                 >
                     <div className="text-center mb-10">
-                        <div
-                            className="inline-flex items-center justify-center w-12 h-12 rounded-xl
-              bg-gradient-to-br from-teal/20 to-teal-neon/5
-              border border-teal/20 text-teal mb-6"
-                        >
-                            <Hexagon size={24} />
+                        <div className="flex items-center justify-center mb-6">
+                            <AppLogo size={32} />
                         </div>
                         <h1 className="text-2xl font-bold text-white mb-2 tracking-tight">
                             Create Your Account
