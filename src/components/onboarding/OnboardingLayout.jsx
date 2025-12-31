@@ -1,5 +1,5 @@
 import React from 'react';
-import { Hexagon } from 'lucide-react';
+import logo from '../../assets/synapse-logo.png';
 
 const OnboardingLayout = ({ currentStep, totalSteps, children, title, subtitle }) => {
     const progress = ((currentStep + 1) / totalSteps) * 100;
@@ -13,9 +13,11 @@ const OnboardingLayout = ({ currentStep, totalSteps, children, title, subtitle }
             <div className="w-full max-w-3xl px-6 py-8 z-10">
                 <div className="flex justify-between items-center mb-8">
                     <div className="flex items-center gap-2 text-xl font-bold tracking-tight">
-                        <div className="w-8 h-8 rounded-lg bg-teal flex items-center justify-center text-black">
-                            <Hexagon size={18} fill="currentColor" />
-                        </div>
+                        <img
+                            src={logo}
+                            alt="Synapse Logo"
+                            className="h-8 w-auto drop-shadow-[0_0_12px_rgba(0,200,180,0.6)]"
+                        />
                         Synapse
                     </div>
                     <div className="text-sm text-muted font-medium">
