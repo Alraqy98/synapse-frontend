@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Mail, Lock, ArrowRight, Hexagon, User } from "lucide-react";
 import AuthInput from "./AuthInput";
 import VerifyOtp from "./VerifyOtp";
+import LegalModal from "../LegalModal";
 
 const SignUp = ({ onSwitchToLogin }) => {
     const [fullName, setFullName] = useState("");
@@ -10,6 +11,7 @@ const SignUp = ({ onSwitchToLogin }) => {
     const [confirmPassword, setConfirmPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const [showOtp, setShowOtp] = useState(false);
+    const [legalModal, setLegalModal] = useState({ open: false, type: null });
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -173,6 +175,27 @@ const SignUp = ({ onSwitchToLogin }) => {
                         </button>
                     </form>
 
+                    {/* Legal acceptance text */}
+                    <p className="text-xs text-muted text-center mt-4">
+                        By signing up, you agree to our{" "}
+                        <button
+                            type="button"
+                            onClick={() => setLegalModal({ open: true, type: "terms" })}
+                            className="text-teal hover:text-teal-neon hover:underline transition-colors"
+                        >
+                            Terms
+                        </button>
+                        {" "}and{" "}
+                        <button
+                            type="button"
+                            onClick={() => setLegalModal({ open: true, type: "privacy" })}
+                            className="text-teal hover:text-teal-neon hover:underline transition-colors"
+                        >
+                            Privacy Policy
+                        </button>
+                        .
+                    </p>
+
                     <div className="mt-8 pt-6 border-t border-white/5 text-center">
                         <p className="text-sm text-muted">
                             Already have an account?{" "}
@@ -187,6 +210,13 @@ const SignUp = ({ onSwitchToLogin }) => {
                     </div>
                 </div>
             </div>
+
+            {/* Legal Modal */}
+            <LegalModal
+                open={legalModal.open}
+                type={legalModal.type}
+                onClose={() => setLegalModal({ open: false, type: null })}
+            />
         </div>
     );
 };

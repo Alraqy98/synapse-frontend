@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import LegalModal from "../LegalModal";
 
 const OTP_LENGTH = 6;
 const RESEND_DELAY = 30; // seconds
@@ -13,6 +14,7 @@ const VerifyOtp = ({ email, password, onVerified }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [timer, setTimer] = useState(RESEND_DELAY);
+    const [legalModal, setLegalModal] = useState({ open: false, type: null });
 
     const inputsRef = useRef([]);
 
@@ -154,6 +156,27 @@ const VerifyOtp = ({ email, password, onVerified }) => {
                     {loading ? "Verifying..." : "Confirm & Continue"}
                 </button>
 
+                {/* Legal acceptance text */}
+                <p className="text-xs text-muted text-center mt-4">
+                    By signing up, you agree to our{" "}
+                    <button
+                        type="button"
+                        onClick={() => setLegalModal({ open: true, type: "terms" })}
+                        className="text-teal hover:text-teal-neon hover:underline transition-colors"
+                    >
+                        Terms
+                    </button>
+                    {" "}and{" "}
+                    <button
+                        type="button"
+                        onClick={() => setLegalModal({ open: true, type: "privacy" })}
+                        className="text-teal hover:text-teal-neon hover:underline transition-colors"
+                    >
+                        Privacy Policy
+                    </button>
+                    .
+                </p>
+
                 <div className="mt-6 text-sm text-muted">
                     {timer > 0 ? (
                         <span>Resend code in {timer}s</span>
@@ -172,6 +195,13 @@ const VerifyOtp = ({ email, password, onVerified }) => {
                     🔒 Code expires in 5 minutes
                 </p>
             </form>
+
+            {/* Legal Modal */}
+            <LegalModal
+                open={legalModal.open}
+                type={legalModal.type}
+                onClose={() => setLegalModal({ open: false, type: null })}
+            />
         </div>
     );
 };
