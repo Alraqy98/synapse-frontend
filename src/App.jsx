@@ -176,11 +176,45 @@ const SynapseOS = () => {
       }
 
       const data = await res.json();
-      const notificationsList = data.notifications || data || [];
-      setNotifications(notificationsList);
+      
+      // DIAGNOSTIC: Log raw API response
+      console.log("RAW NOTIFICATIONS RESPONSE", {
+        fullResponse: data,
+        isArray: Array.isArray(data),
+        hasNotifications: !!data.notifications,
+        notificationsIsArray: Array.isArray(data.notifications),
+        dataKeys: Object.keys(data || {}),
+        dataType: typeof data,
+      });
 
-      // Debug check
-      console.log("NOTIFICATIONS FROM API", notificationsList);
+      const notificationsList = data.notifications || data || [];
+      
+      // DIAGNOSTIC: Log processed list
+      console.log("NOTIFICATIONS FROM API (processed)", {
+        count: notificationsList.length,
+        items: notificationsList,
+        types: notificationsList.map(n => n.type || n.notification_type || 'unknown'),
+      });
+      
+      // Normalize snake_case backend fields to camelCase for frontend
+      const normalizedNotifications = notificationsList.map(n => ({
+        id: n.id,
+        type: n.type,
+        title: n.title,
+        description: n.description,
+        read: n.read,
+
+        // normalize timestamps
+        createdAt: n.created_at ? new Date(n.created_at).toISOString() : null,
+
+        // normalize relations
+        fileId: n.file_id ?? null,
+        summaryId: n.summary_id ?? null,
+        mcqDeckId: n.mcq_deck_id ?? null,
+        flashcardDeckId: n.flashcard_deck_id ?? null,
+      }));
+      
+      setNotifications(normalizedNotifications);
     } catch (err) {
       console.error("Error fetching notifications:", err);
       setNotifications([]);
@@ -453,22 +487,36 @@ const SynapseOS = () => {
                         No notifications yet
                       </div>
                     ) : (
-                      notifications.map((n) => (
-                        <div
-                          key={n.id}
-                          className={`p-3 text-sm hover:bg-white/5 transition border-b border-white/5 last:border-b-0 ${
-                            !n.read ? "bg-white/2" : ""
-                          }`}
-                        >
-                          <div className="font-medium text-white">{n.title}</div>
-                          <div className="text-muted text-xs mt-1">
-                            {n.description || n.body || ""}
+                      notifications.map((n) => {
+                        // DIAGNOSTIC: Log each notification being rendered
+                        console.log("RENDERING NOTIFICATION", {
+                          id: n.id,
+                          type: n.type || n.notification_type || 'unknown',
+                          title: n.title || n.message || 'no title',
+                          hasTitle: !!n.title,
+                          hasMessage: !!n.message,
+                          fullNotification: n,
+                        });
+                        
+                        return (
+                          <div
+                            key={n.id}
+                            className={`p-3 text-sm hover:bg-white/5 transition border-b border-white/5 last:border-b-0 ${
+                              !n.read ? "bg-white/2" : ""
+                            }`}
+                          >
+                            <div className="font-medium text-white">
+                              {n.title || n.message || "Notification"}
+                            </div>
+                            <div className="text-muted text-xs mt-1">
+                              {n.description || n.body || n.content || ""}
+                            </div>
+                            <div className="text-muted text-[10px] mt-1">
+                              {formatRelativeTime(n.createdAt || n.created_at || n.created_at)}
+                            </div>
                           </div>
-                          <div className="text-muted text-[10px] mt-1">
-                            {formatRelativeTime(n.createdAt || n.created_at)}
-                          </div>
-                        </div>
-                      ))
+                        );
+                      })
                     )}
                   </div>
                 </div>
