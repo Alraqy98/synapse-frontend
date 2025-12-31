@@ -465,7 +465,7 @@ const SynapseOS = () => {
 
           {/* LEFT: Logo + Title */}
           <div className="text-xs uppercase tracking-wide text-muted">
-            Synapse OS
+            Synapse
             <span className="ml-2 text-teal border border-teal px-1 rounded">
               Beta
             </span>
