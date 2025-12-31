@@ -20,6 +20,9 @@ const LandingPage = ({ onLogin, onSignup }) => {
                     <span className="text-xl font-bold tracking-tight">
                         Synapse
                     </span>
+                    <span className="text-xs text-muted font-medium px-2 py-0.5 rounded border border-white/10 bg-white/5">
+                        Beta
+                    </span>
                 </div>
                 <div className="flex gap-4">
                     <button
@@ -46,6 +49,9 @@ const LandingPage = ({ onLogin, onSignup }) => {
             </main>
 
             <footer className="py-12 text-center text-muted text-sm border-t border-white/5 bg-[#0D0F12]">
+                <p className="text-xs text-muted/80 mb-2">
+                    Synapse is currently in beta. Best experience on desktop. Some features may change.
+                </p>
                 <p>&copy; {new Date().getFullYear()} Synapse OS. All rights reserved.</p>
             </footer>
         </div>
