@@ -51,7 +51,32 @@ const Placeholder = ({ label }) => (
 );
 
 const OSCEModule = () => <Placeholder label="OSCE" />;
-const OralExamModule = () => <Placeholder label="Oral Exam Prep" />;
+const OralExamModule = () => (
+  <div className="h-full flex-center">
+    <div className="max-w-2xl mx-auto p-8 text-center space-y-6">
+      <div className="space-y-2">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-medium text-teal mb-4">
+          In Development
+        </div>
+        <h1 className="text-3xl font-bold text-white">
+          Oral Exam Mode — In Development
+        </h1>
+      </div>
+      <div className="space-y-4 text-muted">
+        <p className="text-lg leading-relaxed">
+          We're actively designing Oral Exam Mode to reflect real examiner behavior —
+          stepwise questioning, follow-ups, and pressure-based evaluation.
+        </p>
+        <p className="text-sm">
+          This mode is being tested internally and refined based on real exam patterns.
+        </p>
+        <p className="text-xs text-muted/80">
+          It will be released once accuracy and realism meet our standards.
+        </p>
+      </div>
+    </div>
+  </div>
+);
 
 const SummariesModule = () => {
   return <SummariesTab />;
