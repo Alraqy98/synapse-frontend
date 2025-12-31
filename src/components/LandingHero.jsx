@@ -16,8 +16,8 @@ const LandingHero = () => {
             </h1>
 
             <p className="text-lg md:text-xl text-gray-400 max-w-2xl font-light leading-relaxed mb-12">
-                Your AI Medical Tutor — built for medical students who want mastery.
-                <br className="hidden md:block" /> Stop memorizing. Start understanding.
+                An AI study system that works directly with your medical lectures.
+                <br className="hidden md:block" /> Understand concepts, generate questions, and revise efficiently.
             </p>
         </section>
     );
