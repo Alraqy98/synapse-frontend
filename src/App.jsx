@@ -360,7 +360,10 @@ const SynapseOS = () => {
 
   // Close notifications dropdown when clicking outside
   useEffect(() => {
+    if (!notificationsOpen) return;
+
     const handleClickOutside = (event) => {
+      // Check if click is outside the dropdown ref (which includes button and dropdown)
       if (
         notificationsRef.current &&
         !notificationsRef.current.contains(event.target)
@@ -369,9 +372,8 @@ const SynapseOS = () => {
       }
     };
 
-    if (notificationsOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
+    // Use mousedown to catch clicks before they bubble
+    document.addEventListener("mousedown", handleClickOutside);
 
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
