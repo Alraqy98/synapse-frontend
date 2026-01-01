@@ -79,8 +79,13 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
     const relatedMCQRef = useRef(null);
     const relatedFlashcardRef = useRef(null);
 
-    // Chat
-    const [fileSessionId, setFileSessionId] = useState(null);
+    // Chat - Initialize sessionId ONCE from localStorage (single source of truth)
+    const [fileSessionId, setFileSessionId] = useState(() => {
+        if (!file?.id) return null;
+        const key = `synapse_file_session_${file.id}`;
+        const existing = localStorage.getItem(key);
+        return existing || null;
+    });
     const [chatMessages, setChatMessages] = useState([]);
     const [chatInput, setChatInput] = useState("");
     const [isChatTyping, setIsChatTyping] = useState(false);
@@ -244,24 +249,33 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
     };
 
     // =====================================================================
-    // INIT SESSION (ONCE ON MOUNT ONLY - NO RE-FETCHING)
+    // SYNC SESSION ID WITH LOCALSTORAGE
+    // =====================================================================
+    useEffect(() => {
+        if (!file?.id) return;
+
+        const key = `synapse_file_session_${file.id}`;
+        const stored = localStorage.getItem(key);
+
+        // Sync state with localStorage (single source of truth)
+        if (stored && stored !== fileSessionId) {
+            setFileSessionId(stored);
+        } else if (!stored && fileSessionId) {
+            // If localStorage is empty but state has value, persist it
+            localStorage.setItem(key, fileSessionId);
+        }
+    }, [file.id, fileSessionId]);
+
+    // =====================================================================
+    // LOAD MESSAGES ONCE (cold start only)
     // =====================================================================
     useEffect(() => {
         // Only initialize once per file.id - never re-fetch messages
-        if (messagesInitializedRef.current) {
+        if (messagesInitializedRef.current || !fileSessionId) {
             return;
         }
 
-        const initSession = async () => {
-            const key = `synapse_file_session_${file.id}`;
-            const existingSessionId = localStorage.getItem(key);
-
-            if (!existingSessionId) {
-                setFileSessionId(null);
-                setChatMessages([]);
-                messagesInitializedRef.current = true;
-                return;
-            }
+        const loadHistory = async () => {
 
             // 🔥 Validate session exists in DB
             try {
@@ -276,7 +290,7 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
                 }
 
                 const resp = await fetch(
-                    `${API_URL}/ai/tutor/sessions/${existingSessionId}`,
+                    `${API_URL}/ai/tutor/sessions/${fileSessionId}`,
                     {
                         headers: {
                             Authorization: `Bearer ${token}`,
@@ -287,7 +301,8 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
                 const data = await resp.json();
 
                 if (!data.success || !data.session) {
-                    console.warn("⚠️ Removing stale session:", existingSessionId);
+                    console.warn("⚠️ Removing stale session:", fileSessionId);
+                    const key = `synapse_file_session_${file.id}`;
                     localStorage.removeItem(key);
                     setFileSessionId(null);
                     setChatMessages([]);
@@ -296,6 +311,7 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
                 }
             } catch (err) {
                 console.warn("⚠️ Session validation failed, clearing:", err);
+                const key = `synapse_file_session_${file.id}`;
                 localStorage.removeItem(key);
                 setFileSessionId(null);
                 setChatMessages([]);
@@ -311,7 +327,7 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
                     console.log("[TUTOR_GET_BLOCKED] Skipping GET - live messages exist in FileViewer", { 
                         messageCount: chatMessages.length,
                         fileId: file.id,
-                        sessionId: existingSessionId 
+                        sessionId: fileSessionId 
                     });
                     messagesInitializedRef.current = true;
                     return;
@@ -321,12 +337,11 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
                 console.trace("[TUTOR_GET_TRIGGERED] FileViewer cold start - no live messages");
 
                 setIsChatLoading(true);
-                setFileSessionId(existingSessionId);
                 
                 // Diagnostic log: Confirm sessionId for GET request
-                console.log("[TUTOR_FRONTEND] GET sessionId:", existingSessionId, "for file:", file.id);
+                console.log("[TUTOR_SESSION][GET]", fileSessionId, "for file:", file.id);
                 
-                const history = await getSessionMessages(existingSessionId);
+                const history = await getSessionMessages(fileSessionId);
                 
                 // Non-destructive rehydration: Only update if we have valid messages
                 setChatMessages(prev => {
@@ -366,8 +381,8 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
             }
         };
 
-        initSession();
-    }, [file.id]);
+        loadHistory();
+    }, [file.id, fileSessionId]);
 
     // Reset initialization flag when file.id changes
     useEffect(() => {
@@ -567,23 +582,23 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
         setIsChatTyping(true);
 
         try {
+            // Use fileSessionId from state (single source of truth)
+            // If null, create new session (only happens on first message)
             let sessionId = fileSessionId;
 
-            // Create session only on first user message
             if (!sessionId) {
                 const session = await createNewSession(`File: ${file.title}`);
                 sessionId = session.id;
                 setFileSessionId(sessionId);
 
-                localStorage.setItem(
-                    `synapse_file_session_${file.id}`,
-                    String(sessionId)
-                );
-                console.log("[TUTOR_FRONTEND] Created new sessionId:", sessionId, "for file:", file.id);
-            } else {
-                // Diagnostic log: Confirm sessionId for POST request
-                console.log("[TUTOR_FRONTEND] POST sessionId:", sessionId, "for file:", file.id);
+                // Persist to localStorage immediately
+                const key = `synapse_file_session_${file.id}`;
+                localStorage.setItem(key, String(sessionId));
+                console.log("[TUTOR_SESSION][CREATED]", sessionId, "for file:", file.id);
             }
+
+            // Diagnostic log: Confirm sessionId for POST request
+            console.log("[TUTOR_SESSION][POST]", sessionId, "for file:", file.id);
 
             // Verification: Confirm fileId and page match currently displayed state
             const normalizedFileId = String(file.id);

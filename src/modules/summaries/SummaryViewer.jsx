@@ -36,7 +36,13 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
     const [importCode, setImportCode] = useState(null);
 
     // Chat state
-    const [sessionId, setSessionId] = useState(null);
+    // Initialize sessionId ONCE from localStorage (single source of truth)
+    const [sessionId, setSessionId] = useState(() => {
+        if (!summary?.id) return null;
+        const key = `synapse_summary_session_${summary.id}`;
+        const existing = localStorage.getItem(key);
+        return existing || null;
+    });
     const [messages, setMessages] = useState([]);
     const [chatInput, setChatInput] = useState("");
     const [isTyping, setIsTyping] = useState(false);
@@ -82,42 +88,68 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
         })();
     }, [summaryId]);
 
-    // Initialize chat session
+    // Sync sessionId with localStorage
+    useEffect(() => {
+        if (!summary?.id) return;
+
+        const key = `synapse_summary_session_${summary.id}`;
+        const stored = localStorage.getItem(key);
+
+        // Sync state with localStorage (single source of truth)
+        if (stored && stored !== sessionId) {
+            setSessionId(stored);
+        } else if (!stored && sessionId) {
+            // If localStorage is empty but state has value, persist it
+            localStorage.setItem(key, sessionId);
+        }
+    }, [summary.id, sessionId]);
+
+    // Load messages ONCE (cold start only)
     // HARD RULE: GET only on cold start (no live messages)
     useEffect(() => {
-        if (!summary || messagesInitializedRef.current) return;
+        if (!summary || !sessionId || messagesInitializedRef.current) return;
 
-        (async () => {
-            const stored = localStorage.getItem(
-                `synapse_summary_session_${summary.id}`
-            );
-            if (stored) {
-                setSessionId(stored);
-                
-                // Gate: Only run GET if no live messages exist
-                if (messages.length > 0) {
-                    console.log("[TUTOR_GET_BLOCKED] Skipping GET - live messages exist in SummaryViewer", { 
-                        messageCount: messages.length,
-                        summaryId: summary.id,
-                        sessionId: stored 
-                    });
-                    messagesInitializedRef.current = true;
-                    return;
-                }
-
-                // Trace: Identify what triggered this GET (should only be cold start)
-                console.trace("[TUTOR_GET_TRIGGERED] SummaryViewer cold start - no live messages");
-
-                try {
-                    const msgs = await getSessionMessages(stored);
-                    setMessages(msgs || []);
-                } catch (err) {
-                    console.error("[TUTOR_FRONTEND] Failed to load messages:", err);
-                }
+        const loadHistory = async () => {
+            // Gate: Only run GET if no live messages exist
+            if (messages.length > 0) {
+                console.log("[TUTOR_GET_BLOCKED] Skipping GET - live messages exist in SummaryViewer", { 
+                    messageCount: messages.length,
+                    summaryId: summary.id,
+                    sessionId: sessionId 
+                });
+                messagesInitializedRef.current = true;
+                return;
             }
+
+            // Trace: Identify what triggered this GET (should only be cold start)
+            console.trace("[TUTOR_GET_TRIGGERED] SummaryViewer cold start - no live messages");
+
+            try {
+                console.log("[TUTOR_SESSION][GET]", sessionId, "for summary:", summary.id);
+                const msgs = await getSessionMessages(sessionId);
+                
+                // Non-destructive rehydration
+                setMessages(prev => {
+                    const fetchedMessages = msgs && Array.isArray(msgs) && msgs.length > 0
+                        ? msgs
+                        : null;
+                    
+                    if (fetchedMessages) {
+                        console.log("[TUTOR_FRONTEND] Rehydrated messages from GET in SummaryViewer", { count: fetchedMessages.length, summaryId: summary.id });
+                        return fetchedMessages;
+                    }
+                    
+                    return prev || [];
+                });
+            } catch (err) {
+                console.error("[TUTOR_FRONTEND] Failed to load messages:", err);
+            }
+            
             messagesInitializedRef.current = true;
-        })();
-    }, [summary]); // Only depends on summary - messages guard prevents re-fetch
+        };
+
+        loadHistory();
+    }, [summary, sessionId]); // Only depends on summary and sessionId - messages guard prevents re-fetch
 
     // Scroll to bottom on new messages
     useEffect(() => {
@@ -231,6 +263,8 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
             setIsTyping(true);
 
             try {
+                // Use sessionId from state (single source of truth)
+                // If null, create new session (only happens on first message)
                 let currentSessionId = sessionId;
 
                 if (!currentSessionId) {
@@ -240,11 +274,14 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                     currentSessionId = session.id;
                     setSessionId(currentSessionId);
 
-                    localStorage.setItem(
-                        `synapse_summary_session_${summary.id}`,
-                        String(currentSessionId)
-                    );
+                    // Persist to localStorage immediately
+                    const key = `synapse_summary_session_${summary.id}`;
+                    localStorage.setItem(key, String(currentSessionId));
+                    console.log("[TUTOR_SESSION][CREATED]", currentSessionId, "for summary:", summary.id);
                 }
+
+                // Diagnostic log: Confirm sessionId for POST request
+                console.log("[TUTOR_SESSION][POST]", currentSessionId, "for summary:", summary.id);
 
                 // Find the section containing selected text for context
                 let sectionContext = null;
