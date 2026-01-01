@@ -286,30 +286,35 @@ const SynapseOS = () => {
     // Close dropdown
     setNotificationsOpen(false);
 
-    // Priority: fileId always takes precedence (file view is the central context)
-    // Navigate to file view if fileId is present
-    if (notification.fileId) {
-      console.log("[Notification] Navigating to file view", `/library/${notification.fileId}`);
-      navigate(`/library/${notification.fileId}`);
+    // Priority: Specific generated objects take precedence over file view
+    // Deep-link to the exact generated object, not just the section
+    
+    // 1. Summary-specific notification → deep-link to summary
+    if (notification.summaryId) {
+      console.log("[Notification] Navigating to summary", `/summaries/${notification.summaryId}`);
+      navigate(`/summaries/${notification.summaryId}`);
+      return;
+    }
+    
+    // 2. MCQ-specific notification → deep-link to MCQ deck
+    if (notification.mcqDeckId) {
+      console.log("[Notification] Navigating to MCQ deck", `/mcq/${notification.mcqDeckId}`);
+      navigate(`/mcq/${notification.mcqDeckId}`);
+      return;
+    }
+    
+    // 3. Flashcard-specific notification → deep-link to flashcard deck
+    if (notification.flashcardDeckId) {
+      console.log("[Notification] Navigating to flashcard deck", `/flashcards/${notification.flashcardDeckId}`);
+      navigate(`/flashcards/${notification.flashcardDeckId}`);
       return;
     }
 
-    // Fallback: Navigate to module pages if no fileId
-    if (notification.summaryId) {
-      console.log("[Notification] Navigating to summaries page");
-      navigate("/summaries");
-      return;
-    }
-    
-    if (notification.mcqDeckId) {
-      console.log("[Notification] Navigating to MCQ page");
-      navigate("/mcq");
-      return;
-    }
-    
-    if (notification.flashcardDeckId) {
-      console.log("[Notification] Navigating to flashcards page");
-      navigate("/flashcards");
+    // 4. Fallback: Navigate to file view if no specific object exists
+    // This handles render/OCR notifications and other file-level events
+    if (notification.fileId) {
+      console.log("[Notification] Navigating to file view", `/library/${notification.fileId}`);
+      navigate(`/library/${notification.fileId}`);
       return;
     }
 
