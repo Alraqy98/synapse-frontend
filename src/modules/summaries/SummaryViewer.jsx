@@ -101,7 +101,87 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
             // If localStorage is empty but state has value, persist it
             localStorage.setItem(key, sessionId);
         }
-    }, [summary.id, sessionId]);
+    }, [summary?.id, sessionId]);
+    
+    // HARD RENDER GUARD - Must be before ANY summary property access in the main return
+    // This prevents crashes when summary is null during initial render or after errors
+    if (!summaryId) {
+        return (
+            <div className="flex items-center justify-center h-full">
+                <div className="text-muted">No summary selected</div>
+            </div>
+        );
+    }
+    
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-full">
+                <div className="text-muted">Loading summary…</div>
+            </div>
+        );
+    }
+    
+    if (error) {
+        return (
+            <div className="flex flex-col items-center justify-center h-full space-y-4 p-8">
+                <div className="text-red-400">{error}</div>
+                <button
+                    className="btn btn-secondary"
+                    onClick={() => {
+                        setError(null);
+                        if (summaryId) {
+                            setLoading(true);
+                            apiSummaries.getSummary(summaryId)
+                                .then((data) => {
+                                    if (!data) {
+                                        setError("Summary data is missing");
+                                        return;
+                                    }
+                                    if (!data.title) {
+                                        setError("Summary is missing required field: title");
+                                        return;
+                                    }
+                                    setSummary(data);
+                                    setRenameValue(data.title);
+                                    setError(null);
+                                })
+                                .catch((err) => {
+                                    console.error("Failed to load summary:", err);
+                                    setError("Failed to load summary");
+                                })
+                                .finally(() => setLoading(false));
+                        }
+                    }}
+                >
+                    Retry
+                </button>
+                {goBack && (
+                    <button
+                        className="btn btn-primary"
+                        onClick={goBack}
+                    >
+                        Go Back
+                    </button>
+                )}
+            </div>
+        );
+    }
+    
+    if (!summary) {
+        return (
+            <div className="flex items-center justify-center h-full">
+                <div className="text-muted">No summary data available</div>
+                {goBack && (
+                    <button
+                        className="btn btn-primary ml-4"
+                        onClick={goBack}
+                    >
+                        Go Back
+                    </button>
+                )}
+            </div>
+        );
+    }
 
     // Load messages ONCE (cold start only)
     // HARD RULE: GET only on cold start (no live messages)
@@ -1067,7 +1147,7 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                                         onClick={() => {
                                             setShowMenu(false);
                                             if (confirm("Delete this summary? This action cannot be undone.")) {
-                                                onDelete && onDelete(summary.id);
+                                                onDelete && summary?.id && onDelete(summary.id);
                                                 goBack();
                                             }
                                         }}
@@ -1188,7 +1268,7 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                             className="w-full px-4 py-2 rounded-lg bg-black/40 border border-white/10 text-white mb-6"
                             onKeyDown={(e) => {
                                 if (e.key === "Enter") {
-                                    if (renameValue.trim() && onRename) {
+                                    if (renameValue.trim() && onRename && summary?.id) {
                                         onRename(summary.id, renameValue.trim());
                                         setSummary({ ...summary, title: renameValue.trim() });
                                         setShowRename(false);
@@ -1209,7 +1289,7 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                             <button
                                 className="btn btn-primary"
                                 onClick={() => {
-                                    if (renameValue.trim() && onRename) {
+                                    if (renameValue.trim() && onRename && summary?.id) {
                                         onRename(summary.id, renameValue.trim());
                                         setSummary({ ...summary, title: renameValue.trim() });
                                         setShowRename(false);
