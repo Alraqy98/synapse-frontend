@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import "./styles.css";
 import logo from "./assets/synapse-logo.png";
 
@@ -144,6 +144,7 @@ function FlashcardsModule() {
 // MAIN APP
 // ===================================================================
 const SynapseOS = () => {
+  const navigate = useNavigate();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authScreen, setAuthScreen] = useState("landing");
   const [tempUserData, setTempUserData] = useState(null);
@@ -221,7 +222,7 @@ const SynapseOS = () => {
     }
   };
 
-  // Clear all notifications handler - marks all as read in Supabase and refetches
+  // Clear all notifications handler - deletes all notifications from Supabase and clears UI
   const handleClearAll = async () => {
     try {
       const { data: userData } = await supabase.auth.getUser();
@@ -229,23 +230,51 @@ const SynapseOS = () => {
 
       if (!user) return;
 
-      // Mark all as read in Supabase
+      // Delete all notifications for user from Supabase
       const { error } = await supabase
         .from("notifications")
-        .update({ read: true })
-        .eq("user_id", user.id)
-        .eq("read", false);
+        .delete()
+        .eq("user_id", user.id);
 
       if (error) {
         console.error("Error clearing notifications:", error);
+        return;
       }
 
-      // Refetch notifications from Supabase
-      await fetchNotifications();
+      // Immediately clear UI state
+      setNotifications([]);
     } catch (err) {
       console.error("Error clearing notifications:", err);
-      // Still refetch to sync state
-      await fetchNotifications();
+      // Still clear UI state on error
+      setNotifications([]);
+    }
+  };
+
+  // Handle notification click - navigates to related content for success notifications
+  const handleNotificationClick = (notification) => {
+    // Only make success/completion notifications clickable
+    const isSuccessNotification = 
+      notification.type === "summary_completed" ||
+      notification.type === "mcq_completed" ||
+      notification.type === "flashcard_completed" ||
+      (notification.type && notification.type.includes("completed"));
+
+    if (!isSuccessNotification) return;
+
+    // Close dropdown
+    setNotificationsOpen(false);
+
+    // Navigate based on notification type and available IDs
+    if (notification.fileId) {
+      navigate(`/library/${notification.fileId}`);
+    } else if (notification.summaryId) {
+      navigate("/summaries");
+      // Note: SummariesTab uses internal state, so we navigate to the page
+      // The component would need additional logic to auto-select the summary
+    } else if (notification.mcqDeckId) {
+      navigate("/mcq");
+    } else if (notification.flashcardDeckId) {
+      navigate("/flashcards");
     }
   };
 
@@ -494,21 +523,23 @@ const SynapseOS = () => {
                       </div>
                     ) : (
                       notifications.map((n) => {
-                        // DIAGNOSTIC: Log each notification being rendered
-                        console.log("RENDERING NOTIFICATION", {
-                          id: n.id,
-                          type: n.type || n.notification_type || 'unknown',
-                          title: n.title || n.message || 'no title',
-                          hasTitle: !!n.title,
-                          hasMessage: !!n.message,
-                          fullNotification: n,
-                        });
+                        // Determine if notification is clickable (success/completion type)
+                        const isClickable = 
+                          n.type === "summary_completed" ||
+                          n.type === "mcq_completed" ||
+                          n.type === "flashcard_completed" ||
+                          (n.type && n.type.includes("completed"));
                         
                         return (
                           <div
                             key={n.id}
-                            className={`p-3 text-sm hover:bg-white/5 transition border-b border-white/5 last:border-b-0 ${
+                            onClick={() => handleNotificationClick(n)}
+                            className={`p-3 text-sm transition border-b border-white/5 last:border-b-0 ${
                               !n.read ? "bg-white/2" : ""
+                            } ${
+                              isClickable 
+                                ? "hover:bg-white/10 cursor-pointer" 
+                                : "hover:bg-white/5 cursor-default"
                             }`}
                           >
                             <div className="font-medium text-white">
