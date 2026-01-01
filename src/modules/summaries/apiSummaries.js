@@ -111,6 +111,26 @@ export const deleteSummary = async (summaryId) => {
     await api.delete(`/ai/summaries/${summaryId}`);
 };
 
+/**
+ * Import a summary by code
+ * POST /ai/summaries/import
+ * Body: { code: "SYN-XXXXXX" }
+ * Returns: { success: true, summary: {...} } or { success: false, error: "..." }
+ */
+export const importSummary = async (code) => {
+    if (!code) throw new Error("Import code is missing");
+    try {
+        const res = await api.post("/ai/summaries/import", { code });
+        return res.data; // Backend returns { success, summary } or { success: false, error }
+    } catch (err) {
+        // Return error in same format for consistent handling
+        return {
+            success: false,
+            error: err.response?.data?.error || err.response?.data?.message || err.message || "Import failed"
+        };
+    }
+};
+
 // ===============================================================
 // DEFAULT EXPORT
 // ===============================================================
@@ -122,5 +142,6 @@ export const apiSummaries = {
     generateSummary,
     getSummaryJobStatus,
     deleteSummary,
+    importSummary,
 };
 

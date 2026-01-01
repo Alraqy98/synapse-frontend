@@ -1,18 +1,14 @@
 // src/modules/flashcards/DeckList.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { getDecks, deleteDeck } from "./apiFlashcards";
-import { Pencil, Trash2 } from "lucide-react";
+import UnifiedCard from "../../components/UnifiedCard";
 
-export default function DeckList({ openDeck, search }) {
+export default function DeckList({ openDeck, search, sortMode = "date" }) {
     const [decks, setDecks] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    // Rename modal
-    const [renaming, setRenaming] = useState(null);
-    const [newName, setNewName] = useState("");
-
-    // Delete modal
-    const [deleting, setDeleting] = useState(null);
+    // Delete confirmation
+    const [confirmDelete, setConfirmDelete] = useState(null);
 
     useEffect(() => {
         loadDecks();
@@ -34,115 +30,130 @@ export default function DeckList({ openDeck, search }) {
     // --------------------------
     // DELETE workflow
     // --------------------------
-    async function confirmDelete() {
+    const handleDelete = async () => {
+        if (!confirmDelete) return;
+
+        const id = confirmDelete.id;
+        setConfirmDelete(null);
+
         try {
-            await deleteDeck(deleting.id);
-            setDeleting(null);
+            await deleteDeck(id);
             loadDecks();
         } catch (err) {
             console.error("Delete failed:", err);
+            loadDecks();
         }
-    }
-
-    function handleDelete(deck) {
-        setDeleting(deck);
-    }
+    };
 
     // --------------------------
     // RENAME workflow
     // --------------------------
-    function handleRename(deck) {
-        setRenaming(deck);
-        setNewName(deck.title);
-    }
-
-    async function saveRename() {
-        if (!newName.trim()) return;
-
+    const handleRename = async (deckId, newTitle) => {
         try {
-            await fetch(`${import.meta.env.VITE_API_URL}/flashcards/decks/${renaming.id}`, {
+            await fetch(`${import.meta.env.VITE_API_URL}/flashcards/decks/${deckId}`, {
                 method: "PATCH",
                 headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${localStorage.getItem("access_token")}`,
                 },
-                body: JSON.stringify({ title: newName.trim() }),
+                body: JSON.stringify({ title: newTitle.trim() }),
             });
 
-            setRenaming(null);
-            loadDecks();
+            // Update local state
+            setDecks((prev) =>
+                prev.map((d) => (d.id === deckId ? { ...d, title: newTitle } : d))
+            );
         } catch (err) {
             console.error("Rename failed:", err);
+            loadDecks();
         }
-    }
+    };
 
-    const filtered = decks.filter((d) =>
-        d.title.toLowerCase().includes(search.toLowerCase())
-    );
+    // Filtered and sorted decks
+    const visibleDecks = useMemo(() => {
+        let list = decks.filter((d) =>
+            d.title?.toLowerCase().includes(search.toLowerCase())
+        );
+
+        if (sortMode === "date") {
+            list.sort((a, b) => new Date(b.created_at || b.updated_at) - new Date(a.created_at || a.updated_at));
+        } else if (sortMode === "name") {
+            list.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
+        }
+
+        return list;
+    }, [decks, search, sortMode]);
 
     return (
-        <div className="w-full h-full">
+        <>
+            {/* GRID */}
+            {loading ? (
+                <div className="text-sm text-muted">Loading flashcard decks…</div>
+            ) : visibleDecks.length === 0 ? (
+                <div className="text-center py-12">
+                    <p className="text-sm text-muted mb-4">
+                        {search
+                            ? "No flashcard decks match your search."
+                            : "No flashcard decks available. Generate a flashcard deck from a file to get started."}
+                    </p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {visibleDecks.map((deck) => {
+                        const isGenerating = deck.generating === true || deck.status === "generating";
+                        
+                        // Determine status and progress
+                        let status = "ready";
+                        let progress = 100;
+                        
+                        if (isGenerating) {
+                            status = "generating";
+                            progress = 60; // Simulated progress during generation
+                        } else if (deck.status === "failed") {
+                            status = "failed";
+                            progress = 0;
+                        }
 
-            {/* =====================
-                RENAME MODAL
-            ====================== */}
-            {renaming && (
-                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-                    <div className="bg-void border border-white/10 rounded-xl p-6 w-full max-w-md">
-                        <h2 className="text-xl font-semibold mb-4">Rename Deck</h2>
-
-                        <input
-                            value={newName}
-                            onChange={(e) => setNewName(e.target.value)}
-                            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 mb-4"
-                        />
-
-                        <div className="flex justify-end gap-3">
-                            <button
-                                className="px-4 py-2 bg-white/10 rounded-lg"
-                                onClick={() => setRenaming(null)}
-                            >
-                                Cancel
-                            </button>
-
-                            <button
-                                className="px-4 py-2 bg-teal text-black rounded-lg"
-                                onClick={saveRename}
-                            >
-                                Save
-                            </button>
-                        </div>
-                    </div>
+                        return (
+                            <UnifiedCard
+                                key={deck.id}
+                                title={deck.title}
+                                meta={deck.card_count ? `${deck.card_count} cards • ${deck.mode || ""}` : null}
+                                progress={progress}
+                                status={status}
+                                statusText="Flashcard Deck"
+                                date={deck.updated_at || deck.created_at ? new Date(deck.updated_at || deck.created_at).toLocaleDateString() : null}
+                                isGenerating={isGenerating}
+                                onClick={() => openDeck(deck.id)}
+                                onDelete={() => setConfirmDelete({ id: deck.id, title: deck.title })}
+                                onRename={(newTitle) => handleRename(deck.id, newTitle)}
+                            />
+                        );
+                    })}
                 </div>
             )}
 
-            {/* =====================
-                DELETE MODAL
-            ====================== */}
-            {deleting && (
-                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-                    <div className="bg-void border border-white/10 rounded-xl p-6 w-full max-w-md">
-                        <h2 className="text-xl font-semibold mb-4">Delete Deck</h2>
-
+            {/* DELETE CONFIRM */}
+            {confirmDelete && (
+                <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center">
+                    <div className="w-full max-w-md rounded-2xl bg-black border border-red-500/20 p-6">
+                        <h3 className="text-lg font-semibold text-white mb-2">
+                            Delete deck
+                        </h3>
                         <p className="text-sm text-muted mb-6">
-                            Are you sure you want to delete{" "}
-                            <span className="text-white font-semibold">
-                                "{deleting.title}"
-                            </span>
-                            ?
+                            This action cannot be undone.
                         </p>
 
-                        <div className="flex justify-end gap-3">
+                        <div className="flex justify-end gap-2">
                             <button
-                                className="px-4 py-2 bg-white/10 rounded-lg"
-                                onClick={() => setDeleting(null)}
+                                className="btn btn-secondary"
+                                onClick={() => setConfirmDelete(null)}
                             >
                                 Cancel
                             </button>
-
                             <button
-                                className="px-4 py-2 bg-red-500 text-white rounded-lg"
-                                onClick={confirmDelete}
+                                className="btn btn-danger"
+                                onClick={handleDelete}
                             >
                                 Delete
                             </button>
@@ -150,66 +161,6 @@ export default function DeckList({ openDeck, search }) {
                     </div>
                 </div>
             )}
-
-            {/* =====================
-                GRID ONLY (no top UI)
-            ====================== */}
-            {loading ? (
-                <div className="mt-10 text-muted">Loading…</div>
-            ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-                    {filtered.map((deck) => (
-                        <div
-                            key={deck.id}
-                            className="relative bg-black/20 border border-white/10 rounded-xl p-4 hover:border-teal transition"
-                        >
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <h3 className="text-lg font-semibold">{deck.title}</h3>
-                                    <p className="text-xs text-muted mt-1">
-                                        {deck.card_count} cards • {deck.mode}
-                                    </p>
-                                </div>
-
-                                <div className="flex gap-2">
-                                    <button
-                                        className="p-1 hover:text-teal"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleRename(deck);
-                                        }}
-                                    >
-                                        <Pencil size={16} />
-                                    </button>
-
-                                    <button
-                                        className="p-1 hover:text-red-400"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDelete(deck);
-                                        }}
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="flex justify-between items-center mt-6">
-                                <span className="text-xs text-muted">
-                                    Updated {new Date(deck.updated_at).toLocaleDateString()}
-                                </span>
-
-                                <button
-                                    className="text-xs text-teal hover:text-white"
-                                    onClick={() => openDeck(deck.id)}
-                                >
-                                    View →
-                                </button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
-        </div>
+        </>
     );
 }

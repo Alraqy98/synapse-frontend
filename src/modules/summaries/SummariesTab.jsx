@@ -1,5 +1,6 @@
 // src/modules/summaries/SummariesTab.jsx
 import React, { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { Search, Plus, MoreHorizontal, Upload } from "lucide-react";
 import { apiSummaries } from "./apiSummaries";
 import SummaryCard from "./SummaryCard";
@@ -19,6 +20,8 @@ export default function SummariesTab() {
     const [confirmDelete, setConfirmDelete] = useState(null);
     const [showImport, setShowImport] = useState(false);
     const [importCode, setImportCode] = useState("");
+    const [importError, setImportError] = useState(null);
+    const [isImporting, setIsImporting] = useState(false);
 
     // Load summaries (matching MCQ pattern exactly)
     const loadSummaries = async () => {
@@ -316,10 +319,10 @@ export default function SummariesTab() {
                         }}
                     />
 
-                    {/* Import Modal */}
-                    {showImport && (
-                        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center">
-                            <div className="w-full max-w-md rounded-2xl bg-black border border-white/10 p-6">
+                    {/* Import Modal - Portal to document.body for viewport centering */}
+                    {showImport && createPortal(
+                        <div className="fixed inset-0 z-[9999] bg-black/60 flex items-center justify-center" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
+                            <div className="w-full max-w-md mx-4 rounded-2xl bg-black border border-white/10 p-6 relative">
                                 <h3 className="text-lg font-semibold text-white mb-4">
                                     Import Summary
                                 </h3>
@@ -329,14 +332,23 @@ export default function SummariesTab() {
                                 <input
                                     autoFocus
                                     value={importCode}
-                                    onChange={(e) => setImportCode(e.target.value.toUpperCase())}
+                                    onChange={(e) => {
+                                        setImportCode(e.target.value.toUpperCase());
+                                        setImportError(null); // Clear error on input change
+                                    }}
                                     placeholder="SYN-XXXXXX"
-                                    className="w-full px-4 py-2 rounded-lg bg-black/40 border border-white/10 text-white mb-6 font-mono"
+                                    className="w-full px-4 py-2 rounded-lg bg-black/40 border border-white/10 text-white mb-2 font-mono"
                                     maxLength={10}
+                                    disabled={isImporting}
                                 />
                                 {importCode && !isValidCodeFormat(importCode) && (
                                     <p className="text-xs text-red-400 mb-4">
                                         Invalid code format. Expected: SYN-XXXXXX
+                                    </p>
+                                )}
+                                {importError && (
+                                    <p className="text-xs text-red-400 mb-4">
+                                        {importError}
                                     </p>
                                 )}
                                 <div className="flex justify-end gap-2">
@@ -345,27 +357,53 @@ export default function SummariesTab() {
                                         onClick={() => {
                                             setShowImport(false);
                                             setImportCode("");
+                                            setImportError(null);
                                         }}
+                                        disabled={isImporting}
                                     >
                                         Cancel
                                     </button>
                                     <button
                                         className="btn btn-primary"
-                                        onClick={() => {
-                                            if (isValidCodeFormat(importCode)) {
-                                                // For now, show message that import will be enabled once backend is ready
-                                                alert("Import will be enabled once the summary owner is verified.");
-                                                setShowImport(false);
-                                                setImportCode("");
+                                        onClick={async () => {
+                                            if (!isValidCodeFormat(importCode)) return;
+                                            
+                                            setIsImporting(true);
+                                            setImportError(null);
+                                            
+                                            try {
+                                                // Call backend import endpoint
+                                                const res = await apiSummaries.importSummary(importCode);
+                                                
+                                                if (res?.success) {
+                                                    // Success - reload summaries and close modal
+                                                    await loadSummaries();
+                                                    setShowImport(false);
+                                                    setImportCode("");
+                                                    setImportError(null);
+                                                } else {
+                                                    // Backend returned error - display it verbatim
+                                                    setImportError(res?.error || res?.message || "Import failed");
+                                                }
+                                            } catch (err) {
+                                                // Backend error - display error message verbatim
+                                                const errorMsg = err.response?.data?.error || 
+                                                               err.response?.data?.message || 
+                                                               err.message || 
+                                                               "Failed to import summary";
+                                                setImportError(errorMsg);
+                                            } finally {
+                                                setIsImporting(false);
                                             }
                                         }}
-                                        disabled={!isValidCodeFormat(importCode)}
+                                        disabled={!isValidCodeFormat(importCode) || isImporting}
                                     >
-                                        Import
+                                        {isImporting ? "Importing..." : "Import"}
                                     </button>
                                 </div>
                             </div>
-                        </div>
+                        </div>,
+                        document.body
                     )}
                 </>
             )}

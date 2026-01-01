@@ -3,7 +3,8 @@ import { useState, useEffect, useMemo } from "react";
 import { apiMCQ } from "./apiMCQ";
 import GenerateMCQModal from "./GenerateMCQModal";
 import MCQDeckView from "./MCQDeckView";
-import { Search, Plus, Upload, Share2, MoreHorizontal } from "lucide-react";
+import UnifiedCard from "../../components/UnifiedCard";
+import { Search, Plus, Upload, Share2 } from "lucide-react";
 
 export default function MCQTab() {
     const [view, setView] = useState("list");
@@ -184,61 +185,63 @@ export default function MCQTab() {
                             </div>
 
                             {/* GRID */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                                {!loading &&
-                                    visibleDecks.map((deck) => {
-                                        const current = deck.question_count || 0;
-                                        const target =
-                                            deck.question_count_target ??
-                                            deck.question_count ??
-                                            1;
-                                        const percent = Math.min(
-                                            100,
-                                            Math.round((current / target) * 100)
-                                        );
+                            {loading ? (
+                                <div className="text-sm text-muted">Loading MCQ decks…</div>
+                            ) : visibleDecks.length === 0 ? (
+                                <div className="text-center py-12">
+                                    <p className="text-sm text-muted mb-4">
+                                        {search
+                                            ? "No MCQ decks match your search."
+                                            : "No MCQ decks available. Generate an MCQ deck from a file to get started."}
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                                    {visibleDecks.map((deck) => {
+                                        const isGenerating = deck.generating === true || deck.status === "generating";
+                                        
+                                        // Determine status and progress
+                                        let status = "ready";
+                                        let progress = 100;
+                                        
+                                        if (isGenerating) {
+                                            status = "generating";
+                                            progress = 60; // Simulated progress during generation
+                                        } else if (deck.status === "failed") {
+                                            status = "failed";
+                                            progress = 0;
+                                        } else {
+                                            // For ready decks, show 100% progress
+                                            const current = deck.question_count || 0;
+                                            const target = deck.question_count_target ?? deck.question_count ?? 1;
+                                            progress = Math.min(100, Math.round((current / target) * 100));
+                                        }
 
                                         return (
-                                            <div
+                                            <UnifiedCard
                                                 key={deck.id}
+                                                title={deck.title}
+                                                progress={progress}
+                                                status={status}
+                                                statusText="MCQ Deck"
+                                                date={deck.created_at ? new Date(deck.created_at).toLocaleDateString() : null}
+                                                isGenerating={isGenerating}
                                                 onClick={() => openDeck(deck.id)}
-                                                className="group cursor-pointer rounded-2xl border border-white/10 bg-black/40 p-6 transition-all hover:-translate-y-1 hover:border-teal/40"
-                                            >
-                                                <div className="flex items-start justify-between mb-4">
-                                                    <div className="text-lg font-semibold text-white">
-                                                        {deck.title}
-                                                    </div>
-
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setMenuDeck(deck);
-                                                            setRenameValue(deck.title);
-                                                        }}
-                                                        className="opacity-0 group-hover:opacity-100 transition"
-                                                    >
-                                                        <MoreHorizontal size={16} />
-                                                    </button>
-                                                </div>
-
-                                                <div className="h-2 rounded-full bg-white/10 overflow-hidden mb-2">
-                                                    <div
-                                                        className="h-full bg-gradient-to-r from-teal-400 to-emerald-500"
-                                                        style={{ width: `${percent}%` }}
-                                                    />
-                                                </div>
-
-                                                <div className="flex justify-between text-xs text-muted">
-                                                    <span>
-                                                        {deck.generating
-                                                            ? "In progress"
-                                                            : "Ready"}
-                                                    </span>
-                                                    <span>MCQ Deck</span>
-                                                </div>
-                                            </div>
+                                                onDelete={() => setConfirmDelete({ id: deck.id, title: deck.title })}
+                                                onRename={(newTitle) => {
+                                                    setDecks((prev) =>
+                                                        prev.map((d) => (d.id === deck.id ? { ...d, title: newTitle } : d))
+                                                    );
+                                                    apiMCQ.renameMCQDeck(deck.id, newTitle).catch((err) => {
+                                                        console.error("Rename failed", err);
+                                                        loadDecks();
+                                                    });
+                                                }}
+                                            />
                                         );
                                     })}
-                            </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 

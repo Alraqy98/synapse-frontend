@@ -1,5 +1,6 @@
 // src/modules/summaries/SummaryViewer.jsx
 import React, { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
     ArrowLeft,
     Send,
@@ -34,6 +35,7 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
     const [renameValue, setRenameValue] = useState("");
     const [showExportCode, setShowExportCode] = useState(false);
     const [importCode, setImportCode] = useState(null);
+    const [copiedFeedback, setCopiedFeedback] = useState(false);
 
     // Chat state
     // Initialize sessionId ONCE from localStorage (single source of truth)
@@ -1208,10 +1210,10 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                 </div>
             )}
 
-            {/* Export Code Modal */}
-            {showExportCode && importCode && (
-                <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center">
-                    <div className="w-full max-w-md rounded-2xl bg-black border border-white/10 p-6">
+            {/* Export Code Modal - Portal to document.body for viewport centering */}
+            {showExportCode && importCode && createPortal(
+                <div className="fixed inset-0 z-[9999] bg-black/60 flex items-center justify-center" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
+                    <div className="w-full max-w-md mx-4 rounded-2xl bg-black border border-white/10 p-6 relative">
                         <h3 className="text-lg font-semibold text-white mb-4">
                             Import Code Generated
                         </h3>
@@ -1224,26 +1226,33 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                             </div>
                         </div>
                         <button
-                            className="w-full btn btn-primary mb-2"
-                            onClick={() => {
-                                navigator.clipboard.writeText(importCode);
-                                alert("Code copied to clipboard!");
+                            className="w-full btn btn-primary mb-2 relative"
+                            onClick={async () => {
+                                try {
+                                    await navigator.clipboard.writeText(importCode);
+                                    setCopiedFeedback(true);
+                                    setTimeout(() => setCopiedFeedback(false), 1500);
+                                } catch (err) {
+                                    console.error("Failed to copy to clipboard:", err);
+                                }
                             }}
                         >
                             <Copy size={16} className="mr-2" />
-                            Copy Code
+                            {copiedFeedback ? "Copied to clipboard" : "Copy Code"}
                         </button>
                         <button
                             className="w-full btn btn-secondary"
                             onClick={() => {
                                 setShowExportCode(false);
                                 setImportCode(null);
+                                setCopiedFeedback(false);
                             }}
                         >
                             Close
                         </button>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
         </>
