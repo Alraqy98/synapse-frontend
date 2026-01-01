@@ -445,30 +445,18 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
     };
 
     const handleSummaryClick = () => {
-        const status = getSummaryStatus();
-        if (status === "completed" && relatedSummary?.id) {
-            navigate("/summaries");
-        } else if (status === "not_generated") {
-            setShowSummaryModal(true);
-        }
+        // Always open the modal, regardless of status
+        setShowSummaryModal(true);
     };
 
     const handleMCQClick = () => {
-        const status = getMCQStatus();
-        if (status === "completed" && relatedMCQ?.id) {
-            navigate("/mcq");
-        } else if (status === "not_generated") {
-            setShowMCQModal(true);
-        }
+        // Always open the modal, regardless of status
+        setShowMCQModal(true);
     };
 
     const handleFlashcardClick = () => {
-        const status = getFlashcardStatus();
-        if (status === "completed" && relatedFlashcard?.id) {
-            navigate("/flashcards");
-        } else if (status === "not_generated") {
-            setShowFlashcardsModal(true);
-        }
+        // Always open the modal, regardless of status
+        setShowFlashcardsModal(true);
     };
 
     // =====================================================================
