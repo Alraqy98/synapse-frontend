@@ -1,6 +1,7 @@
 // src/modules/flashcards/apiFlashcards.js
 
 import axios from "axios";
+import { supabase } from "../../lib/supabaseClient";
 
 const API_BASE = import.meta.env.VITE_API_URL.replace(/\/$/, "");
 
@@ -17,6 +18,52 @@ export const getDecks = async () => {
         headers: authHeaders(),
     });
     return res.data?.decks || [];
+};
+
+/**
+ * Get flashcard decks for a specific file (file-scoped query)
+ * Uses Supabase direct query to filter by file_ids array containing the file ID
+ */
+export const getFlashcardDecksByFile = async (fileId) => {
+    if (!fileId) throw new Error("File ID is missing (getFlashcardDecksByFile)");
+    
+    try {
+        const { data: userData } = await supabase.auth.getUser();
+        const user = userData?.user;
+        
+        if (!user) {
+            throw new Error("User not authenticated");
+        }
+
+        // Query flashcard decks where file_ids array contains the fileId
+        // Using Postgres array contains operator via Supabase filter
+        // The 'cs' operator means "contains" for arrays
+        const { data: decks, error } = await supabase
+            .from("flashcard_decks")
+            .select("*")
+            .eq("user_id", user.id)
+            .filter("file_ids", "cs", `{${fileId}}`)
+            .order("created_at", { ascending: false });
+
+        if (error) {
+            console.error("Error fetching flashcard decks by file:", error);
+            throw error;
+        }
+
+        return decks || [];
+    } catch (err) {
+        console.error("Failed to fetch flashcard decks by file:", err);
+        // Fallback to API if Supabase query fails
+        try {
+            const allDecks = await getDecks();
+            return allDecks.filter(deck => 
+                deck.file_ids && Array.isArray(deck.file_ids) && deck.file_ids.includes(fileId)
+            );
+        } catch (fallbackErr) {
+            console.error("Fallback API fetch also failed:", fallbackErr);
+            return [];
+        }
+    }
 };
 
 export const createDeck = async (payload) => {

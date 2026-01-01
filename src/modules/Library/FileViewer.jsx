@@ -19,6 +19,9 @@ import {
 import GenerateFlashcardsModal from "../flashcards/GenerateFlashcardsModal";
 import GenerateMCQModal from "../mcq/GenerateMCQModal";
 import GenerateSummaryModal from "../summaries/GenerateSummaryModal";
+import { apiSummaries } from "../summaries/apiSummaries";
+import { apiMCQ } from "../mcq/apiMCQ";
+import { getFlashcardDecksByFile } from "../flashcards/apiFlashcards";
 
 import { performLibraryAction } from "./apiLibrary";
 import {
@@ -64,6 +67,17 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
     const [showFlashcardsModal, setShowFlashcardsModal] = useState(false);
     const [showMCQModal, setShowMCQModal] = useState(false);
     const [showSummaryModal, setShowSummaryModal] = useState(false);
+
+    // Generation status tracking
+    const [relatedSummary, setRelatedSummary] = useState(null);
+    const [relatedMCQ, setRelatedMCQ] = useState(null);
+    const [relatedFlashcard, setRelatedFlashcard] = useState(null);
+    const [isLoadingStatus, setIsLoadingStatus] = useState(false);
+    
+    // Refs to track current state for polling logic
+    const relatedSummaryRef = useRef(null);
+    const relatedMCQRef = useRef(null);
+    const relatedFlashcardRef = useRef(null);
 
     // Chat
     const [fileSessionId, setFileSessionId] = useState(null);
@@ -313,6 +327,151 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
     }, [file.id]);
 
     // =====================================================================
+    // FETCH RELATED GENERATION STATUS (Summaries, MCQs, Flashcards)
+    // =====================================================================
+    useEffect(() => {
+        if (!file?.id) return;
+
+        const loadRelatedStatus = async () => {
+            setIsLoadingStatus(true);
+            try {
+                // Fetch summaries for this file
+                try {
+                    const summaries = await apiSummaries.getSummariesByFile(file.id);
+                    // Get the most recent summary (completed or generating)
+                    const latestSummary = summaries?.[0] || null;
+                    setRelatedSummary(latestSummary);
+                } catch (err) {
+                    console.error("Failed to load summaries:", err);
+                    setRelatedSummary(null);
+                }
+
+                // Fetch MCQ decks for this file (file-scoped query)
+                try {
+                    const relatedDecks = await apiMCQ.getMCQDecksByFile(file.id);
+                    // Get the most recent deck
+                    const latestMCQ = relatedDecks?.[0] || null;
+                    setRelatedMCQ(latestMCQ);
+                } catch (err) {
+                    console.error("Failed to load MCQ decks:", err);
+                    setRelatedMCQ(null);
+                }
+
+                // Fetch flashcard decks for this file (file-scoped query)
+                try {
+                    const relatedDecks = await getFlashcardDecksByFile(file.id);
+                    // Get the most recent deck
+                    const latestFlashcard = relatedDecks?.[0] || null;
+                    setRelatedFlashcard(latestFlashcard);
+                } catch (err) {
+                    console.error("Failed to load flashcard decks:", err);
+                    setRelatedFlashcard(null);
+                }
+            } finally {
+                setIsLoadingStatus(false);
+            }
+        };
+
+        // Initial load
+        loadRelatedStatus();
+
+        // Poll for status updates every 4 seconds, but only if something is generating
+        let intervalId = null;
+        
+        const checkAndPoll = async () => {
+            // Use refs to get current state (avoid stale closures)
+            const currentSummary = relatedSummaryRef.current;
+            const currentMCQ = relatedMCQRef.current;
+            const currentFlashcard = relatedFlashcardRef.current;
+            
+            const isGenerating = 
+                (currentSummary && (currentSummary.generating || currentSummary.status === "generating")) ||
+                (currentMCQ && currentMCQ.generating) ||
+                (currentFlashcard && currentFlashcard.generating);
+            
+            if (isGenerating) {
+                await loadRelatedStatus();
+            } else {
+                // Stop polling if nothing is generating
+                if (intervalId) {
+                    clearInterval(intervalId);
+                    intervalId = null;
+                }
+            }
+        };
+
+        // Start polling after initial load completes
+        loadRelatedStatus().then(() => {
+            // Check if we need to start polling
+            const currentSummary = relatedSummaryRef.current;
+            const currentMCQ = relatedMCQRef.current;
+            const currentFlashcard = relatedFlashcardRef.current;
+            
+            const isGenerating = 
+                (currentSummary && (currentSummary.generating || currentSummary.status === "generating")) ||
+                (currentMCQ && currentMCQ.generating) ||
+                (currentFlashcard && currentFlashcard.generating);
+            
+            if (isGenerating && !intervalId) {
+                intervalId = setInterval(checkAndPoll, 4000);
+            }
+        });
+
+        return () => {
+            if (intervalId) clearInterval(intervalId);
+        };
+    }, [file.id]);
+
+    // =====================================================================
+    // HELPER FUNCTIONS FOR STATUS
+    // =====================================================================
+    const getSummaryStatus = () => {
+        if (!relatedSummary) return "not_generated";
+        if (relatedSummary.generating || relatedSummary.status === "generating") return "generating";
+        if (relatedSummary.status === "failed") return "failed";
+        return "completed";
+    };
+
+    const getMCQStatus = () => {
+        if (!relatedMCQ) return "not_generated";
+        if (relatedMCQ.generating) return "generating";
+        return "completed";
+    };
+
+    const getFlashcardStatus = () => {
+        if (!relatedFlashcard) return "not_generated";
+        if (relatedFlashcard.generating) return "generating";
+        return "completed";
+    };
+
+    const handleSummaryClick = () => {
+        const status = getSummaryStatus();
+        if (status === "completed" && relatedSummary?.id) {
+            navigate("/summaries");
+        } else if (status === "not_generated") {
+            setShowSummaryModal(true);
+        }
+    };
+
+    const handleMCQClick = () => {
+        const status = getMCQStatus();
+        if (status === "completed" && relatedMCQ?.id) {
+            navigate("/mcq");
+        } else if (status === "not_generated") {
+            setShowMCQModal(true);
+        }
+    };
+
+    const handleFlashcardClick = () => {
+        const status = getFlashcardStatus();
+        if (status === "completed" && relatedFlashcard?.id) {
+            navigate("/flashcards");
+        } else if (status === "not_generated") {
+            setShowFlashcardsModal(true);
+        }
+    };
+
+    // =====================================================================
     // LIBRARY ACTIONS
     // =====================================================================
     const handleAction = async (id) => {
@@ -320,15 +479,15 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
 
         // ⚡ FLASHCARDS — OPEN MODAL, NO BACKEND ACTION
         if (id === "flashcards") {
-            setShowFlashcardsModal(true);
+            handleFlashcardClick();
             return;
         }
         if (id === "quiz") {
-            setShowMCQModal(true);
+            handleMCQClick();
             return;
         }
         if (id === "summary") {
-            setShowSummaryModal(true);
+            handleSummaryClick();
             return;
         }
 
@@ -625,22 +784,65 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
                 ) : (
                     <div className="grid grid-cols-2 gap-3 p-4 border-b border-white/5">
                         {[
-                            { id: "summary", label: "Summarize", icon: FileText },
-                            { id: "flashcards", label: "Flashcards", icon: Zap },
-                            { id: "quiz", label: "Quiz Me", icon: HelpCircle },
-                        ].map((a) => (
-                            <button
-                                key={a.id}
-                                onClick={() => handleAction(a.id)}
-                                className={`p-3 rounded-xl flex flex-col items-center gap-2 text-sm border transition ${activeAction === a.id
-                                    ? "bg-teal/10 border-teal text-teal"
-                                    : "bg-[#0f1115] border-white/10 hover:bg-white/5"
+                            { 
+                                id: "summary", 
+                                label: "Summarize", 
+                                icon: FileText,
+                                status: getSummaryStatus(),
+                                item: relatedSummary
+                            },
+                            { 
+                                id: "flashcards", 
+                                label: "Flashcards", 
+                                icon: Zap,
+                                status: getFlashcardStatus(),
+                                item: relatedFlashcard
+                            },
+                            { 
+                                id: "quiz", 
+                                label: "Quiz Me", 
+                                icon: HelpCircle,
+                                status: getMCQStatus(),
+                                item: relatedMCQ
+                            },
+                        ].map((a) => {
+                            const isCompleted = a.status === "completed";
+                            const isGenerating = a.status === "generating";
+                            const isNotGenerated = a.status === "not_generated";
+                            const isFailed = a.status === "failed";
+                            const isClickable = isCompleted;
+
+                            return (
+                                <button
+                                    key={a.id}
+                                    onClick={() => handleAction(a.id)}
+                                    disabled={isGenerating || isFailed}
+                                    className={`p-3 rounded-xl flex flex-col items-center gap-2 text-sm border transition relative ${
+                                        activeAction === a.id
+                                            ? "bg-teal/10 border-teal text-teal"
+                                            : isClickable
+                                            ? "bg-[#0f1115] border-teal/40 hover:bg-teal/5 hover:border-teal/60 cursor-pointer"
+                                            : isGenerating
+                                            ? "bg-[#0f1115] border-white/10 opacity-60 cursor-not-allowed"
+                                            : isFailed
+                                            ? "bg-[#0f1115] border-red-500/20 opacity-60 cursor-not-allowed"
+                                            : "bg-[#0f1115] border-white/10 hover:bg-white/5"
                                     }`}
-                            >
-                                <a.icon size={20} />
-                                {a.label}
-                            </button>
-                        ))}
+                                >
+                                    <a.icon size={20} />
+                                    <span>{a.label}</span>
+                                    {isGenerating && (
+                                        <span className="text-xs text-muted mt-1">Generating...</span>
+                                    )}
+                                    {isCompleted && (
+                                        <span className="text-xs text-teal mt-1">Ready</span>
+                                    )}
+                                    {isFailed && (
+                                        <span className="text-xs text-red-400 mt-1">Failed</span>
+                                    )}
+                                </button>
+                            );
+                        })}
                     </div>
                 )}
 

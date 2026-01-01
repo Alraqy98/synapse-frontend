@@ -3,6 +3,7 @@
 // ===============================================================
 
 import api from "../../lib/api";
+import { supabase } from "../../lib/supabaseClient";
 
 // ===============================================================
 // MCQ DECKS
@@ -11,6 +12,52 @@ import api from "../../lib/api";
 export const getMCQDecks = async () => {
     const res = await api.get("/ai/mcq/decks");
     return res.data?.decks || [];
+};
+
+/**
+ * Get MCQ decks for a specific file (file-scoped query)
+ * Uses Supabase direct query to filter by file_ids array containing the file ID
+ */
+export const getMCQDecksByFile = async (fileId) => {
+    if (!fileId) throw new Error("File ID is missing (getMCQDecksByFile)");
+    
+    try {
+        const { data: userData } = await supabase.auth.getUser();
+        const user = userData?.user;
+        
+        if (!user) {
+            throw new Error("User not authenticated");
+        }
+
+        // Query MCQ decks where file_ids array contains the fileId
+        // Using Postgres array contains operator via Supabase filter
+        // The 'cs' operator means "contains" for arrays
+        const { data: decks, error } = await supabase
+            .from("mcq_decks")
+            .select("*")
+            .eq("user_id", user.id)
+            .filter("file_ids", "cs", `{${fileId}}`)
+            .order("created_at", { ascending: false });
+
+        if (error) {
+            console.error("Error fetching MCQ decks by file:", error);
+            throw error;
+        }
+
+        return decks || [];
+    } catch (err) {
+        console.error("Failed to fetch MCQ decks by file:", err);
+        // Fallback to API if Supabase query fails
+        try {
+            const allDecks = await getMCQDecks();
+            return allDecks.filter(deck => 
+                deck.file_ids && Array.isArray(deck.file_ids) && deck.file_ids.includes(fileId)
+            );
+        } catch (fallbackErr) {
+            console.error("Fallback API fetch also failed:", fallbackErr);
+            return [];
+        }
+    }
 };
 
 export const createMCQDeck = async (payload) => {
@@ -102,6 +149,7 @@ export const shareDeck = async (deckId) => {
 
 export const apiMCQ = {
     getMCQDecks,
+    getMCQDecksByFile,
     createMCQDeck,
     getMCQDeck,
     getMCQQuestions,
