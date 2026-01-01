@@ -1,8 +1,6 @@
 // src/modules/summaries/SummaryCard.jsx
 import React from "react";
 import UnifiedCard from "../../components/UnifiedCard";
-import { generateImportCode } from "./utils/summaryCode";
-import { Copy } from "lucide-react";
 
 export default function SummaryCard({
     summary,
@@ -61,18 +59,7 @@ export default function SummaryCard({
                     onExportCode(id, code);
                 }
             }}
-            overflowActions={[
-                {
-                    label: "Generate Import Code",
-                    icon: Copy,
-                    onClick: () => {
-                        const code = generateImportCode();
-                        if (onExportCode) {
-                            onExportCode(id, code);
-                        }
-                    },
-                },
-            ]}
+            overflowActions={[]}
         />
     );
 }

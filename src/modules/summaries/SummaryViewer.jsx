@@ -1412,8 +1412,19 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
 
             {/* Export Code Modal - Portal to document.body for viewport centering */}
             {showExportCode && importCode && createPortal(
-                <div className="fixed inset-0 z-[9999] bg-black/60 flex items-center justify-center" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
-                    <div className="w-full max-w-md mx-4 rounded-2xl bg-black border border-white/10 p-6 relative">
+                <div 
+                    className="fixed inset-0 z-[9999] bg-black/60 flex items-center justify-center" 
+                    style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+                    onClick={() => {
+                        setShowExportCode(false);
+                        setImportCode(null);
+                        setCopiedFeedback(false);
+                    }}
+                >
+                    <div 
+                        className="w-full max-w-md mx-4 rounded-2xl bg-black border border-white/10 p-6 relative"
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <h3 className="text-lg font-semibold text-white mb-4">
                             Import Code Generated
                         </h3>
