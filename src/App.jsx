@@ -42,6 +42,7 @@ import SummariesTab from "./modules/summaries/SummariesTab";
 
 // COMPONENTS
 import SidebarItem from "./components/SidebarItem";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 // TEMP placeholders
 const Placeholder = ({ label }) => (
@@ -634,7 +635,8 @@ const SynapseOS = () => {
 
         {/* CONTENT */}
         <div className="flex-1 flex flex-col overflow-hidden relative">
-          <Routes>
+          <ErrorBoundary>
+            <Routes>
             <Route path="/" element={<Navigate to="/tutor" replace />} />
             
             {/* Library routes */}
@@ -690,7 +692,8 @@ const SynapseOS = () => {
             
             {/* Catch-all redirect */}
             <Route path="*" element={<Navigate to="/tutor" replace />} />
-          </Routes>
+            </Routes>
+          </ErrorBoundary>
         </div>
       </main>
     </div>

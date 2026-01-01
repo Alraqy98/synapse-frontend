@@ -39,12 +39,9 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
 
     // Chat state
     // Initialize sessionId ONCE from localStorage (single source of truth)
-    const [sessionId, setSessionId] = useState(() => {
-        if (!summary?.id) return null;
-        const key = `synapse_summary_session_${summary.id}`;
-        const existing = localStorage.getItem(key);
-        return existing || null;
-    });
+    // Note: summary is null on initial render, so we initialize sessionId as null
+    // and sync it once summary loads (see useEffect below)
+    const [sessionId, setSessionId] = useState(null);
     const [messages, setMessages] = useState([]);
     const [chatInput, setChatInput] = useState("");
     const [isTyping, setIsTyping] = useState(false);
@@ -218,6 +215,12 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
     const handleAskAstra = async () => {
         // Guard against empty selection
         if (!selectedText || selectedText.trim().length < 3) return;
+        
+        // Guard against missing summary
+        if (!summary?.id) {
+            console.error("Cannot send message: summary is not loaded");
+            return;
+        }
 
         const textToSend = selectedText.trim();
 
@@ -230,8 +233,8 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
             role: "user",
             type: "selection",
             source: "summary",
-            summaryId: summary?.id, // REQUIRED
-            title: summary?.title || null, // OPTIONAL but recommended
+            summaryId: summary.id, // REQUIRED - now guaranteed to exist
+            title: summary.title || null, // OPTIONAL but recommended
             content: textToSend, // REQUIRED - the selected text
             createdAt: new Date().toISOString(), // REQUIRED
         };
@@ -270,6 +273,10 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                 let currentSessionId = sessionId;
 
                 if (!currentSessionId) {
+                    if (!summary?.id) {
+                        throw new Error("Cannot create session: summary is not loaded");
+                    }
+                    
                     const session = await createNewSession(
                         `Summary: ${summary?.title || "Untitled"}`
                     );
@@ -283,7 +290,9 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                 }
 
                 // Diagnostic log: Confirm sessionId for POST request
-                console.log("[TUTOR_SESSION][POST]", currentSessionId, "for summary:", summary.id);
+                if (summary?.id) {
+                    console.log("[TUTOR_SESSION][POST]", currentSessionId, "for summary:", summary.id);
+                }
 
                 // Find the section containing selected text for context
                 let sectionContext = null;
@@ -345,6 +354,12 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
         // Regular chat message (not from selection)
         const msg = prefilledMessage || chatInput;
         if (!msg.trim()) return;
+        
+        // Guard against missing summary
+        if (!summary?.id) {
+            console.error("Cannot send message: summary is not loaded");
+            return;
+        }
 
         if (!prefilledMessage) setChatInput("");
 
@@ -359,19 +374,17 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
 
             if (!currentSessionId) {
                 const session = await createNewSession(
-                    `Summary: ${summary?.title || "Untitled"}`
+                    `Summary: ${summary.title || "Untitled"}`
                 );
                 currentSessionId = session.id;
                 setSessionId(currentSessionId);
 
-                localStorage.setItem(
-                    `synapse_summary_session_${summary.id}`,
-                    String(currentSessionId)
-                );
+                const key = `synapse_summary_session_${summary.id}`;
+                localStorage.setItem(key, String(currentSessionId));
             }
 
             // For regular messages, use a simpler context
-            const contextMessage = `[Summary: ${summary?.title}${summary?.file_id ? ` | File ID: ${summary.file_id}` : ""}] ${msg}`;
+            const contextMessage = `[Summary: ${summary.title}${summary.file_id ? ` | File ID: ${summary.file_id}` : ""}] ${msg}`;
 
             // For regular messages, we still need to use a compatible endpoint
             // Since sendMessageToTutor requires fileId and page, we'll use sendSummaryMessageToTutor
@@ -379,13 +392,13 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
             const res = await sendSummaryMessageToTutor({
                 sessionId: currentSessionId,
                 message: contextMessage,
-                summaryId: summary?.id,
-                summaryTitle: summary?.title || null,
+                summaryId: summary.id,
+                summaryTitle: summary.title || null,
                 selectionText: null, // Not a selection
-                fileId: summary?.file_id || null,
+                fileId: summary.file_id || null,
                 resourceSelection: {
                     scope: "all",
-                    file_ids: summary?.file_id ? [summary.file_id] : [],
+                    file_ids: summary.file_id ? [summary.file_id] : [],
                     folder_ids: [],
                     include_books: true,
                 },
