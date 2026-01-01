@@ -198,22 +198,31 @@ const SynapseOS = () => {
       }
 
       // Normalize snake_case backend fields to camelCase for frontend
-      const normalizedNotifications = (notificationsList || []).map(n => ({
-        id: n.id,
-        type: n.type,
-        title: n.title,
-        description: n.description,
-        read: n.read,
+      const normalizedNotifications = (notificationsList || []).map(n => {
+        // Helper to ensure we get a valid ID or null (not empty string)
+        const normalizeId = (id) => {
+          if (!id) return null;
+          const str = String(id).trim();
+          return str.length > 0 ? str : null;
+        };
 
-        // normalize timestamps
-        createdAt: n.created_at ? new Date(n.created_at).toISOString() : null,
+        return {
+          id: n.id,
+          type: n.type,
+          title: n.title,
+          description: n.description,
+          read: n.read,
 
-        // normalize relations
-        fileId: n.file_id ?? null,
-        summaryId: n.summary_id ?? null,
-        mcqDeckId: n.mcq_deck_id ?? null,
-        flashcardDeckId: n.flashcard_deck_id ?? null,
-      }));
+          // normalize timestamps
+          createdAt: n.created_at ? new Date(n.created_at).toISOString() : null,
+
+          // normalize relations - ensure we get valid IDs or null
+          fileId: normalizeId(n.file_id),
+          summaryId: normalizeId(n.summary_id),
+          mcqDeckId: normalizeId(n.mcq_deck_id),
+          flashcardDeckId: normalizeId(n.flashcard_deck_id),
+        };
+      });
       
       setNotifications(normalizedNotifications);
     } catch (err) {
@@ -259,23 +268,53 @@ const SynapseOS = () => {
       notification.type === "flashcard_completed" ||
       (notification.type && notification.type.includes("completed"));
 
-    if (!isSuccessNotification) return;
+    if (!isSuccessNotification) {
+      console.log("[Notification] Not a success notification, ignoring click", { type: notification.type });
+      return;
+    }
+
+    // Debug: Log notification structure
+    console.log("[Notification] Click handler fired", {
+      type: notification.type,
+      fileId: notification.fileId,
+      summaryId: notification.summaryId,
+      mcqDeckId: notification.mcqDeckId,
+      flashcardDeckId: notification.flashcardDeckId,
+      fullNotification: notification
+    });
 
     // Close dropdown
     setNotificationsOpen(false);
 
-    // Navigate based on notification type and available IDs
+    // Priority: fileId always takes precedence (file view is the central context)
+    // Navigate to file view if fileId is present
     if (notification.fileId) {
+      console.log("[Notification] Navigating to file view", `/library/${notification.fileId}`);
       navigate(`/library/${notification.fileId}`);
-    } else if (notification.summaryId) {
-      navigate("/summaries");
-      // Note: SummariesTab uses internal state, so we navigate to the page
-      // The component would need additional logic to auto-select the summary
-    } else if (notification.mcqDeckId) {
-      navigate("/mcq");
-    } else if (notification.flashcardDeckId) {
-      navigate("/flashcards");
+      return;
     }
+
+    // Fallback: Navigate to module pages if no fileId
+    if (notification.summaryId) {
+      console.log("[Notification] Navigating to summaries page");
+      navigate("/summaries");
+      return;
+    }
+    
+    if (notification.mcqDeckId) {
+      console.log("[Notification] Navigating to MCQ page");
+      navigate("/mcq");
+      return;
+    }
+    
+    if (notification.flashcardDeckId) {
+      console.log("[Notification] Navigating to flashcards page");
+      navigate("/flashcards");
+      return;
+    }
+
+    // If we get here, no valid IDs were found
+    console.warn("[Notification] No valid IDs found for navigation", notification);
   };
 
   // Fetch profile
