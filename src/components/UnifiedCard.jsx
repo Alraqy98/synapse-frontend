@@ -1,5 +1,5 @@
 // src/components/UnifiedCard.jsx
-// Unified card component for Library, Summaries, MCQs, and Flashcards
+// Unified card component for Summaries, MCQs, and Flashcards
 import React, { useState } from "react";
 import { createPortal } from "react-dom";
 import { MoreHorizontal, Edit2, Trash2, Copy, Download } from "lucide-react";
