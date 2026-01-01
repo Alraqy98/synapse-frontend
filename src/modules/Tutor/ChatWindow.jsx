@@ -21,6 +21,7 @@ const ChatWindow = ({ activeSessionId }) => {
     const textareaRef = useRef(null);
     const messagesInitializedRef = useRef(null); // Track which sessionId was initialized (cold start only)
     const previousSessionIdRef = useRef(null); // Track previous sessionId to detect changes
+    const messagesRef = useRef([]); // Track messages to avoid stale closure issues
 
     /* ------------------------------------------------
      * Auto–scroll logic (only when messages change)
@@ -38,6 +39,11 @@ const ChatWindow = ({ activeSessionId }) => {
     useEffect(() => {
         scrollToBottom();
     }, [messages, isTyping]);
+
+    // Sync messagesRef with messages state to avoid stale closures in useEffect
+    useEffect(() => {
+        messagesRef.current = messages;
+    }, [messages]);
 
     /* ------------------------------------------------
      * Auto–resize textarea
@@ -85,10 +91,12 @@ const ChatWindow = ({ activeSessionId }) => {
             }
 
             // HARD RULE: GET must not run if live messages exist (POST already produced messages)
-            // This prevents GET from firing during active chat
-            if (messages.length > 0) {
+            // Use ref to get current messages (avoids stale closure from dependency array)
+            // This prevents GET from firing during active chat, tab switches, or remounts
+            const currentMessages = messagesRef.current;
+            if (currentMessages && currentMessages.length > 0) {
                 console.log("[TUTOR_GET_BLOCKED] Skipping GET - live messages exist", { 
-                    messageCount: messages.length,
+                    messageCount: currentMessages.length,
                     sessionId: activeSessionId 
                 });
                 messagesInitializedRef.current = activeSessionId; // Mark this session as initialized

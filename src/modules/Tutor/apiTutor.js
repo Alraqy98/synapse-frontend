@@ -64,6 +64,9 @@ export const createNewSession = async (title = "New Chat") => {
 };
 
 export const getSessionMessages = async (sessionId) => {
+    // CRITICAL: Trace all calls to identify global/shared triggers
+    console.trace("[GLOBAL_TUTOR_GET_CALLED] getSessionMessages invoked");
+    
     const token = await getToken();
 
     console.log("📥 getSessionMessages for", sessionId);
