@@ -54,6 +54,83 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
     const [selectionBubble, setSelectionBubble] = useState(null);
     const selectionRef = useRef(null);
 
+    // Normalize summary data - ensures all nested fields are safe
+    const normalizeSummary = (rawSummary) => {
+        if (!rawSummary) return null;
+        
+        // Log the raw summary shape for debugging
+        console.log("[SUMMARY_VIEWER] Raw summary data:", {
+            id: rawSummary.id,
+            title: rawSummary.title,
+            hasSections: !!rawSummary.sections,
+            sectionsIsArray: Array.isArray(rawSummary.sections),
+            sectionsLength: Array.isArray(rawSummary.sections) ? rawSummary.sections.length : null,
+            hasTables: !!rawSummary.tables,
+            tablesIsArray: Array.isArray(rawSummary.tables),
+            hasKeyTakeaways: !!rawSummary.key_takeaways,
+            keyTakeawaysIsArray: Array.isArray(rawSummary.key_takeaways),
+            hasReferences: !!rawSummary.references,
+            referencesIsArray: Array.isArray(rawSummary.references),
+            fileId: rawSummary.file_id,
+            fileName: rawSummary.file_name,
+            fullObject: rawSummary,
+        });
+        
+        // Create normalized, safe summary object
+        const normalized = {
+            id: rawSummary.id ?? null,
+            title: rawSummary.title ?? "Untitled summary",
+            academic_stage: rawSummary.academic_stage ?? null,
+            specialty: rawSummary.specialty ?? null,
+            goal: rawSummary.goal ?? null,
+            file_id: rawSummary.file_id ?? null,
+            file_name: rawSummary.file_name ?? null,
+            created_at: rawSummary.created_at ?? null,
+            updated_at: rawSummary.updated_at ?? null,
+            // Normalize arrays - ensure they're always arrays
+            sections: Array.isArray(rawSummary.sections) ? rawSummary.sections : [],
+            tables: Array.isArray(rawSummary.tables) ? rawSummary.tables : [],
+            key_takeaways: Array.isArray(rawSummary.key_takeaways) ? rawSummary.key_takeaways : [],
+            references: Array.isArray(rawSummary.references) ? rawSummary.references : [],
+        };
+        
+        // Normalize nested objects within arrays
+        normalized.sections = normalized.sections.map((section, idx) => ({
+            heading: section?.heading ?? `Section ${idx + 1}`,
+            content: section?.content ?? "",
+        }));
+        
+        normalized.tables = normalized.tables.map((table, idx) => ({
+            headers: Array.isArray(table?.headers) ? table.headers : [],
+            rows: Array.isArray(table?.rows) ? table.rows : [],
+        }));
+        
+        normalized.key_takeaways = normalized.key_takeaways.filter(takeaway => 
+            takeaway !== null && takeaway !== undefined && takeaway !== ""
+        );
+        
+        normalized.references = normalized.references.map((ref, idx) => {
+            if (typeof ref === 'string') {
+                return { text: ref, page: null };
+            }
+            return {
+                text: ref?.text ?? `Reference ${idx + 1}`,
+                page: ref?.page ?? null,
+            };
+        });
+        
+        console.log("[SUMMARY_VIEWER] Normalized summary:", {
+            id: normalized.id,
+            title: normalized.title,
+            sectionsCount: normalized.sections.length,
+            tablesCount: normalized.tables.length,
+            keyTakeawaysCount: normalized.key_takeaways.length,
+            referencesCount: normalized.references.length,
+        });
+        
+        return normalized;
+    };
+
     // Load summary - enforce canonical schema
     useEffect(() => {
         if (!summaryId) return;
@@ -70,14 +147,28 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                     return;
                 }
                 
+                if (!data.id) {
+                    setError("Summary is missing required field: id");
+                    setLoading(false);
+                    return;
+                }
+                
                 if (!data.title) {
                     setError("Summary is missing required field: title");
                     setLoading(false);
                     return;
                 }
                 
-                setSummary(data);
-                setRenameValue(data.title);
+                // Normalize summary before setting it
+                const normalized = normalizeSummary(data);
+                if (!normalized) {
+                    setError("Failed to normalize summary data");
+                    setLoading(false);
+                    return;
+                }
+                
+                setSummary(normalized);
+                setRenameValue(normalized.title);
             } catch (err) {
                 console.error("Failed to load summary:", err);
                 setError("Failed to load summary");
@@ -137,12 +228,24 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                                         setError("Summary data is missing");
                                         return;
                                     }
+                                    if (!data.id) {
+                                        setError("Summary is missing required field: id");
+                                        return;
+                                    }
                                     if (!data.title) {
                                         setError("Summary is missing required field: title");
                                         return;
                                     }
-                                    setSummary(data);
-                                    setRenameValue(data.title);
+                                    
+                                    // Normalize summary before setting it
+                                    const normalized = normalizeSummary(data);
+                                    if (!normalized) {
+                                        setError("Failed to normalize summary data");
+                                        return;
+                                    }
+                                    
+                                    setSummary(normalized);
+                                    setRenameValue(normalized.title);
                                     setError(null);
                                 })
                                 .catch((err) => {
@@ -376,14 +479,14 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
 
                 // Find the section containing selected text for context
                 let sectionContext = null;
-                if (structuredPayload.content && summary?.sections) {
+                if (structuredPayload.content && Array.isArray(summary?.sections)) {
                     const selectionText = structuredPayload.content.substring(0, 50);
                     for (const section of summary.sections) {
                         if (
-                            section.content &&
+                            section?.content &&
                             section.content.includes(selectionText)
                         ) {
-                            sectionContext = section.heading || section.title;
+                            sectionContext = section?.heading || section?.title || null;
                             break;
                         }
                     }
@@ -829,20 +932,18 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                 )}
 
                 {/* Sections - enforce canonical schema */}
-                {summary.sections && summary.sections.length > 0 && (
+                {Array.isArray(summary.sections) && summary.sections.length > 0 && (
                     <div className="space-y-6">
                         {summary.sections.map((section, idx) => {
-                            // Enforce required fields
-                            if (!section.heading) {
-                                console.error(`Section ${idx} missing required field: heading`);
-                                return null;
-                            }
-                            if (section.content === undefined || section.content === null) {
-                                console.error(`Section ${idx} missing required field: content`);
+                            // Safe access - normalized summary ensures section always has heading and content
+                            const safeHeading = section?.heading ?? `Section ${idx + 1}`;
+                            const safeContent = section?.content ?? "";
+                            
+                            if (!safeContent.trim()) {
                                 return null;
                             }
                             
-                            const sectionIcon = getSectionIcon(section.heading);
+                            const sectionIcon = getSectionIcon(safeHeading);
                             
                             return (
                                 <div 
@@ -852,9 +953,9 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                                 >
                                     <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2" style={{ userSelect: 'text', pointerEvents: 'auto' }}>
                                         {sectionIcon}
-                                        <span style={{ userSelect: 'text', pointerEvents: 'auto' }}>{section.heading}</span>
+                                        <span style={{ userSelect: 'text', pointerEvents: 'auto' }}>{safeHeading}</span>
                                     </h2>
-                                    {renderStructuredContent(section.content)}
+                                    {renderStructuredContent(safeContent)}
                                 </div>
                             );
                         })}
@@ -862,16 +963,15 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                 )}
 
                 {/* Tables - enforce canonical schema */}
-                {summary.tables && summary.tables.length > 0 && (
+                {Array.isArray(summary.tables) && summary.tables.length > 0 && (
                     <div className="mt-8 space-y-6">
                         {summary.tables.map((table, idx) => {
-                            // Enforce required fields
-                            if (!table.headers || !Array.isArray(table.headers)) {
-                                console.error(`Table ${idx} missing required field: headers`);
-                                return null;
-                            }
-                            if (!table.rows || !Array.isArray(table.rows)) {
-                                console.error(`Table ${idx} missing required field: rows`);
+                            // Safe access - normalized summary ensures table has headers and rows arrays
+                            const safeHeaders = Array.isArray(table?.headers) ? table.headers : [];
+                            const safeRows = Array.isArray(table?.rows) ? table.rows : [];
+                            
+                            if (safeHeaders.length === 0 && safeRows.length === 0) {
+                                console.warn(`Table ${idx} has no headers or rows, skipping`);
                                 return null;
                             }
                             
@@ -884,35 +984,38 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                                     <table className="w-full border-collapse" style={{ userSelect: 'text', pointerEvents: 'auto' }}>
                                         <thead>
                                             <tr className="bg-white/5">
-                                                {table.headers.map((header, hIdx) => (
+                                                {safeHeaders.map((header, hIdx) => (
                                                     <th
                                                         key={hIdx}
                                                         className="border border-white/10 px-4 py-3 text-left text-sm font-bold text-white"
                                                         style={{ userSelect: 'text', pointerEvents: 'auto' }}
                                                     >
-                                                        {header}
+                                                        {header ?? ""}
                                                     </th>
                                                 ))}
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {table.rows.map((row, rIdx) => (
-                                                <tr
-                                                    key={rIdx}
-                                                    className="hover:bg-white/5 transition-colors"
-                                                    style={{ userSelect: 'text', pointerEvents: 'auto' }}
-                                                >
-                                                    {row.map((cell, cIdx) => (
-                                                        <td
-                                                            key={cIdx}
-                                                            className="border border-white/10 px-4 py-3 text-sm text-gray-300 leading-relaxed"
-                                                            style={{ userSelect: 'text', pointerEvents: 'auto' }}
-                                                        >
-                                                            {cell}
-                                                        </td>
-                                                    ))}
-                                                </tr>
-                                            ))}
+                                            {safeRows.map((row, rIdx) => {
+                                                const safeRow = Array.isArray(row) ? row : [];
+                                                return (
+                                                    <tr
+                                                        key={rIdx}
+                                                        className="hover:bg-white/5 transition-colors"
+                                                        style={{ userSelect: 'text', pointerEvents: 'auto' }}
+                                                    >
+                                                        {safeRow.map((cell, cIdx) => (
+                                                            <td
+                                                                key={cIdx}
+                                                                className="border border-white/10 px-4 py-3 text-sm text-gray-300 leading-relaxed"
+                                                                style={{ userSelect: 'text', pointerEvents: 'auto' }}
+                                                            >
+                                                                {cell ?? ""}
+                                                            </td>
+                                                        ))}
+                                                    </tr>
+                                                );
+                                            })}
                                         </tbody>
                                     </table>
                                 </div>
@@ -922,7 +1025,7 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                 )}
 
                 {/* Key Takeaways - enforce canonical schema */}
-                {summary.key_takeaways && summary.key_takeaways.length > 0 && (
+                {Array.isArray(summary.key_takeaways) && summary.key_takeaways.length > 0 && (
                     <div className="mt-8 rounded-2xl border border-white/10 bg-black/40 p-6" style={{ userSelect: 'text', pointerEvents: 'auto' }}>
                         <h2 className="text-xl font-bold text-white mb-5 flex items-center gap-2" style={{ userSelect: 'text', pointerEvents: 'auto' }}>
                             <List size={18} className="text-teal" />
@@ -952,7 +1055,7 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                 )}
 
                 {/* References - enforce canonical schema */}
-                {summary.references && summary.references.length > 0 && (
+                {Array.isArray(summary.references) && summary.references.length > 0 && (
                     <div className="mt-8 rounded-2xl border border-white/10 bg-black/40 p-6" style={{ userSelect: 'text', pointerEvents: 'auto' }}>
                         <h2 className="text-xl font-bold text-white mb-5 flex items-center gap-2" style={{ userSelect: 'text', pointerEvents: 'auto' }}>
                             <BookOpen size={18} className="text-teal" />
@@ -960,14 +1063,13 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                         </h2>
                         <ul className="space-y-3" style={{ userSelect: 'text', pointerEvents: 'auto' }}>
                             {summary.references.map((ref, idx) => {
-                                // Enforce required field - assume canonical structure
-                                if (!ref || (typeof ref === 'object' && !ref.text)) {
-                                    console.error(`Reference ${idx} missing required field: text`);
+                                // Safe access - normalized summary ensures ref is always an object with text
+                                const refText = ref?.text ?? "";
+                                const refPage = ref?.page ?? null;
+                                
+                                if (!refText.trim()) {
                                     return null;
                                 }
-                                
-                                const refText = typeof ref === 'string' ? ref : ref.text;
-                                const refPage = typeof ref === 'object' ? ref.page : null;
                                 
                                 return (
                                     <li key={idx} className="text-sm text-muted leading-relaxed" style={{ userSelect: 'text', pointerEvents: 'auto' }}>
