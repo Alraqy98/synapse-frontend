@@ -395,14 +395,14 @@ export default function SummariesTab() {
                                         setImportCode(e.target.value.toUpperCase());
                                         setImportError(null); // Clear error on input change
                                     }}
-                                    placeholder="SYN-XXXXXX"
+                                    placeholder="SYN-XXXXX"
                                     className="w-full px-4 py-2 rounded-lg bg-black/40 border border-white/10 text-white mb-2 font-mono"
-                                    maxLength={10}
+                                    maxLength={9}
                                     disabled={isImporting}
                                 />
                                 {importCode && !isValidCodeFormat(importCode) && (
                                     <p className="text-xs text-red-400 mb-4">
-                                        Invalid code format. Expected: SYN-XXXXXX
+                                        Invalid code format. Expected: SYN-XXXXX
                                     </p>
                                 )}
                                 {importError && (

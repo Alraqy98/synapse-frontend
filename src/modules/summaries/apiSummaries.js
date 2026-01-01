@@ -114,7 +114,7 @@ export const deleteSummary = async (summaryId) => {
 /**
  * Share a summary (generate import code)
  * POST /ai/summaries/:id/share
- * Returns: { share_code: "SYN-XXXXXX" } or { code: "SYN-XXXXXX" }
+ * Returns: { share_code: "SYN-XXXXX" } or { code: "SYN-XXXXX" }
  */
 export const shareSummary = async (summaryId) => {
     if (!summaryId) throw new Error("Summary ID is missing");
@@ -125,7 +125,7 @@ export const shareSummary = async (summaryId) => {
 /**
  * Import a summary by code
  * POST /ai/summaries/import
- * Body: { code: "SYN-XXXXXX" }
+ * Body: { code: "SYN-XXXXX" }
  * Returns: { success: true, summary: {...} } or { success: false, error: "..." }
  */
 export const importSummary = async (code) => {
