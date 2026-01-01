@@ -307,11 +307,44 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
             try {
                 setIsChatLoading(true);
                 setFileSessionId(existingSessionId);
+                
+                // Diagnostic log: Confirm sessionId for GET request
+                console.log("[TUTOR_FRONTEND] GET sessionId:", existingSessionId, "for file:", file.id);
+                
                 const history = await getSessionMessages(existingSessionId);
-                setChatMessages(history);
+                
+                // Non-destructive rehydration: Only update if we have valid messages
+                setChatMessages(prev => {
+                    const fetchedMessages = history && Array.isArray(history) && history.length > 0
+                        ? history
+                        : null;
+
+                    if (fetchedMessages) {
+                        console.log("[TUTOR_FRONTEND] Rehydrated messages from GET", { count: fetchedMessages.length, fileId: file.id });
+                        return fetchedMessages;
+                    }
+
+                    // If no fetched messages but we have existing messages, keep them
+                    if (prev && prev.length > 0) {
+                        console.log("[TUTOR_FRONTEND] Empty GET response - preserving existing messages", { count: prev.length, fileId: file.id });
+                        return prev;
+                    }
+
+                    // No messages at all
+                    return [];
+                });
+                
                 messagesInitializedRef.current = true;
-            } catch {
-                setChatMessages([]);
+            } catch (err) {
+                console.error("[TUTOR_FRONTEND] Failed to load session messages:", err);
+                // On error, preserve existing messages if they exist
+                setChatMessages(prev => {
+                    if (prev && prev.length > 0) {
+                        console.log("[TUTOR_FRONTEND] GET error - preserving existing messages", { count: prev.length, fileId: file.id });
+                        return prev;
+                    }
+                    return [];
+                });
                 messagesInitializedRef.current = true;
             } finally {
                 setIsChatLoading(false);
@@ -531,6 +564,10 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
                     `synapse_file_session_${file.id}`,
                     String(sessionId)
                 );
+                console.log("[TUTOR_FRONTEND] Created new sessionId:", sessionId, "for file:", file.id);
+            } else {
+                // Diagnostic log: Confirm sessionId for POST request
+                console.log("[TUTOR_FRONTEND] POST sessionId:", sessionId, "for file:", file.id);
             }
 
             // Verification: Confirm fileId and page match currently displayed state

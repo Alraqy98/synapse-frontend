@@ -14,6 +14,7 @@ const ChatWindow = ({ activeSessionId }) => {
     const [isTyping, setIsTyping] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+    const [postFailed, setPostFailed] = useState(false); // Track POST failure state
 
     const chatRef = useRef(null);
     const fileInputRef = useRef(null);
@@ -56,14 +57,42 @@ const ChatWindow = ({ activeSessionId }) => {
                 return;
             }
 
+            // Diagnostic log: Confirm sessionId for GET request
+            console.log("[TUTOR_FRONTEND] GET sessionId:", activeSessionId);
+
             setIsLoadingHistory(true);
 
             try {
                 const data = await getSessionMessages(activeSessionId);
 
-                if (!data || data.length === 0) {
-                    // Fresh session → show one welcome message
-                    setMessages([
+                // Non-destructive rehydration: Only update if we have valid messages
+                // This prevents empty GET responses from wiping valid messages
+                setMessages(prev => {
+                    const fetchedMessages = data && Array.isArray(data) && data.length > 0
+                        ? data.map((m) => ({
+                            id: m.id,
+                            role: m.role,
+                            content: m.content,
+                            createdAt: m.createdAt,
+                        }))
+                        : null;
+
+                    // If we have fetched messages, use them
+                    if (fetchedMessages) {
+                        console.log("[TUTOR_FRONTEND] Rehydrated messages from GET", { count: fetchedMessages.length });
+                        return fetchedMessages;
+                    }
+
+                    // If no fetched messages but we have existing messages, keep them
+                    if (prev && prev.length > 0) {
+                        console.log("[TUTOR_FRONTEND] Empty GET response - preserving existing messages", { count: prev.length });
+                        return prev;
+                    }
+
+                    // Only show welcome message if we have no existing messages AND no fetched messages
+                    // This is a truly fresh session
+                    console.log("[TUTOR_FRONTEND] Fresh session - showing welcome message");
+                    return [
                         {
                             id: "welcome",
                             role: "assistant",
@@ -71,20 +100,18 @@ const ChatWindow = ({ activeSessionId }) => {
                                 "Hello! I am Astra — your dedicated AI medical tutor. How can I help you today?",
                             createdAt: new Date().toISOString(),
                         },
-                    ]);
-                    return;
-                }
-
-                setMessages(
-                    data.map((m) => ({
-                        id: m.id,
-                        role: m.role,
-                        content: m.content,
-                        createdAt: m.createdAt,
-                    }))
-                );
+                    ];
+                });
             } catch (err) {
-                console.error("Failed to load session messages:", err);
+                console.error("[TUTOR_FRONTEND] Failed to load session messages:", err);
+                // On error, preserve existing messages if they exist
+                setMessages(prev => {
+                    if (prev && prev.length > 0) {
+                        console.log("[TUTOR_FRONTEND] GET error - preserving existing messages", { count: prev.length });
+                        return prev;
+                    }
+                    return prev || [];
+                });
             } finally {
                 setIsLoadingHistory(false);
             }
@@ -193,6 +220,10 @@ const ChatWindow = ({ activeSessionId }) => {
 
         let responseText = null;
         let isRealError = false;
+        let postFailedLocal = false; // Local variable to track POST failure (not state)
+
+        // Diagnostic log: Confirm sessionId for POST request
+        console.log("[TUTOR_FRONTEND] POST sessionId:", activeSessionId);
 
         try {
             const response = await sendMessageToTutor({
@@ -213,18 +244,21 @@ const ChatWindow = ({ activeSessionId }) => {
             if (responseText && responseText.trim()) {
                 // Update assistant message with response
                 await typeAssistantMessage(responseText, botId);
+                postFailedLocal = false; // POST succeeded
             } else {
                 // No response found - this is a real error
                 isRealError = true;
+                postFailedLocal = true; // POST failed
             }
 
         } catch (error) {
-            console.error("Error sending message:", error);
+            console.error("[TUTOR_FRONTEND] Error sending message:", error);
             
             // Handle PNG_NOT_READY gracefully - show calm message, keep chat responsive
             if (error.code === "PNG_NOT_READY") {
                 responseText = "Slides are still being prepared. Visual understanding will be available once preparation completes.";
                 isRealError = false; // Not a real error, just informational
+                postFailedLocal = false; // Not a POST failure
                 await typeAssistantMessage(responseText, botId);
             } else {
                 // Check if this is a real backend error (4xx/5xx) vs network/timeout
@@ -239,29 +273,35 @@ const ChatWindow = ({ activeSessionId }) => {
                     if (responseText && responseText.trim()) {
                         // Response exists in DB - update message instead of showing error
                         await typeAssistantMessage(responseText, botId);
+                        postFailedLocal = false; // Response found, not a failure
                     } else {
                         // No response in DB - this might be a real error, but don't show error message yet
                         // Keep the empty message and let user retry
                         isRealError = false; // Don't show error for network issues
+                        postFailedLocal = true; // POST failed (network issue)
                     }
                 } else {
                     // Real backend error (4xx/5xx)
                     isRealError = true;
+                    postFailedLocal = true; // POST failed (backend error)
                 }
             }
         } finally {
             setIsTyping(false);
             
-            // Only show error message if it's a real backend error AND no response was found
-            if (isRealError && (!responseText || !responseText.trim())) {
+            // Only show error message if POST failed AND no response was found
+            // This ensures error only appears on POST failure, not on mount/tab change/rehydration
+            if (postFailedLocal && isRealError && (!responseText || !responseText.trim())) {
                 // Check DB one more time before showing error (in case response was saved after our check)
                 const finalCheck = await checkForResponseInDB(activeSessionId);
                 
                 if (finalCheck && finalCheck.trim()) {
                     // Response found in final check - update message instead of showing error
                     await typeAssistantMessage(finalCheck, botId);
+                    setPostFailed(false); // Response found, clear failure state
                 } else {
-                    // No response found - show error message
+                    // No response found - show error message (only on POST failure)
+                    setPostFailed(true); // Set state for UI tracking
                     setMessages((prev) => 
                         prev.map((m) =>
                             m.id === botId
@@ -273,6 +313,9 @@ const ChatWindow = ({ activeSessionId }) => {
                         )
                     );
                 }
+            } else {
+                // Clear failure state if POST succeeded
+                setPostFailed(false);
             }
         }
     };
