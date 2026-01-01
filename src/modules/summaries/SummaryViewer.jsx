@@ -83,6 +83,7 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
     }, [summaryId]);
 
     // Initialize chat session
+    // HARD RULE: GET only on cold start (no live messages)
     useEffect(() => {
         if (!summary || messagesInitializedRef.current) return;
 
@@ -92,16 +93,31 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
             );
             if (stored) {
                 setSessionId(stored);
+                
+                // Gate: Only run GET if no live messages exist
+                if (messages.length > 0) {
+                    console.log("[TUTOR_GET_BLOCKED] Skipping GET - live messages exist in SummaryViewer", { 
+                        messageCount: messages.length,
+                        summaryId: summary.id,
+                        sessionId: stored 
+                    });
+                    messagesInitializedRef.current = true;
+                    return;
+                }
+
+                // Trace: Identify what triggered this GET (should only be cold start)
+                console.trace("[TUTOR_GET_TRIGGERED] SummaryViewer cold start - no live messages");
+
                 try {
                     const msgs = await getSessionMessages(stored);
                     setMessages(msgs || []);
                 } catch (err) {
-                    console.error("Failed to load messages:", err);
+                    console.error("[TUTOR_FRONTEND] Failed to load messages:", err);
                 }
             }
             messagesInitializedRef.current = true;
         })();
-    }, [summary]);
+    }, [summary]); // Only depends on summary - messages guard prevents re-fetch
 
     // Scroll to bottom on new messages
     useEffect(() => {

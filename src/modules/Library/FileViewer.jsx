@@ -304,7 +304,22 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
             }
 
             // Load history ONCE if session is valid - never re-fetch
+            // HARD RULE: GET only on cold start (no live messages)
             try {
+                // Gate: Only run GET if no live messages exist
+                if (chatMessages.length > 0) {
+                    console.log("[TUTOR_GET_BLOCKED] Skipping GET - live messages exist in FileViewer", { 
+                        messageCount: chatMessages.length,
+                        fileId: file.id,
+                        sessionId: existingSessionId 
+                    });
+                    messagesInitializedRef.current = true;
+                    return;
+                }
+
+                // Trace: Identify what triggered this GET (should only be cold start)
+                console.trace("[TUTOR_GET_TRIGGERED] FileViewer cold start - no live messages");
+
                 setIsChatLoading(true);
                 setFileSessionId(existingSessionId);
                 

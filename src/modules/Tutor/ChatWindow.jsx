@@ -19,6 +19,8 @@ const ChatWindow = ({ activeSessionId }) => {
     const chatRef = useRef(null);
     const fileInputRef = useRef(null);
     const textareaRef = useRef(null);
+    const messagesInitializedRef = useRef(null); // Track which sessionId was initialized (cold start only)
+    const previousSessionIdRef = useRef(null); // Track previous sessionId to detect changes
 
     /* ------------------------------------------------
      * Auto–scroll logic (only when messages change)
@@ -49,18 +51,58 @@ const ChatWindow = ({ activeSessionId }) => {
 
     /* ------------------------------------------------
      * Load session history when activeSessionId changes
+     * CRITICAL: Only run GET on cold start (first mount, empty messages)
+     * Do NOT run during active chat, tab switches, or remounts
      * ----------------------------------------------*/
     useEffect(() => {
         const loadMessages = async () => {
             if (!activeSessionId) {
                 setMessages([]);
+                messagesInitializedRef.current = null; // Reset when session cleared
+                previousSessionIdRef.current = null;
                 return;
             }
+
+            // Clear messages when sessionId changes to a different session
+            // This ensures we don't show messages from a previous session
+            if (previousSessionIdRef.current !== null && previousSessionIdRef.current !== activeSessionId) {
+                console.log("[TUTOR_SESSION_CHANGED] Clearing messages for new session", {
+                    previousSessionId: previousSessionIdRef.current,
+                    newSessionId: activeSessionId
+                });
+                setMessages([]);
+                messagesInitializedRef.current = null; // Reset initialization for new session
+            }
+            previousSessionIdRef.current = activeSessionId;
+
+            // HARD RULE: GET must not run if this sessionId was already initialized
+            // This prevents GET from firing during active chat, tab switches, or remounts
+            if (messagesInitializedRef.current === activeSessionId) {
+                console.log("[TUTOR_GET_BLOCKED] Skipping GET - session already initialized", { 
+                    sessionId: activeSessionId 
+                });
+                return;
+            }
+
+            // HARD RULE: GET must not run if live messages exist (POST already produced messages)
+            // This prevents GET from firing during active chat
+            if (messages.length > 0) {
+                console.log("[TUTOR_GET_BLOCKED] Skipping GET - live messages exist", { 
+                    messageCount: messages.length,
+                    sessionId: activeSessionId 
+                });
+                messagesInitializedRef.current = activeSessionId; // Mark this session as initialized
+                return;
+            }
+
+            // Trace: Identify what triggered this GET (should only be cold start)
+            console.trace("[TUTOR_GET_TRIGGERED] Cold start only - no live messages, session not initialized");
 
             // Diagnostic log: Confirm sessionId for GET request
             console.log("[TUTOR_FRONTEND] GET sessionId:", activeSessionId);
 
             setIsLoadingHistory(true);
+            messagesInitializedRef.current = activeSessionId; // Mark this session as initialized before fetch
 
             try {
                 const data = await getSessionMessages(activeSessionId);
