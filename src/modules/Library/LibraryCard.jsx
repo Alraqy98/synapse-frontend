@@ -12,7 +12,7 @@ import {
     Edit3,
     ArrowLeftRight,
 } from "lucide-react";
-import { getFileProcessingStatus } from "./utils/fileReadiness";
+// Processing logic kept for backend/AI features but not used for UI blocking
 
 const LibraryCard = ({
     item,
@@ -32,30 +32,8 @@ const LibraryCard = ({
 
     const folderColor = item.folder_color || "#f7c948"; // fallback yellow
 
-    // Calculate progress for processing files
-    let progress = 0;
-    let isProcessing = false;
-    
-    if (!isFolder) {
-        const processingStatus = getFileProcessingStatus(item);
-        isProcessing = processingStatus === "Processing";
-        
-        if (isProcessing) {
-            // Calculate progress based on render_state
-            const renderState = item.render_state || item.file_render_state;
-            if (renderState) {
-                const total = item.total_pages || 0;
-                const rendered = item.rendered_pages || 0;
-                if (total > 0) {
-                    progress = Math.min(90, Math.round((rendered / total) * 100));
-                } else {
-                    progress = 30; // Default progress for files without page count
-                }
-            } else {
-                progress = 30; // Default progress when render_state is missing
-            }
-        }
-    }
+    // Processing logic kept for backend/AI features but not used for UI blocking
+    // Files are always accessible regardless of processing state
 
     /* ---------------------------
        ICON LOGIC (color-coded)
@@ -99,9 +77,7 @@ const LibraryCard = ({
        ACTION HANDLERS
     --------------------------- */
     const handleOpen = () => {
-        if (!isProcessing) {
-            onOpen?.(item);
-        }
+        onOpen?.(item);
     };
 
     const handleDelete = () => {
@@ -129,12 +105,11 @@ const LibraryCard = ({
     --------------------------- */
     return (
         <div
-            className={`
+            className="
                 group bg-[#1a1d24] border border-white/5 rounded-2xl p-4
                 hover:border-teal/40 transition-all hover:shadow-[0_0_35px_rgba(0,200,180,0.12)]
                 flex flex-col cursor-pointer relative
-                ${isProcessing ? "opacity-90" : ""}
-            `}
+            "
         >
             {/* HEADER */}
             <div className="flex justify-between items-start mb-3">
@@ -222,18 +197,6 @@ const LibraryCard = ({
                 {item.title}
             </h3>
 
-            {/* PROGRESS BAR - Only show when processing */}
-            {isProcessing && (
-                <div className="mb-2">
-                    <div className="h-1 rounded-full bg-white/10 overflow-hidden">
-                        <div
-                            className="h-full bg-gradient-to-r from-teal-400 to-emerald-500 transition-all duration-300"
-                            style={{ width: `${progress}%` }}
-                        />
-                    </div>
-                </div>
-            )}
-
             {/* META */}
             <div className="flex items-center gap-2 text-[11px] text-muted mb-3">
                 <span
@@ -255,18 +218,14 @@ const LibraryCard = ({
                     e.stopPropagation();
                     handleOpen();
                 }}
-                disabled={isProcessing}
-                className={`
+                className="
                     w-full flex items-center justify-center gap-2 py-2 rounded-xl
+                    bg-teal/10 text-teal hover:bg-teal hover:text-black
                     transition-colors text-sm font-medium
-                    ${isProcessing
-                        ? "bg-white/5 text-muted cursor-not-allowed"
-                        : "bg-teal/10 text-teal hover:bg-teal hover:text-black"
-                    }
-                `}
+                "
             >
                 <Eye size={14} />
-                {isProcessing ? "Processing…" : (isFolder ? "Open Folder" : "Open")}
+                {isFolder ? "Open Folder" : "Open"}
             </button>
         </div>
     );
