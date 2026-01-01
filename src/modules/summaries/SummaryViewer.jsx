@@ -178,11 +178,15 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
         })();
     }, [summaryId]);
 
+    // Stable derived variables for dependency arrays (prevents React error #310)
+    // These must be computed before any hooks to ensure stable references
+    const currentSummaryId = summary ? summary.id : null;
+    
     // Sync sessionId with localStorage
     useEffect(() => {
-        if (!summary?.id) return;
+        if (!currentSummaryId) return;
 
-        const key = `synapse_summary_session_${summary.id}`;
+        const key = `synapse_summary_session_${currentSummaryId}`;
         const stored = localStorage.getItem(key);
 
         // Sync state with localStorage (single source of truth)
@@ -192,7 +196,89 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
             // If localStorage is empty but state has value, persist it
             localStorage.setItem(key, sessionId);
         }
-    }, [summary?.id, sessionId]);
+    }, [currentSummaryId, sessionId]);
+
+    // Load messages ONCE (cold start only)
+    // HARD RULE: GET only on cold start (no live messages)
+    useEffect(() => {
+        if (!currentSummaryId || !sessionId || messagesInitializedRef.current) return;
+
+        const loadHistory = async () => {
+            // Gate: Only run GET if no live messages exist
+            if (messages.length > 0) {
+                console.log("[TUTOR_GET_BLOCKED] Skipping GET - live messages exist in SummaryViewer", { 
+                    messageCount: messages.length,
+                    summaryId: currentSummaryId,
+                    sessionId: sessionId 
+                });
+                messagesInitializedRef.current = true;
+                return;
+            }
+
+            // Trace: Identify what triggered this GET (should only be cold start)
+            console.trace("[TUTOR_GET_TRIGGERED] SummaryViewer cold start - no live messages");
+
+            try {
+                console.log("[TUTOR_SESSION][GET]", sessionId, "for summary:", currentSummaryId);
+                const msgs = await getSessionMessages(sessionId);
+                
+                // Non-destructive rehydration
+                setMessages(prev => {
+                    const fetchedMessages = msgs && Array.isArray(msgs) && msgs.length > 0
+                        ? msgs
+                        : null;
+                    
+                    if (fetchedMessages) {
+                        console.log("[TUTOR_FRONTEND] Rehydrated messages from GET in SummaryViewer", { count: fetchedMessages.length, summaryId: currentSummaryId });
+                        return fetchedMessages;
+                    }
+                    
+                    return prev || [];
+                });
+            } catch (err) {
+                console.error("[TUTOR_FRONTEND] Failed to load messages:", err);
+            }
+            
+            messagesInitializedRef.current = true;
+        };
+
+        loadHistory();
+    }, [currentSummaryId, sessionId, messages.length]);
+
+    // Scroll to bottom on new messages
+    useEffect(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [messages]);
+
+    // Close bubble when clicking outside
+    useEffect(() => {
+        const handleClick = (e) => {
+            // Don't close if clicking the bubble itself
+            if (selectionRef.current && selectionRef.current.contains(e.target)) {
+                return;
+            }
+
+            // Close bubble if clicking outside
+            const selection = window.getSelection();
+            if (selection && selection.rangeCount > 0) {
+                // Only clear if selection is empty or very small
+                const text = selection.toString().trim();
+                if (text.length < 3) {
+                    selection.removeAllRanges();
+                    setSelectedText("");
+                    setSelectionBubble(null);
+                }
+            } else {
+                setSelectedText("");
+                setSelectionBubble(null);
+            }
+        };
+
+        document.addEventListener("mousedown", handleClick);
+        return () => {
+            document.removeEventListener("mousedown", handleClick);
+        };
+    }, []);
     
     // HARD RENDER GUARD - Must be before ANY summary property access in the main return
     // This prevents crashes when summary is null during initial render or after errors
@@ -286,57 +372,6 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
         );
     }
 
-    // Load messages ONCE (cold start only)
-    // HARD RULE: GET only on cold start (no live messages)
-    useEffect(() => {
-        if (!summary || !sessionId || messagesInitializedRef.current) return;
-
-        const loadHistory = async () => {
-            // Gate: Only run GET if no live messages exist
-            if (messages.length > 0) {
-                console.log("[TUTOR_GET_BLOCKED] Skipping GET - live messages exist in SummaryViewer", { 
-                    messageCount: messages.length,
-                    summaryId: summary.id,
-                    sessionId: sessionId 
-                });
-                messagesInitializedRef.current = true;
-                return;
-            }
-
-            // Trace: Identify what triggered this GET (should only be cold start)
-            console.trace("[TUTOR_GET_TRIGGERED] SummaryViewer cold start - no live messages");
-
-            try {
-                console.log("[TUTOR_SESSION][GET]", sessionId, "for summary:", summary.id);
-                const msgs = await getSessionMessages(sessionId);
-                
-                // Non-destructive rehydration
-                setMessages(prev => {
-                    const fetchedMessages = msgs && Array.isArray(msgs) && msgs.length > 0
-                        ? msgs
-                        : null;
-                    
-                    if (fetchedMessages) {
-                        console.log("[TUTOR_FRONTEND] Rehydrated messages from GET in SummaryViewer", { count: fetchedMessages.length, summaryId: summary.id });
-                        return fetchedMessages;
-                    }
-                    
-                    return prev || [];
-                });
-            } catch (err) {
-                console.error("[TUTOR_FRONTEND] Failed to load messages:", err);
-            }
-            
-            messagesInitializedRef.current = true;
-        };
-
-        loadHistory();
-    }, [summary, sessionId]); // Only depends on summary and sessionId - messages guard prevents re-fetch
-
-    // Scroll to bottom on new messages
-    useEffect(() => {
-        chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [messages]);
 
     // Handle text selection - capture on mouseup to preserve selection
     const handleMouseUp = () => {
@@ -364,36 +399,6 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
             left: rect.left + rect.width / 2,
         });
     };
-
-    // Close bubble when clicking outside
-    useEffect(() => {
-        const handleClick = (e) => {
-            // Don't close if clicking the bubble itself
-            if (selectionRef.current && selectionRef.current.contains(e.target)) {
-                return;
-            }
-
-            // Close bubble if clicking outside
-            const selection = window.getSelection();
-            if (selection && selection.rangeCount > 0) {
-                // Only clear if selection is empty or very small
-                const text = selection.toString().trim();
-                if (text.length < 3) {
-                    selection.removeAllRanges();
-                    setSelectedText("");
-                    setSelectionBubble(null);
-                }
-            } else {
-                setSelectedText("");
-                setSelectionBubble(null);
-            }
-        };
-
-        document.addEventListener("mousedown", handleClick);
-        return () => {
-            document.removeEventListener("mousedown", handleClick);
-        };
-    }, []);
 
     const handleAskAstra = async () => {
         // Guard against empty selection
