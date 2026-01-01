@@ -173,56 +173,31 @@ const SynapseOS = () => {
     return date.toLocaleDateString();
   };
 
-  // Fetch notifications from backend
+  // Fetch notifications from Supabase
   const fetchNotifications = async () => {
     try {
-      const token = localStorage.getItem("access_token");
-      if (!token) {
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user;
+
+      if (!user) {
         setNotifications([]);
         return;
       }
 
-      const API_BASE = import.meta.env.VITE_API_URL?.replace(/\/$/, "");
-      if (!API_BASE) {
-        console.error("VITE_API_URL is missing");
-        return;
-      }
+      const { data: notificationsList, error } = await supabase
+        .from("notifications")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
 
-      const res = await fetch(`${API_BASE}/notifications`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!res.ok) {
-        console.error("Failed to fetch notifications:", res.status);
+      if (error) {
+        console.error("Error fetching notifications:", error);
         setNotifications([]);
         return;
       }
 
-      const data = await res.json();
-      
-      // DIAGNOSTIC: Log raw API response
-      console.log("RAW NOTIFICATIONS RESPONSE", {
-        fullResponse: data,
-        isArray: Array.isArray(data),
-        hasNotifications: !!data.notifications,
-        notificationsIsArray: Array.isArray(data.notifications),
-        dataKeys: Object.keys(data || {}),
-        dataType: typeof data,
-      });
-
-      const notificationsList = data.notifications || data || [];
-      
-      // DIAGNOSTIC: Log processed list
-      console.log("NOTIFICATIONS FROM API (processed)", {
-        count: notificationsList.length,
-        items: notificationsList,
-        types: notificationsList.map(n => n.type || n.notification_type || 'unknown'),
-      });
-      
       // Normalize snake_case backend fields to camelCase for frontend
-      const normalizedNotifications = notificationsList.map(n => ({
+      const normalizedNotifications = (notificationsList || []).map(n => ({
         id: n.id,
         type: n.type,
         title: n.title,
@@ -246,28 +221,26 @@ const SynapseOS = () => {
     }
   };
 
-  // Clear all notifications handler - calls backend and refetches
+  // Clear all notifications handler - marks all as read in Supabase and refetches
   const handleClearAll = async () => {
     try {
-      const token = localStorage.getItem("access_token");
-      if (!token) return;
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user;
 
-      const API_BASE = import.meta.env.VITE_API_URL?.replace(/\/$/, "");
-      if (!API_BASE) {
-        console.error("VITE_API_URL is missing");
-        return;
+      if (!user) return;
+
+      // Mark all as read in Supabase
+      const { error } = await supabase
+        .from("notifications")
+        .update({ read: true })
+        .eq("user_id", user.id)
+        .eq("read", false);
+
+      if (error) {
+        console.error("Error clearing notifications:", error);
       }
 
-      // Mark all as read in backend
-      await fetch(`${API_BASE}/notifications/read-all`, {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      // Refetch notifications from backend
+      // Refetch notifications from Supabase
       await fetchNotifications();
     } catch (err) {
       console.error("Error clearing notifications:", err);
