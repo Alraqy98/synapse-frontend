@@ -16,7 +16,6 @@ import {
     BookOpen,
     List,
 } from "lucide-react";
-import { generateImportCode } from "./utils/summaryCode";
 import { apiSummaries } from "./apiSummaries";
 import {
     sendMessageToTutor,
@@ -36,6 +35,8 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
     const [showExportCode, setShowExportCode] = useState(false);
     const [importCode, setImportCode] = useState(null);
     const [copiedFeedback, setCopiedFeedback] = useState(false);
+    const [isGeneratingCode, setIsGeneratingCode] = useState(false);
+    const [codeError, setCodeError] = useState(null);
 
     // Chat state
     // Initialize sessionId ONCE from localStorage (single source of truth)
@@ -1229,11 +1230,32 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                                         <Edit2 size={14} /> Rename
                                     </button>
                                     <button
-                                        onClick={() => {
+                                        onClick={async () => {
                                             setShowMenu(false);
-                                            const code = generateImportCode();
-                                            setImportCode(code);
+                                            if (!summary?.id) return;
+                                            
+                                            setIsGeneratingCode(true);
+                                            setCodeError(null);
+                                            setImportCode(null);
                                             setShowExportCode(true);
+                                            
+                                            try {
+                                                const res = await apiSummaries.shareSummary(summary.id);
+                                                const code = res?.share_code || res?.code;
+                                                if (!code) {
+                                                    throw new Error("No share code returned from server");
+                                                }
+                                                setImportCode(code);
+                                            } catch (err) {
+                                                const errorMsg = err.response?.data?.error || 
+                                                               err.response?.data?.message || 
+                                                               err.message || 
+                                                               "Failed to generate import code";
+                                                setCodeError(errorMsg);
+                                                setImportCode(null);
+                                            } finally {
+                                                setIsGeneratingCode(false);
+                                            }
                                         }}
                                         className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:text-teal hover:bg-teal/10 rounded-lg transition"
                                     >
@@ -1411,7 +1433,7 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
             )}
 
             {/* Export Code Modal - Portal to document.body for viewport centering */}
-            {showExportCode && importCode && createPortal(
+            {showExportCode && createPortal(
                 <div 
                     className="fixed inset-0 z-[9999] bg-black/60 flex items-center justify-center" 
                     style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
@@ -1419,6 +1441,8 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                         setShowExportCode(false);
                         setImportCode(null);
                         setCopiedFeedback(false);
+                        setCodeError(null);
+                        setIsGeneratingCode(false);
                     }}
                 >
                     <div 
@@ -1428,38 +1452,61 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                         <h3 className="text-lg font-semibold text-white mb-4">
                             Import Code Generated
                         </h3>
-                        <p className="text-sm text-muted mb-4">
-                            Share this code to import this summary. This code works only inside Synapse.
-                        </p>
-                        <div className="bg-white/5 border border-white/10 rounded-lg p-4 mb-4">
-                            <div className="text-2xl font-mono font-bold text-teal text-center">
-                                {importCode}
-                            </div>
-                        </div>
-                        <button
-                            className="w-full btn btn-primary mb-2 relative"
-                            onClick={async () => {
-                                try {
-                                    await navigator.clipboard.writeText(importCode);
-                                    setCopiedFeedback(true);
-                                    setTimeout(() => setCopiedFeedback(false), 1500);
-                                } catch (err) {
-                                    console.error("Failed to copy to clipboard:", err);
-                                }
-                            }}
-                        >
-                            <Copy size={16} className="mr-2" />
-                            {copiedFeedback ? "Copied to clipboard" : "Copy Code"}
-                        </button>
+                        {isGeneratingCode ? (
+                            <>
+                                <p className="text-sm text-muted mb-4">
+                                    Generating import code...
+                                </p>
+                                <div className="bg-white/5 border border-white/10 rounded-lg p-4 mb-4 flex items-center justify-center">
+                                    <div className="text-muted">Loading...</div>
+                                </div>
+                            </>
+                        ) : codeError ? (
+                            <>
+                                <p className="text-sm text-red-400 mb-4">
+                                    {codeError}
+                                </p>
+                            </>
+                        ) : importCode ? (
+                            <>
+                                <p className="text-sm text-muted mb-4">
+                                    Share this code to import this summary. This code works only inside Synapse.
+                                </p>
+                                <div className="bg-white/5 border border-white/10 rounded-lg p-4 mb-4">
+                                    <div className="text-2xl font-mono font-bold text-teal text-center">
+                                        {importCode}
+                                    </div>
+                                </div>
+                            </>
+                        ) : null}
+                        {importCode && (
+                            <button
+                                className="w-full btn btn-primary mb-2 relative"
+                                onClick={async () => {
+                                    try {
+                                        await navigator.clipboard.writeText(importCode);
+                                        setCopiedFeedback(true);
+                                        setTimeout(() => setCopiedFeedback(false), 1500);
+                                    } catch (err) {
+                                        console.error("Failed to copy to clipboard:", err);
+                                    }
+                                }}
+                            >
+                                <Copy size={16} className="mr-2" />
+                                {copiedFeedback ? "Copied to clipboard" : "Copy Code"}
+                            </button>
+                        )}
                         <button
                             className="w-full btn btn-secondary"
                             onClick={() => {
                                 setShowExportCode(false);
                                 setImportCode(null);
                                 setCopiedFeedback(false);
+                                setCodeError(null);
+                                setIsGeneratingCode(false);
                             }}
                         >
-                            Close
+                            {codeError ? "Close" : importCode ? "Close" : "Cancel"}
                         </button>
                     </div>
                 </div>,

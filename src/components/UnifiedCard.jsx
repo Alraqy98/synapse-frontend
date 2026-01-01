@@ -19,7 +19,9 @@ import { MoreHorizontal, Edit2, Trash2, Copy, Download } from "lucide-react";
  * @param {Function} props.onClick - Click handler
  * @param {Function} props.onDelete - Delete handler
  * @param {Function} props.onRename - Rename handler
- * @param {Function} props.onExportCode - Export code handler (optional)
+ * @param {Function} props.onExportCode - Export code handler (optional, async function that returns code)
+ * @param {string} props.itemId - Item ID for API calls (required if onExportCode is provided)
+ * @param {Function} props.shareItem - Async function to call API (itemId) => Promise<{share_code|code}>
  * @param {Array} props.overflowActions - Custom overflow menu actions
  */
 export default function UnifiedCard({
@@ -35,6 +37,8 @@ export default function UnifiedCard({
     onDelete,
     onRename,
     onExportCode,
+    itemId,
+    shareItem,
     overflowActions = [],
 }) {
     const [showMenu, setShowMenu] = useState(false);
@@ -43,6 +47,8 @@ export default function UnifiedCard({
     const [showExportCode, setShowExportCode] = useState(false);
     const [importCode, setImportCode] = useState(null);
     const [copiedFeedback, setCopiedFeedback] = useState(false);
+    const [isGeneratingCode, setIsGeneratingCode] = useState(false);
+    const [codeError, setCodeError] = useState(null);
 
     // Determine if card is interactive
     const isInteractive = !isGenerating && status !== "failed";
@@ -107,18 +113,37 @@ export default function UnifiedCard({
 
     const allActions = [...defaultActions, ...overflowActions];
 
-    // Simple import code generator (if needed) - only used if onExportCode is provided
-    const generateImportCode = () => {
-        return `SYN-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-    };
-
-    // Handle export code generation
-    const handleExportCode = () => {
-        if (onExportCode) {
-            const code = generateImportCode();
+    // Handle export code generation - call backend API
+    const handleExportCode = async () => {
+        if (!itemId || !shareItem) {
+            console.error("UnifiedCard: itemId and shareItem are required for Generate Import Code");
+            return;
+        }
+        
+        setIsGeneratingCode(true);
+        setCodeError(null);
+        setImportCode(null);
+        setShowExportCode(true);
+        
+        try {
+            const res = await shareItem(itemId);
+            const code = res?.share_code || res?.code;
+            if (!code) {
+                throw new Error("No share code returned from server");
+            }
             setImportCode(code);
-            setShowExportCode(true);
-            onExportCode(code);
+            if (onExportCode) {
+                onExportCode(code);
+            }
+        } catch (err) {
+            const errorMsg = err.response?.data?.error || 
+                           err.response?.data?.message || 
+                           err.message || 
+                           "Failed to generate import code";
+            setCodeError(errorMsg);
+            setImportCode(null);
+        } finally {
+            setIsGeneratingCode(false);
         }
     };
 
@@ -312,30 +337,34 @@ export default function UnifiedCard({
                                 {importCode}
                             </div>
                         </div>
-                        <button
-                            className="w-full btn btn-primary mb-2 relative"
-                            onClick={async () => {
-                                try {
-                                    await navigator.clipboard.writeText(importCode);
-                                    setCopiedFeedback(true);
-                                    setTimeout(() => setCopiedFeedback(false), 1500);
-                                } catch (err) {
-                                    console.error("Failed to copy to clipboard:", err);
-                                }
-                            }}
-                        >
-                            <Copy size={16} className="mr-2" />
-                            {copiedFeedback ? "Copied to clipboard" : "Copy Code"}
-                        </button>
+                        {importCode && (
+                            <button
+                                className="w-full btn btn-primary mb-2 relative"
+                                onClick={async () => {
+                                    try {
+                                        await navigator.clipboard.writeText(importCode);
+                                        setCopiedFeedback(true);
+                                        setTimeout(() => setCopiedFeedback(false), 1500);
+                                    } catch (err) {
+                                        console.error("Failed to copy to clipboard:", err);
+                                    }
+                                }}
+                            >
+                                <Copy size={16} className="mr-2" />
+                                {copiedFeedback ? "Copied to clipboard" : "Copy Code"}
+                            </button>
+                        )}
                         <button
                             className="w-full btn btn-secondary"
                             onClick={() => {
                                 setShowExportCode(false);
                                 setImportCode(null);
                                 setCopiedFeedback(false);
+                                setCodeError(null);
+                                setIsGeneratingCode(false);
                             }}
                         >
-                            Close
+                            {codeError ? "Close" : importCode ? "Close" : "Cancel"}
                         </button>
                     </div>
                 </div>,

@@ -1,6 +1,7 @@
 // src/modules/summaries/SummaryCard.jsx
 import React from "react";
 import UnifiedCard from "../../components/UnifiedCard";
+import { apiSummaries } from "./apiSummaries";
 
 export default function SummaryCard({
     summary,
@@ -59,6 +60,8 @@ export default function SummaryCard({
                     onExportCode(id, code);
                 }
             }}
+            itemId={id}
+            shareItem={apiSummaries.shareSummary}
             overflowActions={[]}
         />
     );

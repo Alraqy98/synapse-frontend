@@ -112,6 +112,17 @@ export const deleteSummary = async (summaryId) => {
 };
 
 /**
+ * Share a summary (generate import code)
+ * POST /ai/summaries/:id/share
+ * Returns: { share_code: "SYN-XXXXXX" } or { code: "SYN-XXXXXX" }
+ */
+export const shareSummary = async (summaryId) => {
+    if (!summaryId) throw new Error("Summary ID is missing");
+    const res = await api.post(`/ai/summaries/${summaryId}/share`);
+    return res.data; // Backend returns { share_code } or { code }
+};
+
+/**
  * Import a summary by code
  * POST /ai/summaries/import
  * Body: { code: "SYN-XXXXXX" }
@@ -142,6 +153,7 @@ export const apiSummaries = {
     generateSummary,
     getSummaryJobStatus,
     deleteSummary,
+    shareSummary,
     importSummary,
 };
 
