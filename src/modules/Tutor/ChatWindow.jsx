@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Send, Paperclip, Mic } from "lucide-react";
 import MessageBubble from "./MessageBubble";
 import {
-    sendMessageToTutor,
+    sendStandaloneMessageToTutor,
     uploadFile,
     getSessionMessages,
 } from "./apiTutor";
@@ -276,7 +276,7 @@ const ChatWindow = ({ activeSessionId }) => {
         console.log("[TUTOR_FRONTEND] POST sessionId:", activeSessionId);
 
         try {
-            const response = await sendMessageToTutor({
+            const response = await sendStandaloneMessageToTutor({
                 sessionId: activeSessionId,
                 message: text,
                 lastAIMessage: getLastAIMessage(),
@@ -392,13 +392,11 @@ const ChatWindow = ({ activeSessionId }) => {
             setMessages((prev) => [...prev, userMsg]);
             setIsTyping(true);
 
-            const response = await sendMessageToTutor({
+            const response = await sendStandaloneMessageToTutor({
                 sessionId: activeSessionId,
                 message: uploadRes.extracted_text,
                 lastAIMessage: getLastAIMessage(),
                 lastUserMessage: getLastUserMessage(),
-                fileId: uploadRes.file_id,
-                // page left null here → normal global context
             });
 
             // Use response.text (not response.response)

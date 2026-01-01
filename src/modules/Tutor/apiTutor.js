@@ -145,6 +145,7 @@ export const sendMessageToTutor = async ({
     const token = await getToken();
 
     // Task 3: Remove silent failure - hard assertion before POST
+    // fileId and page are required for FileViewer context, but optional for standalone tutor
     if (!fileId || !page) {
         console.error("[ASTRA FRONTEND BLOCK] Invalid tutor payload", {
             fileId,
@@ -182,6 +183,15 @@ export const sendMessageToTutor = async ({
         pageIsPositive: typeof page === "number" && page > 0,
         imageIncluded: payload.image ? "present" : "missing",
         screenshotUrlIncluded: payload.screenshotUrl ? "present" : "missing",
+    });
+
+    // Diagnostic log: Confirm endpoint and sessionId
+    console.log("[TUTOR_POST_FRONTEND]", {
+        endpoint: "/ai/tutor/chat",
+        sessionId,
+        messageLen: message?.length,
+        fileId,
+        page,
     });
 
     console.log("📤 sendMessageToTutor payload:", payload);
@@ -261,6 +271,14 @@ export const sendSummaryMessageToTutor = async ({
         endpoint: "/ai/tutor/chat",
     });
 
+    // Diagnostic log: Confirm endpoint and sessionId
+    console.log("[TUTOR_POST_FRONTEND]", {
+        endpoint: "/ai/tutor/chat",
+        sessionId,
+        messageLen: message?.length,
+        summaryId,
+    });
+
     const res = await fetch(`${API_BASE}/ai/tutor/chat`, {
         method: "POST",
         headers: {
@@ -278,6 +296,60 @@ export const sendSummaryMessageToTutor = async ({
             error: backendError,
             fullResponse: data,
             summaryId,
+        });
+        throw new Error(backendError);
+    }
+
+    return {
+        text: data.answer?.answer || data.answer || "",
+        raw: data.answer,
+    };
+};
+
+/* --------------------------------------------------
+   STANDALONE TUTOR CHAT (NO FILE CONTEXT)
+-------------------------------------------------- */
+export const sendStandaloneMessageToTutor = async ({
+    sessionId,
+    message,
+    mode = "auto",
+    lastAIMessage = "",
+    lastUserMessage = "",
+}) => {
+    const token = await getToken();
+
+    const payload = {
+        sessionId,
+        message,
+        mode,
+        lastAIMessage,
+        lastUserMessage,
+    };
+
+    // Diagnostic log: Confirm endpoint and sessionId
+    console.log("[TUTOR_POST_FRONTEND]", {
+        endpoint: "/ai/tutor/chat",
+        sessionId,
+        messageLen: message?.length,
+    });
+
+    const res = await fetch(`${API_BASE}/ai/tutor/chat`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+    });
+
+    const data = await res.json();
+    if (!data.success) {
+        const backendError = data.error || data.message || "Chat failed";
+        console.error("[STANDALONE TUTOR BACKEND ERROR]", {
+            success: data.success,
+            error: backendError,
+            fullResponse: data,
+            sessionId,
         });
         throw new Error(backendError);
     }
