@@ -1,6 +1,7 @@
 // src/modules/flashcards/apiFlashcards.js
 
 import axios from "axios";
+import api from "../../lib/api";
 import { supabase } from "../../lib/supabaseClient";
 
 const API_BASE = import.meta.env.VITE_API_URL.replace(/\/$/, "");
@@ -173,12 +174,8 @@ export const generateFlashcards = async (payload) => {
 
 export const shareDeck = async (deck_id) => {
     if (!deck_id) throw new Error("Deck ID is missing (shareDeck)");
-    const res = await axios.post(
-        `${API_BASE}/flashcards/decks/${deck_id}/share`,
-        {},
-        { headers: authHeaders() }
-    );
-    return res.data;
+    const res = await api.post(`/flashcards/decks/${deck_id}/share`);
+    return res.data; // Backend returns { share_code } or { code }
 };
 
 // ======================================================
@@ -186,14 +183,18 @@ export const shareDeck = async (deck_id) => {
 // Backend route: POST /flashcards/decks/import
 // ======================================================
 
-export const importDeck = async (share_code) => {
-    if (!share_code) throw new Error("Share code is missing (importDeck)");
-    const res = await axios.post(
-        `${API_BASE}/flashcards/decks/import`,
-        { share_code },
-        { headers: authHeaders() }
-    );
-    return res.data;
+export const importDeck = async (code) => {
+    if (!code) throw new Error("Import code is missing (importDeck)");
+    try {
+        const res = await api.post("/flashcards/decks/import", { code });
+        return res.data; // Backend returns { success, deck } or { success: false, error }
+    } catch (err) {
+        // Return error in same format for consistent handling
+        return {
+            success: false,
+            error: err.response?.data?.error || err.response?.data?.message || err.message || "Import failed"
+        };
+    }
 };
 // Alias for compatibility with DeckList.jsx
 export const getFlashcardDecks = getDecks;

@@ -139,7 +139,27 @@ export const shareDeck = async (deckId) => {
     if (!deckId) throw new Error("Deck ID missing (shareDeck)");
 
     const res = await api.post(`/ai/mcq/decks/${deckId}/share`);
-    return res.data; // expects { code }
+    return res.data; // expects { share_code } or { code }
+};
+
+/**
+ * Import an MCQ deck by code
+ * POST /ai/mcq/import
+ * Body: { code: "SYN-XXXXX" }
+ * Returns: { success: true, deck: {...} } or { success: false, error: "..." }
+ */
+export const importMcqDeck = async (code) => {
+    if (!code) throw new Error("Import code is missing");
+    try {
+        const res = await api.post("/ai/mcq/import", { code });
+        return res.data; // Backend returns { success, deck } or { success: false, error }
+    } catch (err) {
+        // Return error in same format for consistent handling
+        return {
+            success: false,
+            error: err.response?.data?.error || err.response?.data?.message || err.message || "Import failed"
+        };
+    }
 };
 
 
@@ -155,7 +175,8 @@ export const apiMCQ = {
     getMCQQuestions,
     renameMCQDeck,
     deleteMCQDeck,
-    shareDeck, // 👈 REQUIRED
+    shareDeck,
+    importMcqDeck,
     explainMCQSelection,
     explainMCQAll,
     mcqExportToAstra,

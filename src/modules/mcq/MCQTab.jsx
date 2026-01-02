@@ -1,10 +1,13 @@
 // src/modules/mcq/MCQTab.jsx
 import { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { apiMCQ } from "./apiMCQ";
 import GenerateMCQModal from "./GenerateMCQModal";
 import MCQDeckView from "./MCQDeckView";
 import UnifiedCard from "../../components/UnifiedCard";
 import { Search, Plus, Upload, Share2 } from "lucide-react";
+import { isValidCodeFormat } from "../summaries/utils/summaryCode";
+import { sanitizeErrorMessage } from "../utils/errorSanitizer";
 
 export default function MCQTab() {
     const [view, setView] = useState("list");
@@ -20,6 +23,10 @@ export default function MCQTab() {
     const [menuDeck, setMenuDeck] = useState(null);
     const [renameValue, setRenameValue] = useState("");
     const [confirmDelete, setConfirmDelete] = useState(null);
+    const [showImport, setShowImport] = useState(false);
+    const [importCode, setImportCode] = useState("");
+    const [importError, setImportError] = useState(null);
+    const [isImporting, setIsImporting] = useState(false);
 
     // --------------------------------------------------
     // Fetch decks
@@ -175,11 +182,11 @@ export default function MCQTab() {
                                 </select>
 
                                 <div className="flex gap-2 ml-auto">
-                                    <button className="btn btn-secondary gap-2">
+                                    <button 
+                                        className="btn btn-secondary gap-2"
+                                        onClick={() => setShowImport(true)}
+                                    >
                                         <Upload size={14} /> Import
-                                    </button>
-                                    <button className="btn btn-secondary gap-2">
-                                        <Share2 size={14} /> Share
                                     </button>
                                 </div>
                             </div>
@@ -237,6 +244,8 @@ export default function MCQTab() {
                                                         loadDecks();
                                                     });
                                                 }}
+                                                itemId={deck.id}
+                                                shareItem={apiMCQ.shareDeck}
                                             />
                                         );
                                     })}
@@ -326,6 +335,107 @@ export default function MCQTab() {
                         onClose={() => setOpenModal(false)}
                         onCreated={loadDecks}
                     />
+
+                    {/* Import Modal - Portal to document.body for viewport centering */}
+                    {showImport && createPortal(
+                        <div 
+                            className="fixed inset-0 z-[9999] bg-black/60 flex items-center justify-center" 
+                            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+                            onClick={() => {
+                                if (!isImporting) {
+                                    setShowImport(false);
+                                    setImportCode("");
+                                    setImportError(null);
+                                }
+                            }}
+                        >
+                            <div 
+                                className="w-full max-w-md mx-4 rounded-2xl bg-black border border-white/10 p-6 relative"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <h3 className="text-lg font-semibold text-white mb-4">
+                                    Import MCQ Deck
+                                </h3>
+                                <p className="text-sm text-muted mb-4">
+                                    Enter the import code to import an MCQ deck.
+                                </p>
+                                <input
+                                    autoFocus
+                                    value={importCode}
+                                    onChange={(e) => {
+                                        setImportCode(e.target.value.toUpperCase());
+                                        setImportError(null); // Clear error on input change
+                                    }}
+                                    placeholder="SYN-XXXXX"
+                                    className="w-full px-4 py-2 rounded-lg bg-black/40 border border-white/10 text-white mb-2 font-mono"
+                                    maxLength={9}
+                                    disabled={isImporting}
+                                />
+                                {importCode && !isValidCodeFormat(importCode) && (
+                                    <p className="text-xs text-red-400 mb-4">
+                                        Invalid code format. Expected: SYN-XXXXX
+                                    </p>
+                                )}
+                                {importError && (
+                                    <p className="text-xs text-red-400 mb-4">
+                                        {importError}
+                                    </p>
+                                )}
+                                <div className="flex justify-end gap-2">
+                                    <button
+                                        className="btn btn-secondary"
+                                        onClick={() => {
+                                            setShowImport(false);
+                                            setImportCode("");
+                                            setImportError(null);
+                                        }}
+                                        disabled={isImporting}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        className="btn btn-primary"
+                                        onClick={async () => {
+                                            if (!isValidCodeFormat(importCode)) return;
+                                            
+                                            setIsImporting(true);
+                                            setImportError(null);
+                                            
+                                            try {
+                                                // Call backend import endpoint
+                                                const res = await apiMCQ.importMcqDeck(importCode);
+                                                
+                                                if (res?.success) {
+                                                    // Success - reload decks and close modal
+                                                    await loadDecks();
+                                                    setShowImport(false);
+                                                    setImportCode("");
+                                                    setImportError(null);
+                                                } else {
+                                                    // Backend returned error - sanitize and display
+                                                    const rawError = res?.error || res?.message || "Import failed";
+                                                    setImportError(sanitizeErrorMessage(rawError, "MCQ deck"));
+                                                }
+                                            } catch (err) {
+                                                // Backend error - sanitize and display
+                                                const rawError = err.response?.data?.error || 
+                                                               err.response?.data?.message || 
+                                                               err.message || 
+                                                               "Failed to import MCQ deck";
+                                                setImportError(sanitizeErrorMessage(rawError, "MCQ deck"));
+                                            } finally {
+                                                setIsImporting(false);
+                                            }
+                                        }}
+                                        disabled={!isValidCodeFormat(importCode) || isImporting}
+                                    >
+                                        {isImporting ? "Importing..." : "Import"}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>,
+                        document.body
+                    )}
                 </>
             )}
         </div>

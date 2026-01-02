@@ -1,7 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import GenerateFlashcardsModal from "./GenerateFlashcardsModal";
 import DeckList from "./DeckList";
-import PopupDialog from "../../components/PopupDialog";
 import { Search, Plus, Upload } from "lucide-react";
 
 export default function FlashcardsTab({ openDeck }) {
@@ -9,51 +8,9 @@ export default function FlashcardsTab({ openDeck }) {
     const [sortMode, setSortMode] = useState("date");
     const [search, setSearch] = useState("");
     const [showSortMenu, setShowSortMenu] = useState(false);
-
-    // Global popup system
-    const [popup, setPopup] = useState({
-        open: false,
-        title: "",
-        message: "",
-        input: false,
-        placeholder: "",
-        onConfirm: null,
-        onCancel: null,
-    });
-
-    const openPopup = (opts) =>
-        setPopup({ open: true, onCancel: () => setPopup({ open: false }), ...opts });
-
-    const closePopup = () => setPopup({ open: false });
-
-    // IMPORT — popup for entering share code
-    function handleImport() {
-        openPopup({
-            title: "Import Deck",
-            message: "Enter the share code:",
-            input: true,
-            placeholder: "XYZ123AB",
-            onConfirm: async (code) => {
-                if (!code) return;
-                try {
-                    const res = await importDeck(code.trim());
-                    if (!res.deck) {
-                        openPopup({
-                            title: "Not Found",
-                            message: "Invalid share code.",
-                        });
-                        return;
-                    }
-                    openPopup({ title: "Success", message: "Deck imported!" });
-                } catch (err) {
-                    openPopup({
-                        title: "Error",
-                        message: "Failed to import deck.",
-                    });
-                }
-            },
-        });
-    }
+    
+    // Ref to trigger import modal from DeckList
+    const showImportRef = useRef(null);
 
     return (
         <div className="h-full w-full">
@@ -107,7 +64,11 @@ export default function FlashcardsTab({ openDeck }) {
                         <div className="flex gap-2 ml-auto">
                             <button 
                                 className="btn btn-secondary gap-2"
-                                onClick={handleImport}
+                                onClick={() => {
+                                    if (showImportRef.current) {
+                                        showImportRef.current();
+                                    }
+                                }}
                             >
                                 <Upload size={14} /> Import
                             </button>
@@ -115,7 +76,14 @@ export default function FlashcardsTab({ openDeck }) {
                     </div>
 
                     {/* DECK LIST */}
-                    <DeckList openDeck={openDeck} search={search} sortMode={sortMode} />
+                    <DeckList 
+                        openDeck={openDeck} 
+                        search={search} 
+                        sortMode={sortMode}
+                        onShowImport={(fn) => {
+                            showImportRef.current = fn;
+                        }}
+                    />
                 </div>
             </div>
 
@@ -125,11 +93,6 @@ export default function FlashcardsTab({ openDeck }) {
                     onCancel={() => setShowGenerateModal(false)}
                     onSuccess={() => setShowGenerateModal(false)}
                 />
-            )}
-
-            {/* GLOBAL POPUP */}
-            {popup.open && (
-                <PopupDialog {...popup} onClose={closePopup} />
             )}
         </div>
     );

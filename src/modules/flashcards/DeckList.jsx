@@ -1,14 +1,30 @@
 // src/modules/flashcards/DeckList.jsx
 import React, { useEffect, useState, useMemo } from "react";
-import { getDecks, deleteDeck } from "./apiFlashcards";
+import { createPortal } from "react-dom";
+import { getDecks, deleteDeck, shareDeck, importDeck } from "./apiFlashcards";
 import UnifiedCard from "../../components/UnifiedCard";
+import { isValidCodeFormat } from "../summaries/utils/summaryCode";
+import { sanitizeErrorMessage } from "../utils/errorSanitizer";
 
-export default function DeckList({ openDeck, search, sortMode = "date" }) {
+export default function DeckList({ openDeck, search, sortMode = "date", onShowImport }) {
     const [decks, setDecks] = useState([]);
     const [loading, setLoading] = useState(true);
 
     // Delete confirmation
     const [confirmDelete, setConfirmDelete] = useState(null);
+    
+    // Import modal state
+    const [showImport, setShowImport] = useState(false);
+    const [importCode, setImportCode] = useState("");
+    const [importError, setImportError] = useState(null);
+    const [isImporting, setIsImporting] = useState(false);
+    
+    // Expose showImport to parent if callback provided
+    useEffect(() => {
+        if (onShowImport) {
+            onShowImport(() => setShowImport(true));
+        }
+    }, [onShowImport]);
 
     useEffect(() => {
         loadDecks();
@@ -127,6 +143,8 @@ export default function DeckList({ openDeck, search, sortMode = "date" }) {
                                 onClick={() => openDeck(deck.id)}
                                 onDelete={() => setConfirmDelete({ id: deck.id, title: deck.title })}
                                 onRename={(newTitle) => handleRename(deck.id, newTitle)}
+                                itemId={deck.id}
+                                shareItem={shareDeck}
                             />
                         );
                     })}
@@ -160,6 +178,107 @@ export default function DeckList({ openDeck, search, sortMode = "date" }) {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Import Modal - Portal to document.body for viewport centering */}
+            {showImport && createPortal(
+                <div 
+                    className="fixed inset-0 z-[9999] bg-black/60 flex items-center justify-center" 
+                    style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+                    onClick={() => {
+                        if (!isImporting) {
+                            setShowImport(false);
+                            setImportCode("");
+                            setImportError(null);
+                        }
+                    }}
+                >
+                    <div 
+                        className="w-full max-w-md mx-4 rounded-2xl bg-black border border-white/10 p-6 relative"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <h3 className="text-lg font-semibold text-white mb-4">
+                            Import Flashcard Deck
+                        </h3>
+                        <p className="text-sm text-muted mb-4">
+                            Enter the import code to import a flashcard deck.
+                        </p>
+                        <input
+                            autoFocus
+                            value={importCode}
+                            onChange={(e) => {
+                                setImportCode(e.target.value.toUpperCase());
+                                setImportError(null); // Clear error on input change
+                            }}
+                            placeholder="SYN-XXXXX"
+                            className="w-full px-4 py-2 rounded-lg bg-black/40 border border-white/10 text-white mb-2 font-mono"
+                            maxLength={9}
+                            disabled={isImporting}
+                        />
+                        {importCode && !isValidCodeFormat(importCode) && (
+                            <p className="text-xs text-red-400 mb-4">
+                                Invalid code format. Expected: SYN-XXXXX
+                            </p>
+                        )}
+                        {importError && (
+                            <p className="text-xs text-red-400 mb-4">
+                                {importError}
+                            </p>
+                        )}
+                        <div className="flex justify-end gap-2">
+                            <button
+                                className="btn btn-secondary"
+                                onClick={() => {
+                                    setShowImport(false);
+                                    setImportCode("");
+                                    setImportError(null);
+                                }}
+                                disabled={isImporting}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                className="btn btn-primary"
+                                onClick={async () => {
+                                    if (!isValidCodeFormat(importCode)) return;
+                                    
+                                    setIsImporting(true);
+                                    setImportError(null);
+                                    
+                                    try {
+                                        // Call backend import endpoint
+                                        const res = await importDeck(importCode);
+                                        
+                                        if (res?.success) {
+                                            // Success - reload decks and close modal
+                                            await loadDecks();
+                                            setShowImport(false);
+                                            setImportCode("");
+                                            setImportError(null);
+                                        } else {
+                                            // Backend returned error - sanitize and display
+                                            const rawError = res?.error || res?.message || "Import failed";
+                                            setImportError(sanitizeErrorMessage(rawError, "flashcard deck"));
+                                        }
+                                    } catch (err) {
+                                        // Backend error - sanitize and display
+                                        const rawError = err.response?.data?.error || 
+                                                       err.response?.data?.message || 
+                                                       err.message || 
+                                                       "Failed to import flashcard deck";
+                                        setImportError(sanitizeErrorMessage(rawError, "flashcard deck"));
+                                    } finally {
+                                        setIsImporting(false);
+                                    }
+                                }}
+                                disabled={!isValidCodeFormat(importCode) || isImporting}
+                            >
+                                {isImporting ? "Importing..." : "Import"}
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
             )}
         </>
     );
