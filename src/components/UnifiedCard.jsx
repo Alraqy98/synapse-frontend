@@ -83,6 +83,9 @@ export default function UnifiedCard({
     };
 
     // Default overflow actions
+    // "Generate Import Code" appears if either onExportCode (legacy) or shareItem (new) is provided
+    const canGenerateCode = onExportCode || (itemId && shareItem);
+    
     const defaultActions = [
         ...(onRename ? [{
             label: "Rename",
@@ -92,7 +95,7 @@ export default function UnifiedCard({
                 setShowRename(true);
             },
         }] : []),
-        ...(onExportCode ? [{
+        ...(canGenerateCode ? [{
             label: "Generate Import Code",
             icon: Copy,
             onClick: () => {
