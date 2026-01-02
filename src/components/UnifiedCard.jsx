@@ -100,7 +100,7 @@ export default function UnifiedCard({
             icon: Copy,
             onClick: () => {
                 setShowMenu(false);
-                handleExportCode();
+                handleGenerateImportCode();
             },
         }] : []),
         ...(onDelete ? [{
@@ -116,25 +116,47 @@ export default function UnifiedCard({
 
     const allActions = [...defaultActions, ...overflowActions];
 
-    // Handle export code generation - call backend API
-    const handleExportCode = async () => {
+    // Reset export state helper
+    const resetExportState = () => {
+        setShowExportCode(false);
+        setImportCode(null);
+        setCodeError(null);
+        setIsGeneratingCode(false);
+    };
+
+    // Unified handler for Generate Import Code - supports both legacy and new patterns
+    const handleGenerateImportCode = async () => {
+        // Legacy Summaries path (onExportCode callback without shareItem)
+        // Only use legacy path if shareItem is NOT provided
+        if (onExportCode && !shareItem) {
+            // Legacy path: onExportCode is a callback that expects to be called
+            // This is for backward compatibility
+            onExportCode();
+            return;
+        }
+
+        // New MCQ / Flashcards / Summaries path (shareItem API)
         if (!itemId || !shareItem) {
             console.error("UnifiedCard: itemId and shareItem are required for Generate Import Code");
             return;
         }
-        
+
         setIsGeneratingCode(true);
         setCodeError(null);
         setImportCode(null);
         setShowExportCode(true);
-        
+
         try {
             const res = await shareItem(itemId);
             const code = res?.share_code || res?.code;
+
             if (!code) {
-                throw new Error("No share code returned from server");
+                throw new Error("Failed to generate import code");
             }
+
             setImportCode(code);
+            
+            // Call legacy callback if provided (for SummaryCard compatibility)
             if (onExportCode) {
                 onExportCode(code);
             }
@@ -315,15 +337,11 @@ export default function UnifiedCard({
             )}
 
             {/* Export Code Modal - Portal to document.body for viewport centering */}
-            {showExportCode && importCode && createPortal(
+            {showExportCode && createPortal(
                 <div 
                     className="fixed inset-0 z-[9999] bg-black/60 flex items-center justify-center" 
                     style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
-                    onClick={() => {
-                        setShowExportCode(false);
-                        setImportCode(null);
-                        setCopiedFeedback(false);
-                    }}
+                    onClick={resetExportState}
                 >
                     <div 
                         className="w-full max-w-md mx-4 rounded-2xl bg-black border border-white/10 p-6 relative"
@@ -332,14 +350,33 @@ export default function UnifiedCard({
                         <h3 className="text-lg font-semibold text-white mb-4">
                             Import Code Generated
                         </h3>
-                        <p className="text-sm text-muted mb-4">
-                            Share this code to import this item. This code works only inside Synapse.
-                        </p>
-                        <div className="bg-white/5 border border-white/10 rounded-lg p-4 mb-4">
-                            <div className="text-2xl font-mono font-bold text-teal text-center">
-                                {importCode}
-                            </div>
-                        </div>
+                        {isGeneratingCode ? (
+                            <>
+                                <p className="text-sm text-muted mb-4">
+                                    Generating import code...
+                                </p>
+                                <div className="bg-white/5 border border-white/10 rounded-lg p-4 mb-4 flex items-center justify-center">
+                                    <div className="text-muted">Loading...</div>
+                                </div>
+                            </>
+                        ) : codeError ? (
+                            <>
+                                <p className="text-sm text-red-400 mb-4">
+                                    {codeError}
+                                </p>
+                            </>
+                        ) : importCode ? (
+                            <>
+                                <p className="text-sm text-muted mb-4">
+                                    Share this code to import this item. This code works only inside Synapse.
+                                </p>
+                                <div className="bg-white/5 border border-white/10 rounded-lg p-4 mb-4">
+                                    <div className="text-2xl font-mono font-bold text-teal text-center">
+                                        {importCode}
+                                    </div>
+                                </div>
+                            </>
+                        ) : null}
                         {importCode && (
                             <button
                                 className="w-full btn btn-primary mb-2 relative"
@@ -359,13 +396,7 @@ export default function UnifiedCard({
                         )}
                         <button
                             className="w-full btn btn-secondary"
-                            onClick={() => {
-                                setShowExportCode(false);
-                                setImportCode(null);
-                                setCopiedFeedback(false);
-                                setCodeError(null);
-                                setIsGeneratingCode(false);
-                            }}
+                            onClick={resetExportState}
                         >
                             {codeError ? "Close" : importCode ? "Close" : "Cancel"}
                         </button>
