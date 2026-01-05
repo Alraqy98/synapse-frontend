@@ -97,6 +97,7 @@ export default function MCQDeckView({ deckId, goBack }) {
     const [elapsed, setElapsed] = useState(0);
     const startedAtRef = useRef(null);
     const tickRef = useRef(null);
+    const scrollContainerRef = useRef(null);
 
     const q = questions[index];
 
@@ -302,6 +303,14 @@ export default function MCQDeckView({ deckId, goBack }) {
             tickRef.current = null;
         };
     }, [q?.id, index, answerState?.timeSpent, reviewMode]);
+
+    // ---------------- Scroll Reset ----------------
+    // Reset scroll position to top whenever question index or review mode changes
+    useEffect(() => {
+        if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollTo({ top: 0, behavior: "auto" });
+        }
+    }, [index, reviewMode]);
 
     function stopTimer() {
         // if timer hasn't started for some reason, fall back to the live elapsed state
@@ -599,7 +608,7 @@ export default function MCQDeckView({ deckId, goBack }) {
     if (!q) return null;
 
     return (
-        <div className="h-full overflow-y-auto pb-16">
+        <div ref={scrollContainerRef} className="h-full overflow-y-auto pb-16">
             <div className="flex items-center justify-between mb-6">
                 <button className="btn btn-secondary" onClick={goBack}>
                     <ArrowLeft size={16} /> Back
