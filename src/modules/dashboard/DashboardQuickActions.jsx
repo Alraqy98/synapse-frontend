@@ -1,41 +1,52 @@
 // src/modules/dashboard/DashboardQuickActions.jsx
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { Upload, Folder, Brain, CheckSquare, Zap } from "lucide-react";
+import { Upload, Folder, Brain, CheckSquare, Zap, BookOpen } from "lucide-react";
 
-const DashboardQuickActions = () => {
+const DashboardQuickActions = ({
+    onOpenUploadModal,
+    onOpenSummaryModal,
+    onOpenMCQModal,
+    onOpenFlashcardsModal,
+}) => {
     const navigate = useNavigate();
 
     const actions = [
         {
             label: "Upload files",
             icon: Upload,
-            route: "/library",
             description: "Add new study materials",
+            action: () => onOpenUploadModal(),
         },
         {
             label: "Open Library",
             icon: Folder,
-            route: "/library",
             description: "Browse your files",
+            action: () => navigate("/library"),
         },
         {
             label: "Ask Astra",
             icon: Brain,
-            route: "/tutor",
             description: "Chat with your AI tutor",
+            action: () => navigate("/tutor"),
+        },
+        {
+            label: "Generate Summaries",
+            icon: BookOpen,
+            description: "Create AI summaries",
+            action: () => onOpenSummaryModal(),
         },
         {
             label: "Generate MCQs",
             icon: CheckSquare,
-            route: "/library",
             description: "Create practice questions",
+            action: () => onOpenMCQModal(),
         },
         {
             label: "Generate Flashcards",
             icon: Zap,
-            route: "/library",
             description: "Build flashcard decks",
+            action: () => onOpenFlashcardsModal(),
         },
     ];
 
@@ -48,7 +59,7 @@ const DashboardQuickActions = () => {
                     return (
                         <button
                             key={action.label}
-                            onClick={() => navigate(action.route)}
+                            onClick={action.action}
                             className="group rounded-2xl border border-white/10 bg-black/40 p-6 text-left transition-all hover:-translate-y-1 hover:border-teal/40 cursor-pointer"
                         >
                             <div className="flex items-start gap-4">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import "./styles.css";
 import logo from "./assets/synapse-logo.png";
 
@@ -33,6 +33,10 @@ import TutorPage from "./modules/Tutor/TutorPage";
 import LibraryPage from "./modules/Library/LibraryPage";
 import MCQTab from "./modules/mcq/MCQTab";
 import DashboardPage from "./modules/dashboard/DashboardPage";
+import LibraryUploadModal from "./modules/Library/LibraryUploadModal";
+import GenerateSummaryModal from "./modules/summaries/GenerateSummaryModal";
+import GenerateMCQModal from "./modules/mcq/GenerateMCQModal";
+import GenerateFlashcardsModal from "./modules/flashcards/GenerateFlashcardsModal";
 
 // FLASHCARDS
 import FlashcardsTab from "./modules/flashcards/FlashcardsTab";
@@ -78,8 +82,8 @@ const OralExamModule = () => (
         </p>
       </div>
     </div>
-  </div>
-);
+    </div>
+  );
 
 const SummariesModule = () => {
   return <SummariesTab />;
@@ -148,6 +152,7 @@ function FlashcardsModule() {
 // ===================================================================
 const SynapseOS = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authScreen, setAuthScreen] = useState("landing");
   const [tempUserData, setTempUserData] = useState(null);
@@ -159,6 +164,9 @@ const SynapseOS = () => {
   const [notifications, setNotifications] = useState([]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+
+  // Centralized modal state
+  const [activeModal, setActiveModal] = useState(null); // "upload" | "summary" | "mcq" | "flashcards" | null
 
   // Format relative time helper
   const formatRelativeTime = (dateString) => {
@@ -485,17 +493,17 @@ const SynapseOS = () => {
   // Sidebar
   const Sidebar = () => {
     return (
-      <aside className="w-20 bg-void border-r border-white/5 flex flex-col items-center py-6 z-40 h-full fixed left-0 top-0">
-        <div className="mb-8 flex items-center justify-center">
-          <img
-            src={logo}
-            alt="Synapse Logo"
-            className="h-9 w-auto drop-shadow-[0_0_14px_rgba(0,200,180,0.65)]"
-          />
-        </div>
+    <aside className="w-20 bg-void border-r border-white/5 flex flex-col items-center py-6 z-40 h-full fixed left-0 top-0">
+      <div className="mb-8 flex items-center justify-center">
+        <img
+          src={logo}
+          alt="Synapse Logo"
+          className="h-9 w-auto drop-shadow-[0_0_14px_rgba(0,200,180,0.65)]"
+        />
+      </div>
 
-        <nav className="flex flex-col gap-4 w-full px-2">
-          <SidebarItem icon={Home} label="Dashboard" to="/dashboard" />
+      <nav className="flex flex-col gap-4 w-full px-2">
+          <SidebarItem icon={Home} label="Dashboard" to="/dashboard" showAccent={location.pathname === "/dashboard"} />
           <SidebarItem icon={Folder} label="Library" to="/library" />
           <SidebarItem icon={Brain} label="Tutor" to="/tutor" />
           <SidebarItem icon={Zap} label="Flashcards" to="/flashcards" />
@@ -505,13 +513,13 @@ const SynapseOS = () => {
           <SidebarItem icon={Mic} label="Oral Exam" to="/oral" />
           <SidebarItem icon={Calendar} label="Planner" to="/planner" />
           <SidebarItem icon={BarChart2} label="Analytics" to="/analytics" />
-        </nav>
+      </nav>
 
         <div className="mt-auto">
           <SidebarItem icon={Settings} label="Settings" to="/settings" />
         </div>
-      </aside>
-    );
+    </aside>
+  );
   };
 
   // MAIN UI
@@ -535,7 +543,7 @@ const SynapseOS = () => {
           <div className="flex items-center gap-3 relative">
             {/* Notification Icon */}
             <div className="relative" ref={notificationsRef}>
-              <button
+            <button
                 className="relative p-2 rounded-lg hover:bg-white/5 transition"
                 onClick={() => setNotificationsOpen((prev) => !prev)}
                 aria-label="Notifications"
@@ -546,7 +554,7 @@ const SynapseOS = () => {
                 {unreadCount > 0 && (
                   <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-teal" />
                 )}
-              </button>
+            </button>
 
               {/* Notifications Dropdown */}
               {notificationsOpen && (
@@ -645,7 +653,13 @@ const SynapseOS = () => {
             {/* Dashboard */}
             <Route path="/dashboard" element={
               <div className="flex-1 overflow-y-auto p-6">
-                <DashboardPage profile={profile} />
+                <DashboardPage 
+                  profile={profile}
+                  onOpenUploadModal={() => setActiveModal("upload")}
+                  onOpenSummaryModal={() => setActiveModal("summary")}
+                  onOpenMCQModal={() => setActiveModal("mcq")}
+                  onOpenFlashcardsModal={() => setActiveModal("flashcards")}
+                />
               </div>
             } />
             
@@ -693,10 +707,10 @@ const SynapseOS = () => {
             } />
             <Route path="/settings" element={
               <div className="flex-1 overflow-y-auto p-6">
-                <SettingsPage
-                  profile={profile}
-                  onLogout={() => setIsAuthenticated(false)}
-                />
+                  <SettingsPage
+                    profile={profile}
+                    onLogout={() => setIsAuthenticated(false)}
+                  />
               </div>
             } />
             
@@ -704,6 +718,50 @@ const SynapseOS = () => {
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
           </ErrorBoundary>
+
+          {/* Centralized Modals */}
+          {activeModal === "upload" && (
+            <LibraryUploadModal
+              onClose={() => setActiveModal(null)}
+              onUploadSuccess={() => {
+                setActiveModal(null);
+                // Optionally refresh library or show success message
+              }}
+            />
+          )}
+
+          {activeModal === "summary" && (
+            <GenerateSummaryModal
+              open={true}
+              onClose={() => setActiveModal(null)}
+              onCreated={() => {
+                setActiveModal(null);
+                // Optionally navigate or show success message
+              }}
+            />
+          )}
+
+          {activeModal === "mcq" && (
+            <GenerateMCQModal
+              open={true}
+              onClose={() => setActiveModal(null)}
+              onCreated={() => {
+                setActiveModal(null);
+                // Optionally navigate or show success message
+              }}
+            />
+          )}
+
+          {activeModal === "flashcards" && (
+            <GenerateFlashcardsModal
+              open={true}
+              onClose={() => setActiveModal(null)}
+              onCreated={() => {
+                setActiveModal(null);
+                // Optionally navigate or show success message
+              }}
+            />
+          )}
         </div>
       </main>
     </div>
