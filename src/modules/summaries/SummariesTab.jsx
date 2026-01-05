@@ -1,6 +1,7 @@
 // src/modules/summaries/SummariesTab.jsx
 import React, { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Search, Plus, MoreHorizontal, Upload } from "lucide-react";
 import { apiSummaries } from "./apiSummaries";
 import SummaryCard from "./SummaryCard";
@@ -55,6 +56,8 @@ const sanitizeErrorMessage = (errorMsg) => {
 };
 
 export default function SummariesTab() {
+    const { summaryId: urlSummaryId } = useParams();
+    const navigate = useNavigate();
     const [view, setView] = useState("list");
     const [summaryId, setSummaryId] = useState(null);
     const [summaries, setSummaries] = useState([]);
@@ -68,6 +71,18 @@ export default function SummariesTab() {
     const [importCode, setImportCode] = useState("");
     const [importError, setImportError] = useState(null);
     const [isImporting, setIsImporting] = useState(false);
+
+    // Handle deep link from URL
+    useEffect(() => {
+        if (urlSummaryId && urlSummaryId !== summaryId) {
+            setSummaryId(urlSummaryId);
+            setView("viewer");
+        } else if (!urlSummaryId && view === "viewer") {
+            // URL changed to remove summaryId, reset to list
+            setView("list");
+            setSummaryId(null);
+        }
+    }, [urlSummaryId]);
 
     // Load summaries (matching MCQ pattern exactly)
     const loadSummaries = async () => {
@@ -214,6 +229,7 @@ export default function SummariesTab() {
                     goBack={() => {
                         setView("list");
                         setSummaryId(null);
+                        navigate("/summaries", { replace: true });
                         // Do NOT reload summaries - keep state intact (matching MCQ pattern)
                     }}
                     onRename={handleRename}

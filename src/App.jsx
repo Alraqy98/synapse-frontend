@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
+import { Routes, Route, Navigate, useNavigate, useLocation, useParams } from "react-router-dom";
 import "./styles.css";
 import logo from "./assets/synapse-logo.png";
 
@@ -86,6 +86,7 @@ const OralExamModule = () => (
   );
 
 const SummariesModule = () => {
+  // SummariesTab reads URL params directly via useParams()
   return <SummariesTab />;
 };
 
@@ -114,22 +115,39 @@ const SettingsModule = ({ onLogout }) => (
 // FLASHCARDS MODULE WRAPPER (NEW)
 // ===================================================================
 function FlashcardsModule() {
+  const { deckId: urlDeckId } = useParams();
+  const navigate = useNavigate();
   const [view, setView] = useState("list"); // list | deck | review
   const [deckId, setDeckId] = useState(null);
+
+  // Handle deep link from URL
+  useEffect(() => {
+    if (urlDeckId && urlDeckId !== deckId) {
+      setDeckId(urlDeckId);
+      setView("deck");
+    } else if (!urlDeckId && view !== "list") {
+      // URL changed to remove deckId, reset to list
+      setView("list");
+      setDeckId(null);
+    }
+  }, [urlDeckId]);
 
   function openDeck(id) {
     setDeckId(id);
     setView("deck");
+    navigate(`/flashcards/${id}`, { replace: true });
   }
 
   function startReview(id) {
     setDeckId(id);
     setView("review");
+    // Keep URL as deck view, review is a sub-view
   }
 
   function goBack() {
     setView("list");
     setDeckId(null);
+    navigate("/flashcards", { replace: true });
   }
 
   return (
@@ -297,25 +315,30 @@ const SynapseOS = () => {
     // Close dropdown
     setNotificationsOpen(false);
 
+    // Helper to validate ID (not null, not empty string, not undefined)
+    const isValidId = (id) => {
+      return id && typeof id === 'string' && id.trim().length > 0;
+    };
+
     // Priority: Specific generated objects take precedence over file view
     // Deep-link to the exact generated object, not just the section
     
     // 1. Summary-specific notification → deep-link to summary
-    if (notification.summaryId) {
+    if (isValidId(notification.summaryId)) {
       console.log("[Notification] Navigating to summary", `/summaries/${notification.summaryId}`);
       navigate(`/summaries/${notification.summaryId}`);
       return;
     }
     
     // 2. MCQ-specific notification → deep-link to MCQ deck
-    if (notification.mcqDeckId) {
+    if (isValidId(notification.mcqDeckId)) {
       console.log("[Notification] Navigating to MCQ deck", `/mcq/${notification.mcqDeckId}`);
       navigate(`/mcq/${notification.mcqDeckId}`);
       return;
     }
     
     // 3. Flashcard-specific notification → deep-link to flashcard deck
-    if (notification.flashcardDeckId) {
+    if (isValidId(notification.flashcardDeckId)) {
       console.log("[Notification] Navigating to flashcard deck", `/flashcards/${notification.flashcardDeckId}`);
       navigate(`/flashcards/${notification.flashcardDeckId}`);
       return;
@@ -323,14 +346,15 @@ const SynapseOS = () => {
 
     // 4. Fallback: Navigate to file view if no specific object exists
     // This handles render/OCR notifications and other file-level events
-    if (notification.fileId) {
+    if (isValidId(notification.fileId)) {
       console.log("[Notification] Navigating to file view", `/library/${notification.fileId}`);
       navigate(`/library/${notification.fileId}`);
       return;
     }
 
     // If we get here, no valid IDs were found
-    console.warn("[Notification] No valid IDs found for navigation", notification);
+    // Do NOT navigate - notification is not clickable
+    console.warn("[Notification] No valid IDs found for navigation - notification is not clickable", notification);
   };
 
   // Fetch profile
@@ -675,12 +699,27 @@ const SynapseOS = () => {
                 <FlashcardsModule />
               </div>
             } />
+            <Route path="/flashcards/:deckId" element={
+              <div className="flex-1 overflow-y-auto p-6">
+                <FlashcardsModule />
+              </div>
+            } />
             <Route path="/mcq" element={
               <div className="flex-1 overflow-y-auto p-6">
                 <MCQTab />
               </div>
             } />
+            <Route path="/mcq/:deckId" element={
+              <div className="flex-1 overflow-y-auto p-6">
+                <MCQTab />
+              </div>
+            } />
             <Route path="/summaries" element={
+              <div className="flex-1 overflow-y-auto p-6">
+                <SummariesModule />
+              </div>
+            } />
+            <Route path="/summaries/:summaryId" element={
               <div className="flex-1 overflow-y-auto p-6">
                 <SummariesModule />
               </div>

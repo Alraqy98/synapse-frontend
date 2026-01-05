@@ -1,6 +1,7 @@
 // src/modules/mcq/MCQTab.jsx
 import { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { apiMCQ } from "./apiMCQ";
 import GenerateMCQModal from "./GenerateMCQModal";
 import MCQDeckView from "./MCQDeckView";
@@ -10,6 +11,8 @@ import { isValidCodeFormat } from "../summaries/utils/summaryCode";
 import { sanitizeErrorMessage } from "../utils/errorSanitizer";
 
 export default function MCQTab() {
+    const { deckId: urlDeckId } = useParams();
+    const navigate = useNavigate();
     const [view, setView] = useState("list");
     const [deckId, setDeckId] = useState(null);
     const [decks, setDecks] = useState([]);
@@ -58,9 +61,22 @@ export default function MCQTab() {
         return () => clearInterval(interval);
     }, [decks]);
 
+    // Handle deep link from URL
+    useEffect(() => {
+        if (urlDeckId && urlDeckId !== deckId) {
+            setDeckId(urlDeckId);
+            setView("deck");
+        } else if (!urlDeckId && view !== "list") {
+            // URL changed to remove deckId, reset to list
+            setView("list");
+            setDeckId(null);
+        }
+    }, [urlDeckId]);
+
     const openDeck = (id) => {
         setDeckId(id);
         setView("deck");
+        navigate(`/mcq/${id}`, { replace: true });
     };
 
     // --------------------------------------------------
@@ -130,7 +146,11 @@ export default function MCQTab() {
     return (
         <div className="h-full w-full">
             {view === "deck" ? (
-                <MCQDeckView deckId={deckId} goBack={() => setView("list")} />
+                <MCQDeckView deckId={deckId} goBack={() => {
+                    setView("list");
+                    setDeckId(null);
+                    navigate("/mcq", { replace: true });
+                }} />
             ) : (
                 <>
                     <div className="max-w-7xl mx-auto px-6 pb-28">
