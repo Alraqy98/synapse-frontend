@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { FileText, BookOpen, CheckSquare, Zap } from "lucide-react";
-import { getLibraryItems } from "../Library/apiLibrary";
+import { getRecentFiles } from "../Library/apiLibrary";
 import { getAllSummaries } from "../summaries/apiSummaries";
 import { getMCQDecks } from "../mcq/apiMCQ";
 import { getDecks } from "../flashcards/apiFlashcards";
@@ -34,16 +34,8 @@ const DashboardRecentActivity = () => {
     // Fetch recent uploads (files only, sorted by created_at DESC, limit 5)
     const fetchRecentUploads = async () => {
         try {
-            const allItems = await getLibraryItems("All", null);
-            // Filter out folders, sort by created_at DESC, limit to 5
-            const files = allItems
-                .filter(item => !item.is_folder && item.kind !== "folder")
-                .sort((a, b) => {
-                    const dateA = new Date(a.created_at || a.updated_at || 0);
-                    const dateB = new Date(b.created_at || b.updated_at || 0);
-                    return dateB - dateA;
-                })
-                .slice(0, 5);
+            // Backend already returns files only, sorted by created_at DESC, limited to 5
+            const files = await getRecentFiles(5);
             setRecentFiles(files);
         } catch (err) {
             console.error("Failed to fetch recent uploads:", err);

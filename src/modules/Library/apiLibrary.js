@@ -1,3 +1,6 @@
+// Import api client for new endpoint
+import api from "../../lib/api";
+
 // ------------------------------------------------------
 // API BASE URL
 // ------------------------------------------------------
@@ -412,6 +415,18 @@ export const getTutorResources = async ({
     });
 
     return handleJson(res);
+};
+
+// ------------------------------------------------------
+// GET RECENT FILES (across all folders)
+// GET /library/files/recent?limit=5
+// Returns files only, sorted by created_at DESC
+// ------------------------------------------------------
+export const getRecentFiles = async (limit = 5) => {
+    const res = await api.get(`/library/files/recent?limit=${limit}`);
+    // Backend returns { items: [...] } - map each item using existing mapper
+    const items = res.data?.items || [];
+    return items.map(mapItemFromApi);
 };
 
 // ------------------------------------------------------
