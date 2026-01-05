@@ -169,24 +169,24 @@ export const generateFlashcards = async (payload) => {
 
 // ======================================================
 // SHARE DECK
-// Backend: POST /flashcards/decks/:id/share
+// Backend: POST /ai/flashcards/:id/share
 // ======================================================
 
 export const shareDeck = async (deck_id) => {
     if (!deck_id) throw new Error("Deck ID is missing (shareDeck)");
-    const res = await api.post(`/flashcards/decks/${deck_id}/share`);
+    const res = await api.post(`/ai/flashcards/${deck_id}/share`);
     return res.data; // Backend returns { share_code } or { code }
 };
 
 // ======================================================
 // IMPORT DECK
-// Backend route: POST /flashcards/decks/import
+// Backend route: POST /ai/flashcards/import
 // ======================================================
 
 export const importDeck = async (code) => {
     if (!code) throw new Error("Import code is missing (importDeck)");
     try {
-        const res = await api.post("/flashcards/decks/import", { code });
+        const res = await api.post("/ai/flashcards/import", { code });
         return res.data; // Backend returns { success, deck } or { success: false, error }
     } catch (err) {
         // Return error in same format for consistent handling

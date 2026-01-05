@@ -138,7 +138,7 @@ export const deleteMCQDeck = async (deck_id) => {
 export const shareDeck = async (deckId) => {
     if (!deckId) throw new Error("Deck ID missing (shareDeck)");
 
-    const res = await api.post(`/ai/mcq/decks/${deckId}/share`);
+    const res = await api.post(`/ai/mcq/${deckId}/share`);
     return res.data; // expects { share_code } or { code }
 };
 

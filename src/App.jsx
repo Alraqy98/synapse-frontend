@@ -26,11 +26,13 @@ import {
   Settings,
   Hexagon,
   Bell,
+  Home,
 } from "lucide-react";
 
 import TutorPage from "./modules/Tutor/TutorPage";
 import LibraryPage from "./modules/Library/LibraryPage";
 import MCQTab from "./modules/mcq/MCQTab";
+import DashboardPage from "./modules/dashboard/DashboardPage";
 
 // FLASHCARDS
 import FlashcardsTab from "./modules/flashcards/FlashcardsTab";
@@ -493,6 +495,7 @@ const SynapseOS = () => {
         </div>
 
         <nav className="flex flex-col gap-4 w-full px-2">
+          <SidebarItem icon={Home} label="Dashboard" to="/dashboard" />
           <SidebarItem icon={Folder} label="Library" to="/library" />
           <SidebarItem icon={Brain} label="Tutor" to="/tutor" />
           <SidebarItem icon={Zap} label="Flashcards" to="/flashcards" />
@@ -637,7 +640,14 @@ const SynapseOS = () => {
         <div className="flex-1 flex flex-col overflow-hidden relative">
           <ErrorBoundary>
             <Routes>
-            <Route path="/" element={<Navigate to="/tutor" replace />} />
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            
+            {/* Dashboard */}
+            <Route path="/dashboard" element={
+              <div className="flex-1 overflow-y-auto p-6">
+                <DashboardPage profile={profile} />
+              </div>
+            } />
             
             {/* Library routes */}
             <Route path="/library" element={<LibraryPage />} />
@@ -691,7 +701,7 @@ const SynapseOS = () => {
             } />
             
             {/* Catch-all redirect */}
-            <Route path="*" element={<Navigate to="/tutor" replace />} />
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
           </ErrorBoundary>
         </div>
