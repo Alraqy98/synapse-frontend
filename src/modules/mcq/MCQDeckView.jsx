@@ -354,18 +354,7 @@ export default function MCQDeckView({ deckId, goBack }) {
             },
         }));
 
-        // STEP B: Auto-advance to next question (optimistic)
-        // Check if this is the last question
-        const isLastQuestion = index === questions.length - 1;
-        if (isLastQuestion) {
-            // Optimistically show results screen
-            setFinished(true);
-        } else {
-            // Advance to next question immediately
-            setIndex((i) => i + 1);
-        }
-
-        // STEP C: Background backend sync (non-blocking)
+        // STEP B: Background backend sync (non-blocking)
         // Fire backend call asynchronously - don't await
         const timeMs = timeSpent * 1000; // Convert seconds to milliseconds
         apiMCQ.answerMCQQuestion(q.id, selectedLetter, timeMs)
@@ -373,11 +362,8 @@ export default function MCQDeckView({ deckId, goBack }) {
                 // Reconcile progress from backend response
                 if (answerResponse?.progress) {
                     setProgress(answerResponse.progress);
-                    
-                    // If backend confirms completion, ensure finished state is set
-                    if (answerResponse.progress.status === "completed") {
-                        setFinished(true);
-                    }
+                    // Note: Don't auto-advance or show results here
+                    // User must explicitly click "Next" to advance
                 }
             })
             .catch((err) => {
@@ -389,9 +375,6 @@ export default function MCQDeckView({ deckId, goBack }) {
                         .then((retryResponse) => {
                             if (retryResponse?.progress) {
                                 setProgress(retryResponse.progress);
-                                if (retryResponse.progress.status === "completed") {
-                                    setFinished(true);
-                                }
                             }
                         })
                         .catch((retryErr) => {
@@ -748,12 +731,13 @@ export default function MCQDeckView({ deckId, goBack }) {
                         <button
                             className="btn btn-secondary"
                             onClick={() => {
-                                // Manual navigation - only needed if user wants to skip ahead
-                                // (Auto-advance already handled in handleSelect)
+                                // Manual navigation - user must explicitly click Next to advance
                                 if (index === questions.length - 1) {
-                                    // If on last question and not finished yet, show results optimistically
+                                    // On last question, show results screen
+                                    // Backend may have confirmed completion via background sync
                                     setFinished(true);
                                 } else {
+                                    // Advance to next question
                                     setIndex((i) => i + 1);
                                 }
                             }}
