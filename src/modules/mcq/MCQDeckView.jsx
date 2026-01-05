@@ -311,7 +311,7 @@ export default function MCQDeckView({ deckId, goBack }) {
     }
 
     // ---------------- Answer selection ----------------
-    async function handleSelect(optText) {
+    function handleSelect(optText) {
         if (!q || answerState || reviewMode) return; // Guard: no answering in review mode
 
         const timeSpent = stopTimer();
@@ -339,26 +339,8 @@ export default function MCQDeckView({ deckId, goBack }) {
         // ✅ explanation is coming from DB already (mcq_option_explanations merged into options_full)
         const explanationSelected = selectedRow.explanation || "";
 
-        // Submit answer to backend
-        try {
-            const timeMs = timeSpent * 1000; // Convert seconds to milliseconds
-            const answerResponse = await apiMCQ.answerMCQQuestion(q.id, selectedLetter, timeMs);
-            
-            // Update progress from backend response
-            if (answerResponse?.progress) {
-                setProgress(answerResponse.progress);
-                
-                // Check if completed
-                if (answerResponse.progress.status === "completed") {
-                    setFinished(true);
-                }
-            }
-        } catch (err) {
-            console.error("Failed to submit answer:", err);
-            // Continue with local state update even if API fails
-        }
-
-        // Update local state
+        // STEP A: Immediate UI update (optimistic)
+        // Update local state FIRST - don't wait for backend
         setAnswers((prev) => ({
             ...prev,
             [q.id]: {
@@ -371,6 +353,52 @@ export default function MCQDeckView({ deckId, goBack }) {
                 explainAll: false,
             },
         }));
+
+        // STEP B: Auto-advance to next question (optimistic)
+        // Check if this is the last question
+        const isLastQuestion = index === questions.length - 1;
+        if (isLastQuestion) {
+            // Optimistically show results screen
+            setFinished(true);
+        } else {
+            // Advance to next question immediately
+            setIndex((i) => i + 1);
+        }
+
+        // STEP C: Background backend sync (non-blocking)
+        // Fire backend call asynchronously - don't await
+        const timeMs = timeSpent * 1000; // Convert seconds to milliseconds
+        apiMCQ.answerMCQQuestion(q.id, selectedLetter, timeMs)
+            .then((answerResponse) => {
+                // Reconcile progress from backend response
+                if (answerResponse?.progress) {
+                    setProgress(answerResponse.progress);
+                    
+                    // If backend confirms completion, ensure finished state is set
+                    if (answerResponse.progress.status === "completed") {
+                        setFinished(true);
+                    }
+                }
+            })
+            .catch((err) => {
+                // Error handling: log but don't rollback UI
+                console.error("Failed to submit answer (background sync):", err);
+                // Optionally retry once
+                setTimeout(() => {
+                    apiMCQ.answerMCQQuestion(q.id, selectedLetter, timeMs)
+                        .then((retryResponse) => {
+                            if (retryResponse?.progress) {
+                                setProgress(retryResponse.progress);
+                                if (retryResponse.progress.status === "completed") {
+                                    setFinished(true);
+                                }
+                            }
+                        })
+                        .catch((retryErr) => {
+                            console.error("Retry also failed:", retryErr);
+                        });
+                }, 1000);
+            });
     }
 
     // ---------------- UI helpers ----------------
@@ -719,21 +747,12 @@ export default function MCQDeckView({ deckId, goBack }) {
 
                         <button
                             className="btn btn-secondary"
-                            onClick={async () => {
+                            onClick={() => {
+                                // Manual navigation - only needed if user wants to skip ahead
+                                // (Auto-advance already handled in handleSelect)
                                 if (index === questions.length - 1) {
-                                    // Check progress status - backend may have marked as completed
-                                    try {
-                                        const deckData = await apiMCQ.getMCQDeckWithProgress(deckId);
-                                        if (deckData?.progress?.status === "completed") {
-                                            setProgress(deckData.progress);
-                                            setFinished(true);
-                                        } else {
-                                            setFinished(true);
-                                        }
-                                    } catch (err) {
-                                        console.error("Failed to check progress:", err);
-                                        setFinished(true);
-                                    }
+                                    // If on last question and not finished yet, show results optimistically
+                                    setFinished(true);
                                 } else {
                                     setIndex((i) => i + 1);
                                 }
