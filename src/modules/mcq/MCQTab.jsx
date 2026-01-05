@@ -230,6 +230,7 @@ export default function MCQTab() {
                                         // Determine status and progress
                                         let status = "ready";
                                         let progress = 100;
+                                        let statusLabel = "MCQ Deck";
                                         
                                         if (isGenerating) {
                                             status = "generating";
@@ -242,6 +243,13 @@ export default function MCQTab() {
                                             const current = deck.question_count || 0;
                                             const target = deck.question_count_target ?? deck.question_count ?? 1;
                                             progress = Math.min(100, Math.round((current / target) * 100));
+                                            
+                                            // Add progress status label if available
+                                            if (deck.progress?.status === "completed") {
+                                                statusLabel = "Completed";
+                                            } else if (deck.progress?.status === "in_progress") {
+                                                statusLabel = "In progress";
+                                            }
                                         }
 
                                         return (
@@ -250,7 +258,7 @@ export default function MCQTab() {
                                                 title={deck.title}
                                                 progress={progress}
                                                 status={status}
-                                                statusText="MCQ Deck"
+                                                statusText={statusLabel}
                                                 date={deck.created_at ? new Date(deck.created_at).toLocaleDateString() : null}
                                                 isGenerating={isGenerating}
                                                 onClick={() => openDeck(deck.id)}

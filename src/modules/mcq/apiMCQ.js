@@ -94,6 +94,84 @@ export const getMCQQuestions = async (deck_id) => {
     return res.data?.questions || [];
 };
 
+// ===============================================================
+// MCQ PROGRESS PERSISTENCE
+// ===============================================================
+
+/**
+ * Start an MCQ deck session
+ * POST /ai/mcq/decks/:id/start
+ * Returns: { progress: {...}, deck: {...} }
+ */
+export const startMCQDeck = async (deckId) => {
+    if (!deckId) throw new Error("Deck ID missing (startMCQDeck)");
+    const res = await api.post(`/ai/mcq/decks/${deckId}/start`);
+    return res.data;
+};
+
+/**
+ * Submit an answer to a question
+ * POST /ai/mcq/questions/:id/answer
+ * Body: { selected_option_letter, time_ms }
+ * Returns: { progress: {...}, question: {...} }
+ */
+export const answerMCQQuestion = async (questionId, selectedOptionLetter, timeMs) => {
+    if (!questionId) throw new Error("Question ID missing (answerMCQQuestion)");
+    const res = await api.post(`/ai/mcq/questions/${questionId}/answer`, {
+        selected_option_letter: selectedOptionLetter,
+        time_ms: timeMs,
+    });
+    return res.data;
+};
+
+/**
+ * Reset a deck's progress
+ * POST /ai/mcq/decks/:id/reset
+ * Returns: { success: true }
+ */
+export const resetMCQDeck = async (deckId) => {
+    if (!deckId) throw new Error("Deck ID missing (resetMCQDeck)");
+    const res = await api.post(`/ai/mcq/decks/${deckId}/reset`);
+    return res.data;
+};
+
+/**
+ * Retake only wrong questions
+ * POST /ai/mcq/decks/:id/retake-wrong
+ * Returns: { progress: {...}, deck: {...} }
+ */
+export const retakeWrongMCQ = async (deckId) => {
+    if (!deckId) throw new Error("Deck ID missing (retakeWrongMCQ)");
+    const res = await api.post(`/ai/mcq/decks/${deckId}/retake-wrong`);
+    return res.data;
+};
+
+/**
+ * Get deck with progress
+ * GET /ai/mcq/decks/:id
+ * Returns: { deck: {...}, progress: {...} }
+ */
+export const getMCQDeckWithProgress = async (deckId) => {
+    if (!deckId) throw new Error("Deck ID missing (getMCQDeckWithProgress)");
+    const res = await api.get(`/ai/mcq/decks/${deckId}`);
+    return res.data;
+};
+
+/**
+ * Get review questions
+ * GET /ai/mcq/decks/:id/review?attempt=X&scope=wrong|all
+ * Returns: { questions: [...] }
+ */
+export const getMCQReview = async (deckId, scope = "all", attempt = null) => {
+    if (!deckId) throw new Error("Deck ID missing (getMCQReview)");
+    let url = `/ai/mcq/decks/${deckId}/review?scope=${scope}`;
+    if (attempt !== null) {
+        url += `&attempt=${attempt}`;
+    }
+    const res = await api.get(url);
+    return res.data?.questions || [];
+};
+
 export const explainMCQSelection = async (question_id, user_answer) => {
     const res = await api.post(
         `/ai/mcq/questions/${question_id}/explain-selection`,
@@ -180,4 +258,11 @@ export const apiMCQ = {
     explainMCQSelection,
     explainMCQAll,
     mcqExportToAstra,
+    // Progress persistence
+    startMCQDeck,
+    answerMCQQuestion,
+    resetMCQDeck,
+    retakeWrongMCQ,
+    getMCQDeckWithProgress,
+    getMCQReview,
 };

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import { apiMCQ } from "./apiMCQ";
 import { Send, ArrowLeft, Clock3, CheckCircle2, XCircle } from "lucide-react";
+import MCQEntryModal from "./MCQEntryModal";
 
 const LETTERS = ["A", "B", "C", "D", "E"];
 
@@ -76,16 +77,22 @@ export default function MCQDeckView({ deckId, goBack }) {
     const [answers, setAnswers] = useState({});
     const [loading, setLoading] = useState(true);
     const [finished, setFinished] = useState(false);
-    const handleRetake = () => {
-        setFinished(false);
-        setIndex(0);
-        setAnswers({});
-        setElapsed(0);
-
-        // reset timers cleanly
-        startedAtRef.current = null;
-        if (tickRef.current) clearInterval(tickRef.current);
-        tickRef.current = null;
+    const [progress, setProgress] = useState(null);
+    const [showEntryModal, setShowEntryModal] = useState(false);
+    const [reviewMode, setReviewMode] = useState(false);
+    const [reviewScope, setReviewScope] = useState(null); // "wrong" | "all"
+    
+    const handleRetake = async () => {
+        try {
+            await apiMCQ.resetMCQDeck(deckId);
+            const startResponse = await apiMCQ.startMCQDeck(deckId);
+            setFinished(false);
+            setReviewMode(false);
+            setReviewScope(null);
+            await loadQuestionsAndResume(deckId, startResponse?.progress);
+        } catch (err) {
+            console.error("Failed to retake:", err);
+        }
     };
     const [elapsed, setElapsed] = useState(0);
     const startedAtRef = useRef(null);
@@ -111,20 +118,38 @@ export default function MCQDeckView({ deckId, goBack }) {
         return { byLetter, byTextNorm };
     }, [q?.id, q?.options_full]);
 
-    // ---------------- Load questions ----------------
+    // ---------------- Entry Flow: Start deck and check progress ----------------
     useEffect(() => {
         let mounted = true;
 
         (async () => {
             try {
                 setLoading(true);
-                const qs = await apiMCQ.getMCQQuestions(deckId);
-
+                
+                // Step 1: Call /start to initialize or get existing progress
+                const startResponse = await apiMCQ.startMCQDeck(deckId);
+                
                 if (!mounted) return;
 
-                setQuestions(qs || []);
-                setIndex(0);
-                setAnswers({});
+                const progressData = startResponse?.progress;
+                setProgress(progressData);
+
+                // Step 2: Check progress status and show modal if needed
+                if (progressData?.status === "in_progress" || progressData?.status === "completed") {
+                    setShowEntryModal(true);
+                    // Don't load questions yet - wait for user decision
+                    setLoading(false);
+                    return;
+                }
+
+                // Step 3: No progress - start normally
+                await loadQuestionsAndResume(deckId, progressData);
+            } catch (err) {
+                console.error("Failed to start MCQ deck:", err);
+                // Fallback: try to load questions anyway
+                if (mounted) {
+                    await loadQuestionsAndResume(deckId, null);
+                }
             } finally {
                 if (mounted) setLoading(false);
             }
@@ -135,9 +160,127 @@ export default function MCQDeckView({ deckId, goBack }) {
         };
     }, [deckId]);
 
+    // Helper: Load questions and resume at correct index
+    const loadQuestionsAndResume = async (deckId, progressData) => {
+        const qs = await apiMCQ.getMCQQuestions(deckId);
+        setQuestions(qs || []);
+
+        // Resume at last_question_index + 1 if progress exists
+        if (progressData?.last_question_index != null) {
+            const resumeIndex = Math.min(
+                progressData.last_question_index + 1,
+                (qs || []).length - 1
+            );
+            setIndex(resumeIndex);
+        } else {
+            setIndex(0);
+        }
+
+        // Load existing answers from questions (if user_answer exists)
+        const existingAnswers = {};
+        (qs || []).forEach((q) => {
+            if (q.user_answer) {
+                existingAnswers[q.id] = {
+                    selectedText: q.options?.find((opt, i) => LETTERS[i] === q.user_answer.selected_option_letter) || "",
+                    selectedLetter: q.user_answer.selected_option_letter,
+                    isCorrect: q.user_answer.is_correct,
+                    correctLetter: q.correct_option_letter,
+                    explanationSelected: "",
+                    timeSpent: q.user_answer.time_ms ? Math.floor(q.user_answer.time_ms / 1000) : 0,
+                    explainAll: false,
+                };
+            }
+        });
+        setAnswers(existingAnswers);
+
+        // Check if finished
+        if (progressData?.status === "completed") {
+            setFinished(true);
+        }
+    };
+
+    // Entry modal handlers
+    const handleContinue = async () => {
+        setShowEntryModal(false);
+        await loadQuestionsAndResume(deckId, progress);
+    };
+
+    const handleStartOver = async () => {
+        setShowEntryModal(false);
+        try {
+            await apiMCQ.resetMCQDeck(deckId);
+            const startResponse = await apiMCQ.startMCQDeck(deckId);
+            await loadQuestionsAndResume(deckId, startResponse?.progress);
+        } catch (err) {
+            console.error("Failed to start over:", err);
+        }
+    };
+
+    const handleReview = async (scope = "all") => {
+        setShowEntryModal(false);
+        setReviewMode(true);
+        setReviewScope(scope);
+        try {
+            const reviewQuestions = await apiMCQ.getMCQReview(deckId, scope);
+            setQuestions(reviewQuestions || []);
+            setIndex(0);
+            setFinished(false);
+            
+            // Load existing answers from review questions (read-only)
+            const reviewAnswers = {};
+            (reviewQuestions || []).forEach((q) => {
+                if (q.user_answer) {
+                    reviewAnswers[q.id] = {
+                        selectedText: q.options?.find((opt, i) => LETTERS[i] === q.user_answer.selected_option_letter) || "",
+                        selectedLetter: q.user_answer.selected_option_letter,
+                        isCorrect: q.user_answer.is_correct,
+                        correctLetter: q.correct_option_letter,
+                        explanationSelected: "",
+                        timeSpent: q.user_answer.time_ms ? Math.floor(q.user_answer.time_ms / 1000) : 0,
+                        explainAll: false,
+                    };
+                }
+            });
+            setAnswers(reviewAnswers);
+        } catch (err) {
+            console.error("Failed to load review:", err);
+        }
+    };
+
+    const handleRetakeWrong = async () => {
+        setShowEntryModal(false);
+        try {
+            const retakeResponse = await apiMCQ.retakeWrongMCQ(deckId);
+            await loadQuestionsAndResume(deckId, retakeResponse?.progress);
+        } catch (err) {
+            console.error("Failed to retake wrong:", err);
+        }
+    };
+
+    const handleRestart = async () => {
+        setShowEntryModal(false);
+        try {
+            await apiMCQ.resetMCQDeck(deckId);
+            const startResponse = await apiMCQ.startMCQDeck(deckId);
+            await loadQuestionsAndResume(deckId, startResponse?.progress);
+        } catch (err) {
+            console.error("Failed to restart:", err);
+        }
+    };
+
     // ---------------- Timer ----------------
     useEffect(() => {
         if (!q) return;
+
+        // In review mode, show time from backend, don't run timer
+        if (reviewMode) {
+            if (answerState?.timeSpent != null) {
+                setElapsed(answerState.timeSpent);
+            }
+            if (tickRef.current) clearInterval(tickRef.current);
+            tickRef.current = null;
+            return;
+        }
 
         if (answerState?.timeSpent != null) {
             setElapsed(answerState.timeSpent);
@@ -158,7 +301,7 @@ export default function MCQDeckView({ deckId, goBack }) {
             if (tickRef.current) clearInterval(tickRef.current);
             tickRef.current = null;
         };
-    }, [q?.id, index, answerState?.timeSpent]);
+    }, [q?.id, index, answerState?.timeSpent, reviewMode]);
 
     function stopTimer() {
         // if timer hasn't started for some reason, fall back to the live elapsed state
@@ -169,7 +312,7 @@ export default function MCQDeckView({ deckId, goBack }) {
 
     // ---------------- Answer selection ----------------
     async function handleSelect(optText) {
-        if (!q || answerState) return;
+        if (!q || answerState || reviewMode) return; // Guard: no answering in review mode
 
         const timeSpent = stopTimer();
         if (tickRef.current) clearInterval(tickRef.current);
@@ -196,6 +339,26 @@ export default function MCQDeckView({ deckId, goBack }) {
         // ✅ explanation is coming from DB already (mcq_option_explanations merged into options_full)
         const explanationSelected = selectedRow.explanation || "";
 
+        // Submit answer to backend
+        try {
+            const timeMs = timeSpent * 1000; // Convert seconds to milliseconds
+            const answerResponse = await apiMCQ.answerMCQQuestion(q.id, selectedLetter, timeMs);
+            
+            // Update progress from backend response
+            if (answerResponse?.progress) {
+                setProgress(answerResponse.progress);
+                
+                // Check if completed
+                if (answerResponse.progress.status === "completed") {
+                    setFinished(true);
+                }
+            }
+        } catch (err) {
+            console.error("Failed to submit answer:", err);
+            // Continue with local state update even if API fails
+        }
+
+        // Update local state
         setAnswers((prev) => ({
             ...prev,
             [q.id]: {
@@ -297,8 +460,34 @@ export default function MCQDeckView({ deckId, goBack }) {
 
     // ---------------- Render ----------------
     if (loading) return <div className="text-muted">Loading…</div>;
+    
+    // Show entry modal if needed
+    if (showEntryModal && progress) {
+        return (
+            <MCQEntryModal
+                status={progress.status}
+                onContinue={handleContinue}
+                onStartOver={handleStartOver}
+                onReview={() => handleReview("all")}
+                onRetakeWrong={handleRetakeWrong}
+                onRestart={handleRestart}
+            />
+        );
+    }
+    
     if (finished) {
-        const stats = calculateStats(answers);
+        // Use backend progress stats if available, otherwise calculate from local answers
+        const stats = progress ? {
+            total: progress.questions_answered || 0,
+            correct: progress.questions_correct || 0,
+            percent: progress.questions_answered 
+                ? Math.round((progress.questions_correct / progress.questions_answered) * 100)
+                : 0,
+            totalTime: Object.values(answers).reduce((s, a) => s + (a.timeSpent || 0), 0),
+            avgTime: progress.questions_answered && progress.questions_answered > 0
+                ? Math.round(Object.values(answers).reduce((s, a) => s + (a.timeSpent || 0), 0) / progress.questions_answered)
+                : 0,
+        } : calculateStats(answers);
 
         return (
             <div className="h-full w-full overflow-y-auto pb-16">
@@ -356,13 +545,38 @@ export default function MCQDeckView({ deckId, goBack }) {
                         </div>
 
                         {/* ACTIONS */}
-                        <div className="flex justify-center gap-4 mt-4">
-                            <button className="btn btn-secondary" onClick={goBack}>
+                        <div className="flex flex-col items-center gap-3 mt-4">
+                            <div className="flex justify-center gap-3 flex-wrap">
+                                <button 
+                                    className="btn btn-secondary" 
+                                    onClick={() => handleReview("wrong")}
+                                >
+                                    Review Mistakes
+                                </button>
+                                <button 
+                                    className="btn btn-secondary" 
+                                    onClick={() => handleReview("all")}
+                                >
+                                    Review All
+                                </button>
+                            </div>
+                            <div className="flex justify-center gap-3 flex-wrap">
+                                <button 
+                                    className="btn btn-secondary" 
+                                    onClick={handleRetakeWrong}
+                                    disabled={progress?.status !== "completed"}
+                                >
+                                    Retake Mistakes
+                                </button>
+                                <button 
+                                    className="btn btn-primary" 
+                                    onClick={handleRestart}
+                                >
+                                    Restart Deck
+                                </button>
+                            </div>
+                            <button className="btn btn-secondary mt-2" onClick={goBack}>
                                 Back to decks
-                            </button>
-
-                            <button className="btn btn-primary" onClick={handleRetake}>
-                                Retake MCQ
                             </button>
                         </div>
 
@@ -386,6 +600,13 @@ export default function MCQDeckView({ deckId, goBack }) {
             </div>
 
             <div className="panel p-8 max-w-4xl mx-auto rounded-2xl mb-16">
+                {reviewMode && (
+                    <div className="mb-4 p-3 rounded-lg bg-teal/10 border border-teal/30">
+                        <p className="text-sm text-teal">
+                            {reviewScope === "wrong" ? "Reviewing mistakes only" : "Reviewing all questions"}
+                        </p>
+                    </div>
+                )}
                 <div className="mb-4">
                     <div className="flex justify-between text-xs text-muted mb-1">
                         <span>Question {index + 1} of {questions.length}</span>
@@ -422,14 +643,18 @@ export default function MCQDeckView({ deckId, goBack }) {
 
                         if (explanation) explanation = stripQuotedOption(explanation, opt);
 
+                        // In review mode, show all answers but disable interaction
+                        const isReviewMode = reviewMode;
+                        const isAnswered = !!answerState;
+
                         return (
                             <div
                                 key={`${i}-${opt}`}
-                                onClick={() => handleSelect(opt)}
-                                className={`panel p-5 rounded-xl cursor-pointer transition-all ${optionClass(
+                                onClick={() => !isReviewMode && !isAnswered && handleSelect(opt)}
+                                className={`panel p-5 rounded-xl transition-all ${optionClass(
                                     opt,
                                     i
-                                )}`}
+                                )} ${isReviewMode || isAnswered ? "cursor-default" : "cursor-pointer"}`}
                                 style={optionInlineStyle(opt, i)}
                             >
                                 <div className="flex gap-4 items-start">
@@ -494,9 +719,21 @@ export default function MCQDeckView({ deckId, goBack }) {
 
                         <button
                             className="btn btn-secondary"
-                            onClick={() => {
+                            onClick={async () => {
                                 if (index === questions.length - 1) {
-                                    setFinished(true);
+                                    // Check progress status - backend may have marked as completed
+                                    try {
+                                        const deckData = await apiMCQ.getMCQDeckWithProgress(deckId);
+                                        if (deckData?.progress?.status === "completed") {
+                                            setProgress(deckData.progress);
+                                            setFinished(true);
+                                        } else {
+                                            setFinished(true);
+                                        }
+                                    } catch (err) {
+                                        console.error("Failed to check progress:", err);
+                                        setFinished(true);
+                                    }
                                 } else {
                                     setIndex((i) => i + 1);
                                 }
