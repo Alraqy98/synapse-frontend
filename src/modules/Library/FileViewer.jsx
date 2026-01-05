@@ -964,9 +964,10 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
             </div>
             {showFlashcardsModal && (
                 <GenerateFlashcardsModal
+                    open={true}
                     presetFileId={file.id}
-                    onCancel={() => setShowFlashcardsModal(false)}
-                    onSuccess={() => {
+                    onClose={() => setShowFlashcardsModal(false)}
+                    onCreated={() => {
                         setShowFlashcardsModal(false);
                         // later: navigate to flashcards deck / toast
                     }}

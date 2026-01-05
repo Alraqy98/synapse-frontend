@@ -90,8 +90,9 @@ export default function FlashcardsTab({ openDeck }) {
             {/* GENERATE MODAL */}
             {showGenerateModal && (
                 <GenerateFlashcardsModal
-                    onCancel={() => setShowGenerateModal(false)}
-                    onSuccess={() => setShowGenerateModal(false)}
+                    open={true}
+                    onClose={() => setShowGenerateModal(false)}
+                    onCreated={() => setShowGenerateModal(false)}
                 />
             )}
         </div>

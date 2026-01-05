@@ -727,6 +727,7 @@ const SynapseOS = () => {
                 setActiveModal(null);
                 // Optionally refresh library or show success message
               }}
+              enableFolderSelection={true}
             />
           )}
 

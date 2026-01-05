@@ -68,10 +68,12 @@ const looksLikeUuid = (str) =>
 // MAIN COMPONENT
 // ===============================================================
 export default function GenerateFlashcardsModal({
-    onCancel,
-    onSuccess,
+    open,
+    onClose,
+    onCreated,
     presetFileId = null,
 }) {
+    if (!open) return null;
     const [title, setTitle] = useState("");
     const [mode, setMode] = useState("turbo");
     const [includeRefs, setIncludeRefs] = useState(true);
@@ -338,7 +340,8 @@ export default function GenerateFlashcardsModal({
             console.log("⚡ Flashcard generation started in background:", deck);
 
             // 🔥 CLOSE MODAL IMMEDIATELY — user continues using Synapse
-            onSuccess(deck);
+            onCreated(deck);
+            onClose();
 
             // Optional: show notification if you use toast
             // toast.info("Flashcards are generating in the background…");
@@ -356,12 +359,34 @@ export default function GenerateFlashcardsModal({
     }
 
 
+    // Unified close handler
+    const handleClose = () => {
+        onClose();
+    };
+
+    // ESC key handler
+    useEffect(() => {
+        const handleEsc = (e) => {
+            if (e.key === "Escape") {
+                handleClose();
+            }
+        };
+        window.addEventListener("keydown", handleEsc);
+        return () => window.removeEventListener("keydown", handleEsc);
+    }, []);
+
     // --------------------------------------------------------------
     // UI
     // --------------------------------------------------------------
     return (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-            <div className="bg-void border border-white/10 rounded-2xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
+        <div 
+            className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+            onClick={handleClose}
+        >
+            <div 
+                className="bg-void border border-white/10 rounded-2xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+            >
 
                 <h2 className="text-2xl font-bold mb-6">Generate Flashcards</h2>
 
@@ -414,7 +439,7 @@ export default function GenerateFlashcardsModal({
                 <div className="flex justify-end gap-3 mt-6">
                     <button
                         className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:border-red-400"
-                        onClick={onCancel}
+                        onClick={handleClose}
                     >
                         Cancel
                     </button>

@@ -382,11 +382,33 @@ export default function GenerateMCQModal({
     }
 
     // ------------------------------------------------------------
+    // Unified close handler
+    const handleClose = () => {
+        onClose();
+    };
+
+    // ESC key handler
+    useEffect(() => {
+        const handleEsc = (e) => {
+            if (e.key === "Escape") {
+                handleClose();
+            }
+        };
+        window.addEventListener("keydown", handleEsc);
+        return () => window.removeEventListener("keydown", handleEsc);
+    }, []);
+
     // UI
     // ------------------------------------------------------------
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-void border border-white/10 rounded-2xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
+        <div 
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+            onClick={handleClose}
+        >
+            <div 
+                className="bg-void border border-white/10 rounded-2xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+            >
 
                 <h2 className="text-2xl font-bold mb-6">Generate MCQ Deck</h2>
 
@@ -455,7 +477,7 @@ export default function GenerateMCQModal({
                 <div className="flex justify-end gap-3 mt-6">
                     <button
                         className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:border-red-400"
-                        onClick={onClose}
+                        onClick={handleClose}
                     >
                         Cancel
                     </button>

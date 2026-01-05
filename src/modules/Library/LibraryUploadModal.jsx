@@ -1,12 +1,12 @@
 // src/modules/Library/LibraryUploadModal.jsx
-import React, { useState, useRef } from "react";
-import { X, UploadCloud, File, Loader2 } from "lucide-react";
-import { uploadLibraryFile } from "./apiLibrary";
+import React, { useState, useRef, useEffect } from "react";
+import { X, UploadCloud, File, Loader2, Folder, ArrowUpLeft } from "lucide-react";
+import { uploadLibraryFile, getAllFolders, getLibraryItems } from "./apiLibrary";
 import { compressImageIfNeeded, validateFileForUpload, isImageFile, isPdfFile } from "../../lib/fileCompression";
 import { compressPdfFile } from "./utils/compressPdf";
 import { getUploadErrorMessage } from "./utils/uploadErrorMessages";
 
-const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null }) => {
+const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null, enableFolderSelection = false }) => {
     const [file, setFile] = useState(null);
     const [category, setCategory] = useState("Lecture");
     const [isUploading, setIsUploading] = useState(false);
@@ -15,6 +15,36 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null })
     const [error, setError] = useState(null);
     const [compressionInfo, setCompressionInfo] = useState(null);
     const fileInputRef = useRef(null);
+    
+    // Folder selection state
+    const [folders, setFolders] = useState([]);
+    const [loadingFolders, setLoadingFolders] = useState(false);
+    const [selectedFolderId, setSelectedFolderId] = useState(parentFolderId);
+    const [hasExistingItems, setHasExistingItems] = useState(false);
+
+    // Load folders and check for existing items when folder selection is enabled
+    useEffect(() => {
+        if (!enableFolderSelection) return;
+
+        const loadFoldersAndCheckItems = async () => {
+            setLoadingFolders(true);
+            try {
+                // Check if user has any items
+                const allItems = await getLibraryItems("All", null);
+                setHasExistingItems(allItems.length > 0);
+
+                // Load folders for selection
+                const allFolders = await getAllFolders();
+                setFolders(allFolders);
+            } catch (err) {
+                console.error("Failed to load folders:", err);
+            } finally {
+                setLoadingFolders(false);
+            }
+        };
+
+        loadFoldersAndCheckItems();
+    }, [enableFolderSelection]);
 
     const handleFileChange = (e) => {
         const selectedFile = e.target.files?.[0];
@@ -120,7 +150,9 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null })
             }
             
             // Upload the file (compressed or original)
-            await uploadLibraryFile(fileToUpload, category, parentFolderId);
+            // Use selectedFolderId if folder selection is enabled, otherwise use parentFolderId prop
+            const targetFolderId = enableFolderSelection ? selectedFolderId : parentFolderId;
+            await uploadLibraryFile(fileToUpload, category, targetFolderId);
             onUploadSuccess();
             onClose();
         } catch (error) {
@@ -134,15 +166,37 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null })
         }
     };
 
+    // Unified close handler
+    const handleClose = () => {
+        onClose();
+    };
+
+    // ESC key handler
+    useEffect(() => {
+        const handleEsc = (e) => {
+            if (e.key === "Escape") {
+                handleClose();
+            }
+        };
+        window.addEventListener("keydown", handleEsc);
+        return () => window.removeEventListener("keydown", handleEsc);
+    }, []);
+
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div className="w-full max-w-md bg-[#1a1d24] border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-fade-in-up">
+        <div 
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            onClick={handleClose}
+        >
+            <div 
+                className="w-full max-w-md bg-[#1a1d24] border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-fade-in-up"
+                onClick={(e) => e.stopPropagation()}
+            >
 
                 {/* Header */}
                 <div className="flex justify-between items-center p-6 border-b border-white/5">
                     <h2 className="text-xl font-bold text-white">Upload to Library</h2>
                     <button
-                        onClick={onClose}
+                        onClick={handleClose}
                         className="text-muted hover:text-white transition-colors"
                     >
                         <X size={20} />
@@ -202,6 +256,44 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null })
                         )}
                     </div>
 
+                    {/* Folder Selection (only when enabled and user has existing items) */}
+                    {enableFolderSelection && hasExistingItems && (
+                        <div>
+                            <label className="block text-sm font-medium text-muted mb-2">
+                                Upload to Folder
+                            </label>
+                            {loadingFolders ? (
+                                <div className="text-muted text-sm py-4 text-center">Loading folders…</div>
+                            ) : (
+                                <div className="max-h-[200px] overflow-y-auto space-y-1 pr-1 border border-white/10 rounded-xl p-3 bg-white/5">
+                                    {/* Root option */}
+                                    <button
+                                        className={`w-full flex items-center gap-3 p-2 rounded-lg text-sm text-white hover:bg-white/10 transition ${
+                                            selectedFolderId === null ? "bg-white/10" : ""
+                                        }`}
+                                        onClick={() => setSelectedFolderId(null)}
+                                    >
+                                        <ArrowUpLeft size={16} className="text-teal" />
+                                        <span>Root (All Files)</span>
+                                    </button>
+                                    {/* Folder options */}
+                                    {folders.map((folder) => (
+                                        <button
+                                            key={folder.id}
+                                            onClick={() => setSelectedFolderId(folder.id)}
+                                            className={`w-full flex items-center gap-3 p-2 rounded-lg text-sm text-white hover:bg-white/10 transition ${
+                                                selectedFolderId === folder.id ? "bg-white/10" : ""
+                                            }`}
+                                        >
+                                            <Folder size={16} className="text-teal" />
+                                            <span className="truncate">{folder.title}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {/* Category Select */}
                     <div>
                         <label className="block text-sm font-medium text-muted mb-2">
@@ -248,7 +340,7 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null })
                 {/* Footer */}
                 <div className="p-6 border-t border-white/5 flex justify-end gap-3">
                     <button
-                        onClick={onClose}
+                        onClick={handleClose}
                         className="px-4 py-2 rounded-lg text-muted hover:text-white hover:bg-white/5 transition-colors"
                     >
                         Cancel
