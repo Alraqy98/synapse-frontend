@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useMemo } from "react";
 import { apiMCQ } from "./apiMCQ";
 import { Send, ArrowLeft, Clock3, CheckCircle2, XCircle } from "lucide-react";
 import MCQEntryModal from "./MCQEntryModal";
+import { useDemo } from "../demo/DemoContext";
 
 const LETTERS = ["A", "B", "C", "D", "E"];
 
@@ -71,6 +72,7 @@ function calculateStats(answers = {}) {
 }
 
 export default function MCQDeckView({ deckId, goBack }) {
+    const { isDemo } = useDemo() || {};
     const [questions, setQuestions] = useState([]);
     const [index, setIndex] = useState(0);
     // ✅ store by QUESTION ID (not array index)
@@ -127,6 +129,17 @@ export default function MCQDeckView({ deckId, goBack }) {
             try {
                 setLoading(true);
                 
+                // Demo Mode: Skip progress restore - always start fresh
+                if (isDemo) {
+                    const qs = await apiMCQ.getMCQQuestions(deckId);
+                    if (!mounted) return;
+                    setQuestions(qs || []);
+                    setIndex(0);
+                    setProgress(null);
+                    setLoading(false);
+                    return;
+                }
+                
                 // Step 1: Call /start to initialize or get existing progress
                 const startResponse = await apiMCQ.startMCQDeck(deckId);
                 
@@ -159,7 +172,7 @@ export default function MCQDeckView({ deckId, goBack }) {
         return () => {
             mounted = false;
         };
-    }, [deckId]);
+    }, [deckId, isDemo]);
 
     // Helper: Load questions and resume at correct index
     const loadQuestionsAndResume = async (deckId, progressData) => {

@@ -10,6 +10,10 @@ export const demoMcqDeck = {
   status: "ready",
   question_count: 3,
   question_count_target: 3,
+  created_at: new Date().toISOString(),
+  // Add exam-style metadata for demo
+  subject: "Radiology",
+  tag: "CT Interpretation",
 };
 
 // Minimal question shape compatible with MCQDeckView expectations.

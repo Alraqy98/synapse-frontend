@@ -9,10 +9,13 @@ import UnifiedCard from "../../components/UnifiedCard";
 import { Search, Plus, Upload, Share2 } from "lucide-react";
 import { isValidCodeFormat } from "../summaries/utils/summaryCode";
 import { sanitizeErrorMessage } from "../utils/errorSanitizer";
+import { useDemo } from "../demo/DemoContext";
+import { DEMO_MCQ_DECK_ID } from "../demo/demoData/demoMcq";
 
 export default function MCQTab() {
     const { deckId: urlDeckId } = useParams();
     const navigate = useNavigate();
+    const { isDemo } = useDemo() || {};
     const [view, setView] = useState("list");
     const [deckId, setDeckId] = useState(null);
     const [decks, setDecks] = useState([]);
@@ -252,9 +255,16 @@ export default function MCQTab() {
                                             }
                                         }
 
+                                        // Compute demo props before JSX (only for demo deck)
+                                        const cardProps =
+                                            isDemo && deck.id === DEMO_MCQ_DECK_ID
+                                                ? { dataDemo: "mcq-deck-card" }
+                                                : {};
+
                                         return (
                                             <UnifiedCard
                                                 key={deck.id}
+                                                {...cardProps}
                                                 title={deck.title}
                                                 progress={progress}
                                                 status={status}
@@ -274,7 +284,6 @@ export default function MCQTab() {
                                                 }}
                                                 itemId={deck.id}
                                                 shareItem={apiMCQ.shareDeck}
-                                                dataDemo="mcq-deck-card"
                                             />
                                         );
                                     })}

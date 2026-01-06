@@ -76,12 +76,10 @@ export const DEMO_STEPS = {
     autoAdvance: false, // Manual advance via Next button
   },
   8: {
-    route: `/mcq/${DEMO_MCQ_DECK_ID}`,
-    highlight: "[data-demo='mcq-deck-title']",
-    overlayText: "Exam-style questions, generated from your own material.",
-    scriptedAction: {
-      type: "start_mcq_demo",
-    },
+    route: "/mcq",
+    highlight: "[data-demo='mcq-deck-card']",
+    overlayText: "Exam-style MCQs, generated from your own material.\n\nTimed, structured, and resume anytime.",
+    scriptedAction: null,
     autoAdvance: false, // Manual advance via Next button
   },
   9: {
@@ -89,7 +87,7 @@ export const DEMO_STEPS = {
     highlight: "[data-demo='mcq-question-text']",
     overlayText: "Exam-style questions, generated from your own material.",
     scriptedAction: {
-      type: "show_mcq_question",
+      type: "enter_mcq_exam",
     },
     autoAdvance: false, // Manual advance via Next button
   },

@@ -145,6 +145,17 @@ export function getDemoResponse(req) {
       url.endsWith("/retake-wrong") ||
       url.includes("/ai/mcq/questions/") && url.endsWith("/answer"))
   ) {
+    // In demo, start always returns no progress (fresh start)
+    if (url.endsWith("/start")) {
+      return {
+        handled: true,
+        data: {
+          deck: demoMcqDeck,
+          progress: null, // No progress - fresh start
+        },
+      };
+    }
+    
     // In demo, we don't mutate; just return canned progress
     const isRetakeWrong = url.endsWith("/retake-wrong");
     const progress = isRetakeWrong
