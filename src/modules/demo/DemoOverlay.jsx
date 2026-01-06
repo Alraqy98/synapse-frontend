@@ -25,18 +25,24 @@ export default function DemoOverlay() {
       const styleSheet = document.createElement("style");
       styleSheet.id = "demo-overlay-styles";
       styleSheet.textContent = `
-        @keyframes demo-pulse {
-          0%, 100% {
-            box-shadow: 0 0 20px rgba(0, 245, 204, 0.6), 0 0 40px rgba(0, 245, 204, 0.4);
-          }
-          50% {
-            box-shadow: 0 0 30px rgba(0, 245, 204, 0.8), 0 0 60px rgba(0, 245, 204, 0.6);
-          }
+      @keyframes demo-pulse {
+        0%, 100% {
+          box-shadow: 0 0 25px rgba(0, 245, 204, 0.7), 0 0 50px rgba(0, 245, 204, 0.5);
         }
-        
-        .demo-primary-cta {
-          cursor: pointer;
+        50% {
+          box-shadow: 0 0 35px rgba(0, 245, 204, 0.9), 0 0 70px rgba(0, 245, 204, 0.7);
         }
+      }
+      
+      .demo-primary-cta {
+        cursor: pointer;
+      }
+      
+      /* Disable background dimming behind Next button */
+      [data-demo-overlay-content] .demo-primary-cta {
+        position: relative;
+        z-index: 10002;
+      }
       `;
       document.head.appendChild(styleSheet);
     }
@@ -130,19 +136,10 @@ export default function DemoOverlay() {
       return () => clearInterval(checkFileViewer);
     }
 
-    // Auto-advance logic for Step 3 (when Astra response is visible)
-    if (currentStep === 3 && step.autoAdvance?.condition === "astra_response_visible") {
-      const checkResponse = setInterval(() => {
-        const chatMessages = document.querySelectorAll("[data-demo='astra-chat-input']")
-          ?.closest(".flex-1")?.querySelectorAll(".space-y-4 > div");
-        // Check if assistant message exists (response rendered)
-        if (chatMessages && chatMessages.length > 1) {
-          clearInterval(checkResponse);
-          // Don't auto-advance Step 3 - user must click Next or exit
-        }
-      }, 500);
-
-      return () => clearInterval(checkResponse);
+    // Step 3: Handle prefill action (prefill input, don't auto-send)
+    if (currentStep === 3 && step.scriptedAction?.type === "prefill_input") {
+      // Prefill is handled by DemoAstraChat component
+      // No auto-advance - user must click send button
     }
   }, [step, currentStep, location.pathname, nextStep]);
 
@@ -206,11 +203,12 @@ export default function DemoOverlay() {
       {/* Highlight ring around target element - allows clicks through to highlighted element */}
       {highlightStyle && (
         <div
-          style={{
-            ...highlightStyle,
-            pointerEvents: "none", // Ring itself doesn't capture clicks
-          }}
-        />
+      style={{
+        ...highlightStyle,
+        pointerEvents: "none", // Ring itself doesn't capture clicks
+        zIndex: 10000,
+      }}
+    />
       )}
 
       {/* Overlay content container */}
@@ -227,7 +225,7 @@ export default function DemoOverlay() {
         {overlayText && (
           <div
             className="absolute bottom-24 left-1/2 -translate-x-1/2 max-w-2xl mx-4 px-6 py-4 rounded-xl bg-black/90 border border-teal/30 shadow-2xl"
-            style={{ pointerEvents: "auto" }}
+            style={{ pointerEvents: "auto", zIndex: 10001 }}
             onClick={(e) => e.stopPropagation()}
           >
             <p className="text-white text-sm mb-4 leading-relaxed">{overlayText}</p>
@@ -241,7 +239,11 @@ export default function DemoOverlay() {
               {currentStep === 3 ? (
                 <button
                   onClick={() => exitDemo?.("primary_cta_upload")}
-                  className="px-4 py-2 rounded-lg bg-teal text-black font-medium hover:bg-teal-neon transition"
+                  className="px-5 py-2.5 rounded-lg bg-[#00f5cc] text-black font-semibold hover:bg-[#00ffe0] transition transform hover:scale-105"
+                  style={{
+                    boxShadow: "0 0 25px rgba(0, 245, 204, 0.7), 0 0 50px rgba(0, 245, 204, 0.5)",
+                    zIndex: 10002,
+                  }}
                 >
                   Upload your first file
                 </button>
@@ -251,10 +253,12 @@ export default function DemoOverlay() {
                     e.stopPropagation();
                     nextStep?.();
                   }}
-                  className="demo-primary-cta px-4 py-2 rounded-lg bg-teal text-black font-medium hover:bg-teal-neon transition"
+                  className="demo-primary-cta px-5 py-2.5 rounded-lg bg-[#00f5cc] text-black font-semibold hover:bg-[#00ffe0] transition transform hover:scale-105"
                   style={{
-                    boxShadow: "0 0 20px rgba(0, 245, 204, 0.6), 0 0 40px rgba(0, 245, 204, 0.4)",
+                    boxShadow: "0 0 25px rgba(0, 245, 204, 0.7), 0 0 50px rgba(0, 245, 204, 0.5)",
                     animation: "demo-pulse 2s ease-in-out infinite",
+                    transform: "scale(1.05)",
+                    zIndex: 10002,
                   }}
                 >
                   Next

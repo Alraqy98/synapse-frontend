@@ -12,7 +12,7 @@ export const DEMO_STEPS = {
   1: {
     route: "/library",
     highlight: "[data-demo='demo-file-card']",
-    overlayText: "Any file you upload is converted and viewed instantly as a PDF — slides, notes, anything.",
+    overlayText: "Any file you upload—slides, notes, even scans—is instantly converted and ready to study.",
     scriptedAction: {
       type: "open_file",
       fileId: DEMO_FILE_ID,
@@ -34,16 +34,14 @@ export const DEMO_STEPS = {
   },
   3: {
     route: `/library/${DEMO_FILE_ID}`,
-    highlight: "[data-demo='astra-chat-input']",
-    overlayText: "Astra understands images — even when there's no text — using vision and prompt enhancement.",
+    highlight: "[data-demo='astra-chat-container']", // Highlights both input + send button
+    overlayText: "Astra understands images—even when there's no text. Ask it anything.",
     scriptedAction: {
-      type: "auto_type_and_send",
+      type: "prefill_input", // Changed from auto_type_and_send
       text: DEMO_ASTRA_EXPLAIN_IMAGE_PROMPT,
       target: "[data-demo='astra-chat-input']",
     },
-    autoAdvance: {
-      condition: "astra_response_visible",
-    },
+    autoAdvance: false, // User must click send, then we advance
   },
 };
 

@@ -145,37 +145,19 @@ export default function DemoAstraChat({ file, activePage }) {
         chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
 
-    // Step 3: Auto-type and send "Explain this image"
+    // Step 3: Pre-fill input with "Explain this image" (user must click send)
     useEffect(() => {
         if (!isDemo || currentStep !== 3) return;
         if (!file || file.id !== "demo-file-ct") return; // Only for demo file
-        if (messages.length > 0) return; // Already sent
+        if (chatInput) return; // Already prefilled
 
-        // Wait for chat input to be ready, then auto-type and send
+        // Wait for chat input to be ready, then pre-fill (do NOT auto-send)
         const timer = setTimeout(() => {
             setChatInput(DEMO_ASTRA_EXPLAIN_IMAGE_PROMPT);
-            // Trigger send after input is set
-            setTimeout(() => {
-                const msg = DEMO_ASTRA_EXPLAIN_IMAGE_PROMPT;
-                setChatInput("");
-
-                const userMsgId = `demo-user-${Date.now()}`;
-                const userMsg = { id: userMsgId, role: "user", content: msg };
-                setMessages([userMsg]);
-
-                // Instantly render demo response (no delay, no spinner)
-                const assistantMsgId = `demo-assistant-${Date.now()}`;
-                const assistantMsg = {
-                    id: assistantMsgId,
-                    role: "assistant",
-                    content: demoAstraExplainImageResponse,
-                };
-                setMessages([userMsg, assistantMsg]);
-            }, 200);
         }, 500);
 
         return () => clearTimeout(timer);
-    }, [isDemo, currentStep, file, messages.length]);
+    }, [isDemo, currentStep, file, chatInput]);
 
     const handleSend = () => {
         if (!chatInput.trim()) return;
@@ -196,6 +178,10 @@ export default function DemoAstraChat({ file, activePage }) {
                 content: demoAstraExplainImageResponse,
             };
             setMessages((prev) => [...prev, assistantMsg]);
+            
+            // Step 3: After user sends and receives response, allow demo to continue
+            // (Demo overlay will show "Upload your first file" button)
+            // Don't auto-advance - user must click the exit CTA
         }
     };
 
@@ -219,7 +205,10 @@ export default function DemoAstraChat({ file, activePage }) {
             </div>
 
             <div className="p-3 border-t border-white/5 bg-[#1a1d24]">
-                <div className="flex items-center gap-2 bg-[#0f1115] border border-white/10 px-3 py-2 rounded-lg">
+                <div 
+                    className="flex items-center gap-2 bg-[#0f1115] border border-white/10 px-3 py-2 rounded-lg"
+                    data-demo="astra-chat-container"
+                >
                     <input
                         type="text"
                         value={chatInput}
