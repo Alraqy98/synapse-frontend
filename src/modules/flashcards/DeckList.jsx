@@ -145,7 +145,7 @@ export default function DeckList({ openDeck, search, sortMode = "date", onShowIm
                                 onRename={(newTitle) => handleRename(deck.id, newTitle)}
                                 itemId={deck.id}
                                 shareItem={shareDeck}
-                                dataDemo={deck.id === "demo-flashcard-ct" ? "flashcard-deck-card" : undefined}
+                                {...(deck.id === "demo-flashcard-ct" && { dataDemo: "flashcard-deck-card" })}
                             />
                     })}
                 </div>
