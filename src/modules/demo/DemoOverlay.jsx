@@ -17,6 +17,31 @@ export default function DemoOverlay() {
   const scriptActionRef = useRef(null);
   const stepRef = useRef(null);
 
+  // Inject CSS for demo button animations (run once)
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    
+    if (!document.getElementById("demo-overlay-styles")) {
+      const styleSheet = document.createElement("style");
+      styleSheet.id = "demo-overlay-styles";
+      styleSheet.textContent = `
+        @keyframes demo-pulse {
+          0%, 100% {
+            box-shadow: 0 0 20px rgba(0, 245, 204, 0.6), 0 0 40px rgba(0, 245, 204, 0.4);
+          }
+          50% {
+            box-shadow: 0 0 30px rgba(0, 245, 204, 0.8), 0 0 60px rgba(0, 245, 204, 0.6);
+          }
+        }
+        
+        .demo-primary-cta {
+          cursor: pointer;
+        }
+      `;
+      document.head.appendChild(styleSheet);
+    }
+  }, []);
+
   // Get current step definition
   const step = currentStep ? getStep(currentStep) : null;
   const requiredRoute = currentStep ? getRequiredRoute(currentStep) : null;
@@ -226,7 +251,11 @@ export default function DemoOverlay() {
                     e.stopPropagation();
                     nextStep?.();
                   }}
-                  className="px-4 py-2 rounded-lg bg-teal text-black font-medium hover:bg-teal-neon transition"
+                  className="demo-primary-cta px-4 py-2 rounded-lg bg-teal text-black font-medium hover:bg-teal-neon transition"
+                  style={{
+                    boxShadow: "0 0 20px rgba(0, 245, 204, 0.6), 0 0 40px rgba(0, 245, 204, 0.4)",
+                    animation: "demo-pulse 2s ease-in-out infinite",
+                  }}
                 >
                   Next
                 </button>

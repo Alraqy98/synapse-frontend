@@ -6,7 +6,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useDemo } from "../../modules/demo/DemoContext";
-import { DEMO_ASTRA_EXPLAIN_IMAGE_PROMPT } from "../../modules/demo/demoData/demoAstra";
+import DemoAstraChat from "./DemoAstraChat";
 import {
     ArrowLeft,
     Sparkles,
@@ -677,84 +677,7 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
         chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [chatMessages]);
 
-    // Demo Mode Step 3: Auto-type and send "Explain this image"
-    useEffect(() => {
-        if (!isDemo || currentStep !== 3) return;
-        if (!file || file.id !== "demo-file-ct") return; // Only for demo file
-        if (chatMessages.length > 0) return; // Already sent
-
-        // Wait for chat input to be ready, then auto-type and send
-        const timer = setTimeout(() => {
-            setChatInput(DEMO_ASTRA_EXPLAIN_IMAGE_PROMPT);
-            // Trigger send after input is set (use the actual message value)
-            setTimeout(async () => {
-                if (!DEMO_ASTRA_EXPLAIN_IMAGE_PROMPT.trim()) return;
-                if (!file || !file.id) return;
-
-                const msg = DEMO_ASTRA_EXPLAIN_IMAGE_PROMPT;
-                setChatInput("");
-                
-                const userMsgId = `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-                const userMsg = { id: userMsgId, role: "user", content: msg };
-                setChatMessages((prev) => [...prev, userMsg]);
-                setIsChatTyping(true);
-
-                try {
-                    let sessionId = fileSessionId;
-                    if (!sessionId) {
-                        const session = await createNewSession(`File: ${file.title}`);
-                        sessionId = session.id;
-                        setFileSessionId(sessionId);
-                        const key = `synapse_file_session_${file.id}`;
-                        localStorage.setItem(key, String(sessionId));
-                    }
-
-                    const normalizedFileId = String(file.id);
-                    const normalizedPage = Number(activePage);
-                    
-                    const res = await sendMessageToTutor({
-                        sessionId,
-                        message: `[File ${file.title} | Page ${activePage}] ${msg}`,
-                        fileId: normalizedFileId,
-                        page: normalizedPage,
-                        image: pageImageForTutor,
-                        screenshotUrl: pageImageForTutor,
-                        resourceSelection: {
-                            scope: "selected",
-                            file_ids: [file.id],
-                            folder_ids: [],
-                            include_books: true,
-                        },
-                    });
-
-                    const assistantMsgId = `assistant-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-                    setChatMessages((prev) => [
-                        ...prev,
-                        { id: assistantMsgId, role: "assistant", content: res.text },
-                    ]);
-                } catch (err) {
-                    console.error("[FILEVIEWER ASTRA ERROR]", err);
-                    const errorMessage = err.response?.data?.error || 
-                                       err.response?.data?.message || 
-                                       err.message || 
-                                       "Astra request failed";
-                    const errorMsgId = `error-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-                    setChatMessages((prev) => [
-                        ...prev,
-                        { 
-                            id: errorMsgId, 
-                            role: "assistant", 
-                            content: `Error: ${errorMessage}` 
-                        },
-                    ]);
-                } finally {
-                    setIsChatTyping(false);
-                }
-            }, 200);
-        }, 500);
-
-        return () => clearTimeout(timer);
-    }, [isDemo, currentStep, file, chatMessages.length, fileSessionId, activePage, pageImageForTutor, createNewSession, sendMessageToTutor]);
+    // Demo Mode: Real Astra chat is disabled - DemoAstraChat component handles demo chat
 
     const bumpPage = (d) => {
         const newPage = Math.max(1, Math.min(activePage + d, totalPages));
@@ -823,6 +746,28 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
                             const pageKey = `${file.id}:${activePage}`;
                             const imageFailed = imageLoadFailedRef.current.has(pageKey);
                             
+                            // DEMO MODE: Render demo images directly from page_contents.image_url
+                            if (isDemo) {
+                                const imageUrl = getCurrentPageImageUrl();
+                                if (imageUrl) {
+                                    return (
+                                        <img
+                                            src={imageUrl}
+                                            alt={`Page ${activePage}`}
+                                            className="max-w-full max-h-full object-contain"
+                                            loading="lazy"
+                                        />
+                                    );
+                                }
+                                // Fallback for demo if no image_url
+                                return (
+                                    <div className="text-muted text-sm opacity-50">
+                                        Demo page {activePage}
+                                    </div>
+                                );
+                            }
+                            
+                            // REAL MODE: Use existing rendering logic
                             // Priority (a): Use rendered PNG URL if present and not failed
                             if (renderedImageUrl && !imageFailed) {
                                 return (
@@ -1004,67 +949,71 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
                 )}
 
                 {/* CHAT */}
-                <div className="flex-1 flex flex-col bg-[#0f1115] overflow-hidden">
-                    <div className="p-3 border-b border-white/5 text-xs text-muted uppercase tracking-wider flex justify-between">
-                        <span>
-                            Chat • <span className="text-white">{file.title}</span>
-                        </span>
-                        {fileSessionId && (
-                            <span className="text-teal/60">
-                                Session #{fileSessionId} • Page {activePage}
+                {isDemo ? (
+                    <DemoAstraChat file={file} activePage={activePage} />
+                ) : (
+                    <div className="flex-1 flex flex-col bg-[#0f1115] overflow-hidden">
+                        <div className="p-3 border-b border-white/5 text-xs text-muted uppercase tracking-wider flex justify-between">
+                            <span>
+                                Chat • <span className="text-white">{file.title}</span>
                             </span>
-                        )}
-                    </div>
+                            {fileSessionId && (
+                                <span className="text-teal/60">
+                                    Session #{fileSessionId} • Page {activePage}
+                                </span>
+                            )}
+                        </div>
 
-                    <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
-                        {actionResult && (
-                            <div className="p-4 bg-[#1a1d24] rounded-xl border border-white/10">
-                                <h4 className="text-teal font-bold text-sm flex items-center gap-2 mb-2">
-                                    <Sparkles size={14} /> Result (page {activePage})
-                                </h4>
-                                <p className="text-sm text-gray-300">
-                                    {isLoadingAction ? "Processing..." : actionResult}
-                                </p>
+                        <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
+                            {actionResult && (
+                                <div className="p-4 bg-[#1a1d24] rounded-xl border border-white/10">
+                                    <h4 className="text-teal font-bold text-sm flex items-center gap-2 mb-2">
+                                        <Sparkles size={14} /> Result (page {activePage})
+                                    </h4>
+                                    <p className="text-sm text-gray-300">
+                                        {isLoadingAction ? "Processing..." : actionResult}
+                                    </p>
+                                </div>
+                            )}
+
+                            {chatMessages.map((msg) => (
+                                <MessageBubble key={msg.id} message={msg} />
+                            ))}
+
+                            {isChatLoading && !chatMessages.length && (
+                                <div className="text-xs text-muted">Loading chat…</div>
+                            )}
+
+                            {isChatTyping && (
+                                <div className="text-xs text-muted">Astra is typing…</div>
+                            )}
+
+                            <div ref={chatEndRef} />
+                        </div>
+
+                        <div className="p-3 border-t border-white/5 bg-[#1a1d24]">
+                            <div className="flex items-center gap-2 bg-[#0f1115] border border-white/10 px-3 py-2 rounded-lg">
+                                <input
+                                    type="text"
+                                    value={chatInput}
+                                    onChange={(e) => setChatInput(e.target.value)}
+                                    onKeyDown={(e) => e.key === "Enter" && handleChatSend()}
+                                    placeholder="Ask Astra about this page or the whole file…"
+                                    className="flex-1 bg-transparent text-sm text-white outline-none"
+                                    data-demo="astra-chat-input"
+                                />
+                                <button
+                                    onClick={handleChatSend}
+                                    disabled={!chatInput.trim() || isChatTyping}
+                                    className="p-1.5 bg-teal text-black rounded hover:bg-teal-neon disabled:opacity-40"
+                                    data-demo="quick-action-ask-astra"
+                                >
+                                    <Send size={14} />
+                                </button>
                             </div>
-                        )}
-
-                        {chatMessages.map((msg) => (
-                            <MessageBubble key={msg.id} message={msg} />
-                        ))}
-
-                        {isChatLoading && !chatMessages.length && (
-                            <div className="text-xs text-muted">Loading chat…</div>
-                        )}
-
-                        {isChatTyping && (
-                            <div className="text-xs text-muted">Astra is typing…</div>
-                        )}
-
-                        <div ref={chatEndRef} />
-                    </div>
-
-                    <div className="p-3 border-t border-white/5 bg-[#1a1d24]">
-                        <div className="flex items-center gap-2 bg-[#0f1115] border border-white/10 px-3 py-2 rounded-lg">
-                            <input
-                                type="text"
-                                value={chatInput}
-                                onChange={(e) => setChatInput(e.target.value)}
-                                onKeyDown={(e) => e.key === "Enter" && handleChatSend()}
-                                placeholder="Ask Astra about this page or the whole file…"
-                                className="flex-1 bg-transparent text-sm text-white outline-none"
-                                data-demo="astra-chat-input"
-                            />
-                            <button
-                                onClick={handleChatSend}
-                                disabled={!chatInput.trim() || isChatTyping}
-                                className="p-1.5 bg-teal text-black rounded hover:bg-teal-neon disabled:opacity-40"
-                                data-demo="quick-action-ask-astra"
-                            >
-                                <Send size={14} />
-                            </button>
                         </div>
                     </div>
-                </div>
+                )}
             </div>
             {showFlashcardsModal && (
                 <GenerateFlashcardsModal
