@@ -90,6 +90,22 @@ const LibraryPage = () => {
         loadItems(activeFilter, currentFolder?.id || null);
     }, [activeFilter, currentFolder?.id]);
 
+    // Listen for demo exit to force library reload
+    useEffect(() => {
+        const handleDemoExit = () => {
+            // Reset to root folder and reload items
+            setCurrentFolder(null);
+            setBreadcrumbs([{ label: "All", folderId: null }]);
+            setActiveFilter("All");
+            loadItems("All", null);
+        };
+
+        window.addEventListener("demo-exit-library-reload", handleDemoExit);
+        return () => {
+            window.removeEventListener("demo-exit-library-reload", handleDemoExit);
+        };
+    }, []);
+
     // Conditional polling ONLY when files are processing
     // Do NOT depend on items array - use ref instead to avoid infinite loops
     useEffect(() => {

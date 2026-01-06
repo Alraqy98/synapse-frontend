@@ -61,7 +61,10 @@ export function DemoProvider({ children }) {
 
       // Deterministic routing on exit (hard contract)
       if (reason === "primary_cta_upload") {
-        navigate("/library", { replace: true });
+        // Navigate to library with cache buster to force reload
+        navigate("/library?reload=" + Date.now(), { replace: true });
+        // Dispatch custom event to trigger library reload
+        window.dispatchEvent(new CustomEvent("demo-exit-library-reload"));
       } else if (
         reason === "backdrop" ||
         reason === "escape" ||
