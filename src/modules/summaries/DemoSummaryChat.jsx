@@ -135,15 +135,60 @@ const MessageBubble = ({ message }) => {
  * - Instantly renders canned demo response
  */
 export default function DemoSummaryChat({ summary }) {
-    const { isDemo } = useDemo() || {};
+    const { isDemo, currentStep } = useDemo() || {};
     const [messages, setMessages] = useState([]);
     const [chatInput, setChatInput] = useState("");
     const chatEndRef = useRef(null);
+    const step6ResponseShownRef = useRef(false);
 
     // Auto-scroll to bottom when messages change
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
+
+    // Step 6: Auto-show demo response when Step 6 is active
+    useEffect(() => {
+        if (!isDemo || currentStep !== 6) {
+            step6ResponseShownRef.current = false;
+            return;
+        }
+
+        // Only show response once per Step 6 entry
+        if (step6ResponseShownRef.current) return;
+
+        // Wait a brief moment for the component to mount, then auto-show response
+        const timer = setTimeout(() => {
+            const demoText = "This is a demo response about the selected text. In the real app, Astra would provide detailed explanations based on the summary content and your selection.";
+            
+            // Only add messages if they don't already exist
+            setMessages((prev) => {
+                // Check if we already have these messages
+                const hasUserMsg = prev.some(msg => msg.role === "user" && msg.content.includes("About this selection"));
+                const hasAssistantMsg = prev.some(msg => msg.role === "assistant" && msg.content.includes("demo response"));
+                
+                if (hasUserMsg && hasAssistantMsg) {
+                    return prev;
+                }
+
+                const userMsg = {
+                    id: `demo-user-step6-${Date.now()}`,
+                    role: "user",
+                    content: "About this selection: \"Selected text from summary...\""
+                };
+
+                const assistantMsg = {
+                    id: `demo-assistant-step6-${Date.now()}`,
+                    role: "assistant",
+                    content: demoText
+                };
+
+                step6ResponseShownRef.current = true;
+                return [...prev, userMsg, assistantMsg];
+            });
+        }, 300);
+
+        return () => clearTimeout(timer);
+    }, [isDemo, currentStep]);
 
     const handleSend = (selectedText = null) => {
         const textToSend = selectedText || chatInput.trim();

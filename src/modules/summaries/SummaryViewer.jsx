@@ -28,7 +28,7 @@ import { useDemo } from "../demo/DemoContext";
 import DemoSummaryChat from "./DemoSummaryChat";
 
 export default function SummaryViewer({ summaryId, goBack, onRename, onDelete }) {
-    const { isDemo } = useDemo() || {};
+    const { isDemo, currentStep } = useDemo() || {};
     const [summary, setSummary] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -405,28 +405,33 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
     };
 
     const handleAskAstra = async () => {
-        // Guard against empty selection
-        if (!selectedText || selectedText.trim().length < 3) return;
-        
         // Guard against missing summary
         if (!summary?.id) {
             console.error("Cannot send message: summary is not loaded");
             return;
         }
 
+        // Demo Mode: Use DemoSummaryChat handler
+        // In Step 6, allow triggering even without text selection
+        if (isDemo) {
+            const textToSend = selectedText?.trim() || "Selected text from summary";
+            if (typeof window !== "undefined" && window.demoSummaryChatSend) {
+                window.demoSummaryChatSend(textToSend);
+            }
+            // Clear selection and bubble
+            window.getSelection()?.removeAllRanges();
+            setSelectionBubble(null);
+            return;
+        }
+
+        // Real Mode: Guard against empty selection
+        if (!selectedText || selectedText.trim().length < 3) return;
+
         const textToSend = selectedText.trim();
 
         // Clear selection and bubble
         window.getSelection()?.removeAllRanges();
         setSelectionBubble(null);
-
-        // Demo Mode: Use DemoSummaryChat handler
-        if (isDemo) {
-            if (typeof window !== "undefined" && window.demoSummaryChatSend) {
-                window.demoSummaryChatSend(textToSend);
-            }
-            return;
-        }
 
         // Real Mode: Create structured payload
         const payload = {
@@ -1377,14 +1382,21 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
             )}
 
             {/* Selection Bubble */}
-            {selectedText && selectionBubble && (
+            {/* Force-show in demo Step 6, or show when text is selected */}
+            {((isDemo && currentStep === 6) || (selectedText && selectionBubble)) && (
                 <div
                     ref={selectionRef}
                     className="fixed z-50 bg-teal text-black px-4 py-2 rounded-lg shadow-lg cursor-pointer hover:bg-teal-neon transition ask-astra-popup"
                     style={{
-                        top: `${selectionBubble.top}px`,
-                        left: `${selectionBubble.left}px`,
-                        transform: "translateX(-50%)",
+                        top: isDemo && currentStep === 6 && !selectionBubble 
+                            ? 'calc(50% + 100px)' // Position below center to avoid overlay
+                            : `${selectionBubble?.top || 0}px`,
+                        left: isDemo && currentStep === 6 && !selectionBubble
+                            ? 'calc(50% - 200px)' // Position to the left of center
+                            : `${selectionBubble?.left || 0}px`,
+                        transform: isDemo && currentStep === 6 && !selectionBubble
+                            ? "translateX(-50%)"
+                            : "translateX(-50%) translateY(-50%)",
                         userSelect: 'none',
                     }}
                 >
