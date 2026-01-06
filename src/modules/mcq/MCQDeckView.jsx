@@ -676,6 +676,8 @@ export default function MCQDeckView({ deckId, goBack }) {
                                     i
                                 )} ${isReviewMode || isAnswered ? "cursor-default" : "cursor-pointer"}`}
                                 style={optionInlineStyle(opt, i)}
+                                data-demo="mcq-option"
+                                data-demo-index={i}
                             >
                                 <div className="flex gap-4 items-start">
                                     <div className="w-9 h-9 rounded-lg border border-white/15 flex items-center justify-center text-sm font-semibold">
@@ -739,6 +741,7 @@ export default function MCQDeckView({ deckId, goBack }) {
 
                         <button
                             className="btn btn-secondary"
+                            data-demo="mcq-next-button"
                             onClick={() => {
                                 // Manual navigation - user must explicitly click Next to advance
                                 if (index === questions.length - 1) {

@@ -1,5 +1,6 @@
 // src/modules/dashboard/DashboardPage.jsx
 import React from "react";
+import { useDemo } from "../demo/DemoContext";
 import DashboardWelcome from "./DashboardWelcome";
 import DashboardQuickActions from "./DashboardQuickActions";
 import DashboardRecentActivity from "./DashboardRecentActivity";
@@ -12,9 +13,12 @@ const DashboardPage = ({
     onOpenMCQModal,
     onOpenFlashcardsModal,
 }) => {
+    const { startDemo } = useDemo() || {};
+
     const handleStartTour = () => {
-        // Stub handler - no implementation yet
-        console.log("Start Product Tour clicked");
+        if (startDemo) {
+            startDemo("dashboard_cta");
+        }
     };
 
     return (

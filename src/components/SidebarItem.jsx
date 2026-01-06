@@ -1,10 +1,11 @@
 // src/components/SidebarItem.jsx
 import { NavLink } from "react-router-dom";
 
-export default function SidebarItem({ icon: Icon, label, to, className = "", showAccent = false }) {
+export default function SidebarItem({ icon: Icon, label, to, className = "", showAccent = false, dataDemo }) {
     return (
         <NavLink
             to={to}
+            data-demo={dataDemo}
             className={({ isActive }) =>
                 `group relative flex items-center rounded-lg w-full ${className} ${
                     isActive ? "bg-neutral-800" : ""

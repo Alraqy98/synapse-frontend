@@ -274,6 +274,7 @@ export default function MCQTab() {
                                                 }}
                                                 itemId={deck.id}
                                                 shareItem={apiMCQ.shareDeck}
+                                                dataDemo="mcq-deck-card"
                                             />
                                         );
                                     })}

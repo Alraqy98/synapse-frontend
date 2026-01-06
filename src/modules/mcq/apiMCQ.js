@@ -3,6 +3,7 @@
 // ===============================================================
 
 import api from "../../lib/api";
+import { demoApiIntercept } from "../demo/demoApiRuntime";
 import { supabase } from "../../lib/supabaseClient";
 
 // ===============================================================
@@ -10,6 +11,14 @@ import { supabase } from "../../lib/supabaseClient";
 // ===============================================================
 
 export const getMCQDecks = async () => {
+    const demoRes = demoApiIntercept({
+        method: "GET",
+        url: "/ai/mcq/decks",
+    });
+    if (demoRes.handled) {
+        return demoRes.data?.decks || [];
+    }
+
     const res = await api.get("/ai/mcq/decks");
     return res.data?.decks || [];
 };
@@ -90,6 +99,14 @@ export const getMCQDeck = async (deck_id) => {
 
 export const getMCQQuestions = async (deck_id) => {
     if (!deck_id) throw new Error("Deck ID missing (getMCQQuestions)");
+    const demoRes = demoApiIntercept({
+        method: "GET",
+        url: `/ai/mcq/decks/${deck_id}/questions`,
+    });
+    if (demoRes.handled) {
+        return demoRes.data?.questions || [];
+    }
+
     const res = await api.get(`/ai/mcq/decks/${deck_id}/questions`);
     return res.data?.questions || [];
 };
@@ -105,6 +122,15 @@ export const getMCQQuestions = async (deck_id) => {
  */
 export const startMCQDeck = async (deckId) => {
     if (!deckId) throw new Error("Deck ID missing (startMCQDeck)");
+    const demoRes = demoApiIntercept({
+        method: "POST",
+        url: `/ai/mcq/decks/${deckId}/start`,
+        body: {},
+    });
+    if (demoRes.handled) {
+        return demoRes.data;
+    }
+
     const res = await api.post(`/ai/mcq/decks/${deckId}/start`);
     return res.data;
 };
@@ -117,10 +143,20 @@ export const startMCQDeck = async (deckId) => {
  */
 export const answerMCQQuestion = async (questionId, selectedOptionLetter, timeMs) => {
     if (!questionId) throw new Error("Question ID missing (answerMCQQuestion)");
-    const res = await api.post(`/ai/mcq/questions/${questionId}/answer`, {
+    const body = {
         selected_option_letter: selectedOptionLetter,
         time_ms: timeMs,
+    };
+    const demoRes = demoApiIntercept({
+        method: "POST",
+        url: `/ai/mcq/questions/${questionId}/answer`,
+        body,
     });
+    if (demoRes.handled) {
+        return demoRes.data;
+    }
+
+    const res = await api.post(`/ai/mcq/questions/${questionId}/answer`, body);
     return res.data;
 };
 
@@ -131,6 +167,15 @@ export const answerMCQQuestion = async (questionId, selectedOptionLetter, timeMs
  */
 export const resetMCQDeck = async (deckId) => {
     if (!deckId) throw new Error("Deck ID missing (resetMCQDeck)");
+    const demoRes = demoApiIntercept({
+        method: "POST",
+        url: `/ai/mcq/decks/${deckId}/reset`,
+        body: {},
+    });
+    if (demoRes.handled) {
+        return demoRes.data;
+    }
+
     const res = await api.post(`/ai/mcq/decks/${deckId}/reset`);
     return res.data;
 };
@@ -142,6 +187,15 @@ export const resetMCQDeck = async (deckId) => {
  */
 export const retakeWrongMCQ = async (deckId) => {
     if (!deckId) throw new Error("Deck ID missing (retakeWrongMCQ)");
+    const demoRes = demoApiIntercept({
+        method: "POST",
+        url: `/ai/mcq/decks/${deckId}/retake-wrong`,
+        body: {},
+    });
+    if (demoRes.handled) {
+        return demoRes.data;
+    }
+
     const res = await api.post(`/ai/mcq/decks/${deckId}/retake-wrong`);
     return res.data;
 };
@@ -153,6 +207,14 @@ export const retakeWrongMCQ = async (deckId) => {
  */
 export const getMCQDeckWithProgress = async (deckId) => {
     if (!deckId) throw new Error("Deck ID missing (getMCQDeckWithProgress)");
+    const demoRes = demoApiIntercept({
+        method: "GET",
+        url: `/ai/mcq/decks/${deckId}`,
+    });
+    if (demoRes.handled) {
+        return demoRes.data;
+    }
+
     const res = await api.get(`/ai/mcq/decks/${deckId}`);
     return res.data;
 };

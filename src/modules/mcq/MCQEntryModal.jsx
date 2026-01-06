@@ -23,14 +23,11 @@ export default function MCQEntryModal({
     return createPortal(
         <div
             className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
-            onClick={(e) => {
-                // Don't close on backdrop click - user must choose
-                e.stopPropagation();
-            }}
         >
             <div
                 className="bg-void border border-white/10 rounded-2xl p-8 w-full max-w-md shadow-2xl"
                 onClick={(e) => e.stopPropagation()}
+                data-demo="mcq-resume-modal"
             >
                 <h2 className="text-xl font-semibold text-white mb-4">
                     {isInProgress ? "Continue Practice?" : "Deck Complete"}
@@ -76,6 +73,7 @@ export default function MCQEntryModal({
                             <button
                                 className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-white transition"
                                 onClick={onRetakeWrong}
+                                data-demo="mcq-resume-review-mistakes"
                             >
                                 <RefreshCw size={18} className="text-muted" />
                                 <span className="flex-1 text-left">Retake Mistakes</span>

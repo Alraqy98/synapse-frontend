@@ -5,6 +5,8 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useDemo } from "../../modules/demo/DemoContext";
+import { DEMO_ASTRA_EXPLAIN_IMAGE_PROMPT } from "../../modules/demo/demoData/demoAstra";
 import {
     ArrowLeft,
     Sparkles,
@@ -59,6 +61,7 @@ function getSupabaseToken() {
 const FileViewer = ({ file, onBack, initialPage = 1 }) => {
     const { fileId: urlFileId, pageNumber: urlPageNumber } = useParams();
     const navigate = useNavigate();
+    const { isDemo, currentStep } = useDemo() || {};
     // UI
     const [activeAction, setActiveAction] = useState(null);
     const [actionResult, setActionResult] = useState(null);
@@ -674,6 +677,85 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
         chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [chatMessages]);
 
+    // Demo Mode Step 3: Auto-type and send "Explain this image"
+    useEffect(() => {
+        if (!isDemo || currentStep !== 3) return;
+        if (!file || file.id !== "demo-file-ct") return; // Only for demo file
+        if (chatMessages.length > 0) return; // Already sent
+
+        // Wait for chat input to be ready, then auto-type and send
+        const timer = setTimeout(() => {
+            setChatInput(DEMO_ASTRA_EXPLAIN_IMAGE_PROMPT);
+            // Trigger send after input is set (use the actual message value)
+            setTimeout(async () => {
+                if (!DEMO_ASTRA_EXPLAIN_IMAGE_PROMPT.trim()) return;
+                if (!file || !file.id) return;
+
+                const msg = DEMO_ASTRA_EXPLAIN_IMAGE_PROMPT;
+                setChatInput("");
+                
+                const userMsgId = `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                const userMsg = { id: userMsgId, role: "user", content: msg };
+                setChatMessages((prev) => [...prev, userMsg]);
+                setIsChatTyping(true);
+
+                try {
+                    let sessionId = fileSessionId;
+                    if (!sessionId) {
+                        const session = await createNewSession(`File: ${file.title}`);
+                        sessionId = session.id;
+                        setFileSessionId(sessionId);
+                        const key = `synapse_file_session_${file.id}`;
+                        localStorage.setItem(key, String(sessionId));
+                    }
+
+                    const normalizedFileId = String(file.id);
+                    const normalizedPage = Number(activePage);
+                    
+                    const res = await sendMessageToTutor({
+                        sessionId,
+                        message: `[File ${file.title} | Page ${activePage}] ${msg}`,
+                        fileId: normalizedFileId,
+                        page: normalizedPage,
+                        image: pageImageForTutor,
+                        screenshotUrl: pageImageForTutor,
+                        resourceSelection: {
+                            scope: "selected",
+                            file_ids: [file.id],
+                            folder_ids: [],
+                            include_books: true,
+                        },
+                    });
+
+                    const assistantMsgId = `assistant-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                    setChatMessages((prev) => [
+                        ...prev,
+                        { id: assistantMsgId, role: "assistant", content: res.text },
+                    ]);
+                } catch (err) {
+                    console.error("[FILEVIEWER ASTRA ERROR]", err);
+                    const errorMessage = err.response?.data?.error || 
+                                       err.response?.data?.message || 
+                                       err.message || 
+                                       "Astra request failed";
+                    const errorMsgId = `error-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                    setChatMessages((prev) => [
+                        ...prev,
+                        { 
+                            id: errorMsgId, 
+                            role: "assistant", 
+                            content: `Error: ${errorMessage}` 
+                        },
+                    ]);
+                } finally {
+                    setIsChatTyping(false);
+                }
+            }, 200);
+        }, 500);
+
+        return () => clearTimeout(timer);
+    }, [isDemo, currentStep, file, chatMessages.length, fileSessionId, activePage, pageImageForTutor, createNewSession, sendMessageToTutor]);
+
     const bumpPage = (d) => {
         const newPage = Math.max(1, Math.min(activePage + d, totalPages));
         goToPage(newPage);
@@ -683,7 +765,7 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
     // RENDER UI
     // =====================================================================
     return (
-        <div className="h-screen overflow-hidden flex bg-[#0f1115]">
+        <div className="h-screen overflow-hidden flex bg-[#0f1115]" data-demo="fileviewer-root">
             {/* LEFT PANEL */}
             <div className="flex-1 flex flex-col border-r border-white/5">
                 {/* HEADER */}
@@ -732,7 +814,11 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
 
                 {/* MAIN VIEWER */}
                 <div className="flex-1 overflow-hidden bg-[#050609] p-3 flex">
-                    <div className="flex-1 bg-[#0f1115] rounded-lg border border-white/5 shadow-xl overflow-hidden flex items-center justify-center" style={{ userSelect: 'text' }}>
+                    <div
+                        className="flex-1 bg-[#0f1115] rounded-lg border border-white/5 shadow-xl overflow-hidden flex items-center justify-center"
+                        style={{ userSelect: "text" }}
+                        data-demo="page-canvas"
+                    >
                         {(() => {
                             const pageKey = `${file.id}:${activePage}`;
                             const imageFailed = imageLoadFailedRef.current.has(pageKey);
@@ -821,7 +907,11 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
                 </div>
 
                 {toolsCollapsed ? (
-                    <div className="flex gap-3 p-3 border-b border-white/5">
+                    <div
+                        className="flex gap-3 p-3 border-b border-white/5"
+                        data-demo="quick-actions-bar"
+                        data-demo-layout="collapsed"
+                    >
                         {[
                             { id: "summary", icon: FileText },
                             { id: "flashcards", icon: Zap },
@@ -837,8 +927,12 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
                         ))}
                     </div>
                 ) : (
-                    <div className="grid grid-cols-2 gap-3 p-4 border-b border-white/5">
-                        {[
+                    <div
+                        className="grid grid-cols-2 gap-3 p-4 border-b border-white/5"
+                        data-demo="quick-actions-bar"
+                        data-demo-layout="expanded"
+                    >
+                            {[
                             { 
                                 id: "summary", 
                                 label: "Summarize", 
@@ -867,12 +961,19 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
                             const isFailed = a.status === "failed";
                             const isClickable = isCompleted;
 
-                            return (
+                                const dataDemo =
+                                    a.id === "summary"
+                                        ? "quick-action-summary"
+                                        : a.id === "quiz"
+                                        ? "quick-action-mcq"
+                                        : undefined;
+
+                                return (
                                 <button
                                     key={a.id}
                                     onClick={() => handleAction(a.id)}
                                     disabled={isGenerating || isFailed}
-                                    className={`p-3 rounded-xl flex flex-col items-center gap-2 text-sm border transition relative ${
+                                        className={`p-3 rounded-xl flex flex-col items-center gap-2 text-sm border transition relative ${
                                         activeAction === a.id
                                             ? "bg-teal/10 border-teal text-teal"
                                             : isClickable
@@ -883,7 +984,8 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
                                             ? "bg-[#0f1115] border-red-500/20 opacity-60 cursor-not-allowed"
                                             : "bg-[#0f1115] border-white/10 hover:bg-white/5"
                                     }`}
-                                >
+                                    >
+                                        {dataDemo && <span data-demo={dataDemo} className="hidden" />}
                                     <a.icon size={20} />
                                     <span>{a.label}</span>
                                     {isGenerating && (
@@ -950,11 +1052,13 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
                                 onKeyDown={(e) => e.key === "Enter" && handleChatSend()}
                                 placeholder="Ask Astra about this page or the whole file…"
                                 className="flex-1 bg-transparent text-sm text-white outline-none"
+                                data-demo="astra-chat-input"
                             />
                             <button
                                 onClick={handleChatSend}
                                 disabled={!chatInput.trim() || isChatTyping}
                                 className="p-1.5 bg-teal text-black rounded hover:bg-teal-neon disabled:opacity-40"
+                                data-demo="quick-action-ask-astra"
                             >
                                 <Send size={14} />
                             </button>

@@ -23,6 +23,7 @@ import { MoreHorizontal, Edit2, Trash2, Copy, Download } from "lucide-react";
  * @param {string} props.itemId - Item ID for API calls (required if onExportCode is provided)
  * @param {Function} props.shareItem - Async function to call API (itemId) => Promise<{share_code|code}>
  * @param {Array} props.overflowActions - Custom overflow menu actions
+ * @param {string} props.dataDemo - Optional data-demo attribute for root element (for Demo Mode selectors)
  */
 export default function UnifiedCard({
     title,
@@ -40,6 +41,7 @@ export default function UnifiedCard({
     itemId,
     shareItem,
     overflowActions = [],
+    dataDemo,
 }) {
     const [showMenu, setShowMenu] = useState(false);
     const [showRename, setShowRename] = useState(false);
@@ -175,6 +177,7 @@ export default function UnifiedCard({
     return (
         <>
             <div
+                data-demo={dataDemo}
                 className={`group rounded-2xl border border-white/10 bg-black/40 p-6 transition-all ${
                     isDisabled
                         ? "opacity-75 cursor-not-allowed"

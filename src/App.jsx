@@ -49,6 +49,9 @@ import SummariesTab from "./modules/summaries/SummariesTab";
 // COMPONENTS
 import SidebarItem from "./components/SidebarItem";
 import ErrorBoundary from "./components/ErrorBoundary";
+import { DemoProvider, useDemo } from "./modules/demo/DemoContext";
+import DemoOverlay from "./modules/demo/DemoOverlay";
+import { demoApiIntercept } from "./modules/demo/demoApiRuntime";
 
 // TEMP placeholders
 const Placeholder = ({ label }) => (
@@ -206,6 +209,17 @@ const SynapseOS = () => {
   // Fetch notifications from Supabase
   const fetchNotifications = async () => {
     try {
+      // Demo Mode interception: notifications → demo data
+      const demoRes = demoApiIntercept({
+        method: "GET",
+        url: "/notifications",
+      });
+      if (demoRes.handled) {
+        // Demo data is already normalized, use directly
+        setNotifications(demoRes.data || []);
+        return;
+      }
+
       const { data: userData } = await supabase.auth.getUser();
       const user = userData?.user;
 
@@ -527,12 +541,39 @@ const SynapseOS = () => {
       </div>
 
       <nav className="flex flex-col gap-4 w-full px-2">
-          <SidebarItem icon={Home} label="Dashboard" to="/dashboard" showAccent={location.pathname === "/dashboard"} />
-          <SidebarItem icon={Folder} label="Library" to="/library" />
-          <SidebarItem icon={Brain} label="Tutor" to="/tutor" />
-          <SidebarItem icon={Zap} label="Flashcards" to="/flashcards" />
-          <SidebarItem icon={CheckSquare} label="MCQ" to="/mcq" />
-          <SidebarItem icon={BookOpen} label="Summaries" to="/summaries" />
+          <SidebarItem 
+            icon={Home} 
+            label="Dashboard" 
+            to="/dashboard" 
+            showAccent={location.pathname === "/dashboard"} 
+          />
+          <SidebarItem 
+            icon={Folder} 
+            label="Library" 
+            to="/library" 
+            dataDemo="nav-library"
+          />
+          <SidebarItem 
+            icon={Brain} 
+            label="Tutor" 
+            to="/tutor" 
+          />
+          <SidebarItem 
+            icon={Zap} 
+            label="Flashcards" 
+            to="/flashcards" 
+          />
+          <SidebarItem 
+            icon={CheckSquare} 
+            label="MCQ" 
+            to="/mcq" 
+            dataDemo="nav-mcqs"
+          />
+          <SidebarItem 
+            icon={BookOpen} 
+            label="Summaries" 
+            to="/summaries" 
+          />
           <SidebarItem icon={Activity} label="OSCE" to="/osce" />
           <SidebarItem icon={Mic} label="Oral Exam" to="/oral" />
           <SidebarItem icon={Calendar} label="Planner" to="/planner" />
@@ -571,6 +612,7 @@ const SynapseOS = () => {
                 className="relative p-2 rounded-lg hover:bg-white/5 transition"
                 onClick={() => setNotificationsOpen((prev) => !prev)}
                 aria-label="Notifications"
+                data-demo="notif-bell"
               >
                 <Bell size={20} className="text-muted hover:text-white" />
 
@@ -612,6 +654,9 @@ const SynapseOS = () => {
                           n.type === "flashcard_completed" ||
                           (n.type && n.type.includes("completed"));
                         
+                        const dataDemo =
+                          n.type === "mcq_completed" ? "notif-item-mcq-ready" : undefined;
+
                         return (
                           <div
                             key={n.id}
@@ -623,6 +668,7 @@ const SynapseOS = () => {
                                 ? "hover:bg-white/10 cursor-pointer" 
                                 : "hover:bg-white/5 cursor-default"
                             }`}
+                            data-demo={dataDemo}
                           >
                             <div className="font-medium text-white">
                               {n.title || n.message || "Notification"}
@@ -809,5 +855,10 @@ const SynapseOS = () => {
 }; // ✅ THIS WAS MISSING
 
 export default function App() {
-  return <SynapseOS />;
+  return (
+    <DemoProvider>
+      <SynapseOS />
+      <DemoOverlay />
+    </DemoProvider>
+  );
 }

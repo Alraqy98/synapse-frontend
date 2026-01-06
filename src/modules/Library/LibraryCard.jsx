@@ -105,6 +105,7 @@ const LibraryCard = ({
     --------------------------- */
     return (
         <div
+            data-demo="demo-file-card"
             className="
                 group bg-[#1a1d24] border border-white/5 rounded-2xl p-4
                 hover:border-teal/40 transition-all hover:shadow-[0_0_35px_rgba(0,200,180,0.12)]

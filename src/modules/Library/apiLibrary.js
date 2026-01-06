@@ -1,5 +1,6 @@
 // Import api client for new endpoint
 import api from "../../lib/api";
+import { demoApiIntercept } from "../demo/demoApiRuntime";
 
 // ------------------------------------------------------
 // API BASE URL
@@ -138,6 +139,19 @@ export const getLibraryItems = async (
 ) => {
     const headers = { "Content-Type": "application/json", ...getAuthHeaders() };
 
+    // Demo Mode interception: library list → demo file metadata
+    const demoRes = demoApiIntercept({
+        method: "GET",
+        url: parentId
+            ? `/library/children?parent_id=${parentId}&category=${uiCategory === "All" ? "all" : uiToApiCategory(uiCategory)}`
+            : uiCategory === "All"
+            ? "/library/root?category=all"
+            : `/library/root?category=${uiToApiCategory(uiCategory)}`,
+    });
+    if (demoRes.handled) {
+        return (demoRes.data || []).map(mapItemFromApi);
+    }
+
     // CHILDREN
     if (parentId) {
         const cat =
@@ -235,6 +249,15 @@ export const getLibraryItems = async (
 // GET FILE OR FOLDER BY ID
 // ------------------------------------------------------
 export const getItemById = async (id) => {
+    // Demo Mode interception: file open → demo file
+    const demoRes = demoApiIntercept({
+        method: "GET",
+        url: `/library/item/${id}`,
+    });
+    if (demoRes.handled) {
+        return mapItemFromApi(demoRes.data);
+    }
+
     const res = await fetch(`${API_BASE}/library/item/${id}`, {
         headers: { ...getAuthHeaders() },
     });
