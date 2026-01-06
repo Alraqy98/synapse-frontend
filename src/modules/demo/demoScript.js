@@ -50,7 +50,7 @@ export const DEMO_STEPS = {
     scriptedAction: {
       type: "navigate_to_summaries",
     },
-    autoAdvance: false, // Manual navigation handled in overlay, then auto-advance to step 5
+    autoAdvance: false, // Manual advance only - user must click Next button
   },
   5: {
     route: `/summaries/${DEMO_SUMMARY_ID}`,

@@ -100,6 +100,7 @@ export default function DemoOverlay() {
   // (FileViewer listens to demo context and auto-executes scripted action)
 
   // Step 4: Auto-navigate to summaries when quick actions bar is visible
+  // Navigation only - NO auto-advance (user must click Next)
   useEffect(() => {
     if (!isDemo || currentStep !== 4) return;
     if (!location.pathname.includes(`/library/${DEMO_FILE_ID}`)) return;
@@ -109,16 +110,13 @@ export default function DemoOverlay() {
     if (!quickActionsBar) return;
 
     // Small delay to show the highlight, then navigate
+    // User must click Next to advance to step 5
     const timer = setTimeout(() => {
       navigate(`/summaries/${DEMO_SUMMARY_ID}`, { replace: true });
-      // Auto-advance to step 5 after navigation
-      setTimeout(() => {
-        nextStep?.();
-      }, 500);
     }, 2000);
 
     return () => clearTimeout(timer);
-  }, [isDemo, currentStep, location.pathname, navigate, nextStep]);
+  }, [isDemo, currentStep, location.pathname, navigate]);
 
   // Step 6: Allow text selection and Ask Astra interaction
   // User must manually select text and click Ask Astra, then click Next
