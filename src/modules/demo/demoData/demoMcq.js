@@ -22,12 +22,13 @@ export const demoMcqDeck = {
 export const demoMcqQuestions = [
   {
     id: "demo-q1",
-    question: "On this axial CT slice, which structure is labeled as the low-attenuation area in segment VIII?",
+    question: "On a contrast-enhanced axial CT scan of the liver, a well-defined low-attenuation lesion is identified in segment VIII. Which of the following is the most likely diagnosis?",
     options: [
       "Simple hepatic cyst",
-      "Hemangioma",
+      "Cavernous hemangioma",
       "Hepatocellular carcinoma",
-      "Portal vein thrombosis",
+      "Focal nodular hyperplasia",
+      "Metastatic lesion",
     ],
     correct_option_letter: "A",
     options_full: [
@@ -39,7 +40,7 @@ export const demoMcqQuestions = [
       },
       {
         letter: "B",
-        text: "Hemangioma",
+        text: "Cavernous hemangioma",
         is_correct: false,
         explanation: "Typical hemangiomas show peripheral nodular enhancement with centripetal fill-in, not a purely low-attenuation lesion.",
       },
@@ -51,9 +52,15 @@ export const demoMcqQuestions = [
       },
       {
         letter: "D",
-        text: "Portal vein thrombosis",
+        text: "Focal nodular hyperplasia",
         is_correct: false,
-        explanation: "Portal vein thrombosis appears as intraluminal filling defect in the portal vein, not a parenchymal cystic lesion.",
+        explanation: "FNH typically shows homogeneous arterial enhancement with a central scar, not a low-attenuation lesion.",
+      },
+      {
+        letter: "E",
+        text: "Metastatic lesion",
+        is_correct: false,
+        explanation: "Metastases are typically heterogeneous with variable enhancement patterns, not uniform low-attenuation.",
       },
     ],
   },

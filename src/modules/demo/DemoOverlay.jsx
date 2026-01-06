@@ -44,6 +44,18 @@ export default function DemoOverlay() {
         position: relative;
         z-index: 10002;
       }
+      
+      /* Step 9: Ensure MCQ question text and options are always visible above dimmed backdrop */
+      [data-demo="mcq-question-text"] {
+        position: relative;
+        z-index: 10001 !important;
+      }
+      
+      /* Ensure MCQ options container is also visible */
+      [data-demo="mcq-option"] {
+        position: relative;
+        z-index: 10001 !important;
+      }
       `;
       document.head.appendChild(styleSheet);
     }
@@ -256,6 +268,13 @@ export default function DemoOverlay() {
   const highlightStyle = highlightedElement
     ? (() => {
         const rect = highlightedElement.getBoundingClientRect();
+        
+        // Step 9: Exclude question text and options from dimmed backdrop
+        // We'll use CSS to ensure they're always visible, but we can also
+        // adjust the shadow to be less aggressive for MCQ steps
+        const isMCQStep = currentStep === 9 || currentStep === 10 || currentStep === 11;
+        const shadowOpacity = isMCQStep ? 0.5 : 0.7; // Less dimming for MCQ steps
+        
         return {
           position: "absolute",
           left: `${rect.left}px`,
@@ -264,7 +283,7 @@ export default function DemoOverlay() {
           height: `${rect.height}px`,
           border: "3px solid rgba(0, 245, 204, 0.8)",
           borderRadius: "8px",
-          boxShadow: "0 0 0 9999px rgba(0, 0, 0, 0.7), 0 0 30px rgba(0, 245, 204, 0.5)",
+          boxShadow: `0 0 0 9999px rgba(0, 0, 0, ${shadowOpacity}), 0 0 30px rgba(0, 245, 204, 0.5)`,
           pointerEvents: "none",
           zIndex: 10000,
           transition: "all 0.3s ease",
