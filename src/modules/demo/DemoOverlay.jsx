@@ -119,13 +119,36 @@ export default function DemoOverlay() {
     return () => clearTimeout(timer);
   }, [isDemo, currentStep, location.pathname, navigate]);
 
+  // Helper: Wait for element to exist and have dimensions
+  const waitForElement = (selector, timeout = 3000) => {
+    return new Promise((resolve, reject) => {
+      const startTime = Date.now();
+      const poll = () => {
+        const element = document.querySelector(selector);
+        if (element) {
+          const rect = element.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            resolve(element);
+            return;
+          }
+        }
+        if (Date.now() - startTime > timeout) {
+          reject(new Error(`Element ${selector} not found within ${timeout}ms`));
+          return;
+        }
+        setTimeout(poll, 50);
+      };
+      poll();
+    });
+  };
+
   // Step 6: Programmatically trigger text selection to show Ask Astra bubble
   useEffect(() => {
     if (!isDemo || currentStep !== 6) return;
     if (!location.pathname.includes(`/summaries/${DEMO_SUMMARY_ID}`)) return;
 
     // Wait for summary content to be rendered
-    const triggerSelection = () => {
+    const triggerSelection = async () => {
       const summaryTextContainer = document.querySelector("[data-demo='summary-text']");
       if (!summaryTextContainer) {
         // Retry if not ready yet
@@ -166,13 +189,13 @@ export default function DemoOverlay() {
           });
           summaryTextContainer.dispatchEvent(mouseUpEvent);
 
-          // Recalculate highlight after bubble appears
-          setTimeout(() => {
-            const bubble = document.querySelector("[data-demo='summary-ask-astra-bubble']");
-            if (bubble) {
-              setHighlightedElement(bubble);
-            }
-          }, 100);
+          // Wait for bubble to appear and have dimensions before highlighting
+          try {
+            const bubble = await waitForElement("[data-demo='summary-ask-astra-bubble']", 3000);
+            setHighlightedElement(bubble);
+          } catch (err) {
+            console.warn("[Demo] Ask Astra bubble not found:", err);
+          }
 
           break;
         }
@@ -184,6 +207,19 @@ export default function DemoOverlay() {
     const timer = setTimeout(triggerSelection, 500);
     return () => clearTimeout(timer);
   }, [isDemo, currentStep, location.pathname]);
+
+  // Clear text selection when leaving Step 6
+  useEffect(() => {
+    if (!isDemo) return;
+    
+    // Clear selection when moving away from Step 6
+    if (currentStep !== 6) {
+      const selection = window.getSelection();
+      if (selection) {
+        selection.removeAllRanges();
+      }
+    }
+  }, [isDemo, currentStep]);
 
   // Update overlay text and highlight target when step changes
   useEffect(() => {

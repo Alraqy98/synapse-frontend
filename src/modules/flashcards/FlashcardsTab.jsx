@@ -30,6 +30,7 @@ export default function FlashcardsTab({ openDeck }) {
                         <button
                             className="btn btn-primary gap-2"
                             onClick={() => setShowGenerateModal(true)}
+                            data-demo="flashcards-generate"
                         >
                             <Plus size={16} />
                             Generate Flashcards

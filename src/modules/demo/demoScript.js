@@ -70,7 +70,7 @@ export const DEMO_STEPS = {
   },
   7: {
     route: "/flashcards",
-    highlight: null, // Show flashcards list
+    highlight: "[data-demo='flashcards-generate']",
     overlayText: "Flashcards generated automatically.\n\nSpaced repetition built in. Review what you need, when you need it.",
     scriptedAction: null,
     autoAdvance: false, // Manual advance via Next button
