@@ -191,17 +191,49 @@ export default function DemoOverlay() {
       })()
     : null;
 
+  // Get allowed demo targets for current step
+  const getAllowedDemoTargets = () => {
+    if (!currentStep) return [];
+    const targets = [];
+    
+    // Step 3: Allow chat container and send button
+    if (currentStep === 3) {
+      const container = document.querySelector("[data-demo='astra-chat-container']");
+      const sendButton = document.querySelector("[data-demo='astra-chat-send']");
+      if (container) targets.push(container);
+      if (sendButton) targets.push(sendButton);
+    }
+    
+    // Always allow highlighted element
+    if (highlightedElement) {
+      targets.push(highlightedElement);
+    }
+    
+    return targets;
+  };
+
   return createPortal(
     <div
       className="fixed inset-0 z-[9999]"
       onClick={(e) => {
         // Backdrop click: exit demo immediately
-        // Only exit if click is on backdrop itself, not on overlay content or highlighted element
+        // Only exit if click is on backdrop itself, not on overlay content or allowed demo targets
         const target = e.target;
         const isOverlayContent = target.closest('[data-demo-overlay-content]');
         const isHighlightedElement = highlightedElement && highlightedElement.contains(target);
         
-        if (!isOverlayContent && !isHighlightedElement) {
+        // Check if target is inside any allowed demo target (structural check)
+        const allowedTargets = getAllowedDemoTargets();
+        const isInsideAllowedTarget = allowedTargets.some(allowedTarget => {
+          return allowedTarget && allowedTarget.contains(target);
+        });
+        
+        // Also check if target itself is an allowed demo element
+        const isAllowedDemoElement = target.closest('[data-demo="astra-chat-container"]') ||
+                                     target.closest('[data-demo="astra-chat-send"]') ||
+                                     target.closest('[data-demo="quick-action-ask-astra"]');
+        
+        if (!isOverlayContent && !isHighlightedElement && !isInsideAllowedTarget && !isAllowedDemoElement) {
           handleBackdropClick();
         }
       }}

@@ -213,21 +213,35 @@ export default function DemoAstraChat({ file, activePage }) {
                 <div 
                     className="flex items-center gap-2 bg-[#0f1115] border border-white/10 px-3 py-2 rounded-lg"
                     data-demo="astra-chat-container"
+                    onClick={(e) => {
+                        // Stop propagation for container clicks
+                        e.stopPropagation();
+                    }}
                 >
                     <input
                         type="text"
                         value={chatInput}
                         onChange={(e) => setChatInput(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                                e.stopPropagation();
+                                handleSend();
+                            }
+                        }}
+                        onClick={(e) => e.stopPropagation()}
                         placeholder="Ask Astra about this page or the whole file…"
                         className="flex-1 bg-transparent text-sm text-white outline-none"
                         data-demo="astra-chat-input"
                     />
                     <button
-                        onClick={handleSend}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            handleSend();
+                        }}
                         disabled={!chatInput.trim()}
                         className="p-1.5 bg-teal text-black rounded hover:bg-teal-neon disabled:opacity-40"
-                        data-demo="quick-action-ask-astra"
+                        data-demo="astra-chat-send"
                     >
                         <Send size={14} />
                     </button>
