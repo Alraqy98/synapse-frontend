@@ -146,19 +146,30 @@ export default function DemoAstraChat({ file, activePage }) {
         chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
 
-    // Step 3: Pre-fill input with "Explain this image" (user must click send)
+    // Step 3: Auto-show response (no user interaction needed)
     useEffect(() => {
         if (!isDemo || currentStep !== 3) return;
         if (!file || file.id !== "demo-file-ct") return; // Only for demo file
-        if (chatInput) return; // Already prefilled
+        if (messages.length > 0) return; // Already shown
 
-        // Wait for chat input to be ready, then pre-fill (do NOT auto-send)
+        // Auto-show user message and Astra response immediately
         const timer = setTimeout(() => {
-            setChatInput(DEMO_ASTRA_EXPLAIN_IMAGE_PROMPT);
+            const userMsgId = `demo-user-${Date.now()}`;
+            const userMsg = { id: userMsgId, role: "user", content: DEMO_ASTRA_EXPLAIN_IMAGE_PROMPT };
+            
+            const assistantMsgId = `demo-assistant-${Date.now()}`;
+            const assistantMsg = {
+                id: assistantMsgId,
+                role: "assistant",
+                content: demoAstraExplainImageResponse,
+            };
+            
+            setMessages([userMsg, assistantMsg]);
+            setChatInput(DEMO_ASTRA_EXPLAIN_IMAGE_PROMPT); // Prefill input for visual consistency
         }, 500);
 
         return () => clearTimeout(timer);
-    }, [isDemo, currentStep, file, chatInput]);
+    }, [isDemo, currentStep, file, messages.length]);
 
     const handleSend = () => {
         if (!chatInput.trim()) return;

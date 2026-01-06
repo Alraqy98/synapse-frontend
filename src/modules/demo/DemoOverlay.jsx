@@ -275,7 +275,7 @@ export default function DemoOverlay() {
               >
                 Skip demo
               </button>
-              {currentStep === 5 ? (
+              {currentStep === 4 ? (
                 <button
                   onClick={() => exitDemo?.("primary_cta_upload")}
                   className="px-5 py-2.5 rounded-lg bg-[#00f5cc] text-black font-semibold hover:bg-[#00ffe0] transition transform hover:scale-105"
@@ -286,9 +286,6 @@ export default function DemoOverlay() {
                 >
                   Upload your first file
                 </button>
-              ) : currentStep === 3 ? (
-                // Step 3: No Next button - auto-advances after user clicks send
-                null
               ) : (
                 <button
                   onClick={(e) => {

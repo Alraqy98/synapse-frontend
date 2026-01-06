@@ -12,7 +12,7 @@ export const DEMO_STEPS = {
   1: {
     route: "/library",
     highlight: "[data-demo='demo-file-card']",
-    overlayText: "Any file you upload—slides, notes, even scans—is instantly converted and ready to study.",
+    overlayText: "Upload anything. We handle the rest.\n\nSlides, PDFs, notes, scans — whatever file you have is automatically converted and viewable inside Synapse.\n\nNo exporting. No reformatting. No extra steps.",
     scriptedAction: {
       type: "open_file",
       fileId: DEMO_FILE_ID,
@@ -25,7 +25,7 @@ export const DEMO_STEPS = {
   2: {
     route: `/library/${DEMO_FILE_ID}`,
     highlight: "[data-demo='page-canvas']",
-    overlayText: "This slide has no readable text. Just an image.",
+    overlayText: "This slide has no readable text.\n\nNormally, that's where most tools stop being useful.",
     scriptedAction: {
       type: "navigate_page",
       pageNumber: DEMO_IMAGE_ONLY_PAGE_INDEX + 1, // 1-based (page 2)
@@ -34,25 +34,14 @@ export const DEMO_STEPS = {
   },
   3: {
     route: `/library/${DEMO_FILE_ID}`,
-    highlight: "[data-demo='astra-chat-container']", // Highlights both input + send button
-    overlayText: "Astra understands images—even when there's no text. Ask it anything.",
+    highlight: "[data-demo='astra-response-bubble']", // Highlight the response, not the input
+    overlayText: "No text on the slide? That's usually a problem. Not with Astra.\n\nNormally, you'd screenshot this image, switch apps, paste it into another AI tool, explain the context, and hope for a useful answer.\n\nWith Synapse, Astra already sees your file. Just ask in the chat — no switching, no copy-paste.\n\nAstra is Synapse's built-in AI tutor, designed for real medical study materials.",
     scriptedAction: {
-      type: "prefill_input",
-      text: DEMO_ASTRA_EXPLAIN_IMAGE_PROMPT,
-      target: "[data-demo='astra-chat-input']",
+      type: "auto_show_response", // Auto-show response, no user interaction needed
     },
-    autoAdvance: {
-      condition: "astra_response_visible", // Auto-advance to Step 4 after response renders
-    },
-  },
-  4: {
-    route: `/library/${DEMO_FILE_ID}`,
-    highlight: "[data-demo='astra-response-bubble']", // Highlights the Astra answer bubble
-    overlayText: "Astra understands images using vision and prompt enhancement—even when there's no text.",
-    scriptedAction: null,
     autoAdvance: false, // Manual advance via Next button
   },
-  5: {
+  4: {
     route: `/library/${DEMO_FILE_ID}`,
     highlight: null, // No highlight on final step
     overlayText: "Ready to get started? Upload your first file and see how Synapse works with your own content.",
