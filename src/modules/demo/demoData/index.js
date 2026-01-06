@@ -5,5 +5,6 @@ export * from "./demoFile";
 export * from "./demoAstra";
 export * from "./demoMcq";
 export * from "./demoNotifications";
+export * from "./demoSummary";
 
 

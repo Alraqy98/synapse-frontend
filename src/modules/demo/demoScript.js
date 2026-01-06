@@ -1,8 +1,10 @@
 // src/modules/demo/demoScript.js
-// Step definitions for Demo Mode showroom (Steps 1-4 only)
+// Step definitions for Demo Mode showroom (Steps 1-10)
 
 import { DEMO_FILE_ID, DEMO_IMAGE_ONLY_PAGE_INDEX } from "./demoData/demoFile";
 import { DEMO_ASTRA_EXPLAIN_IMAGE_PROMPT } from "./demoData/demoAstra";
+import { DEMO_SUMMARY_ID } from "./demoData/demoSummary";
+import { DEMO_MCQ_DECK_ID } from "./demoData/demoMcq";
 
 /**
  * Step definitions for Demo Mode
@@ -43,6 +45,45 @@ export const DEMO_STEPS = {
   },
   4: {
     route: `/library/${DEMO_FILE_ID}`,
+    highlight: "[data-demo='quick-actions-bar']",
+    overlayText: "One file. Multiple study tools.\n\nFrom a single upload, Synapse generates summaries, flashcards, and MCQs — everything you need to master your material.",
+    scriptedAction: {
+      type: "navigate_to_summaries",
+    },
+    autoAdvance: false, // Manual navigation handled in overlay, then auto-advance to step 5
+  },
+  5: {
+    route: `/summaries/${DEMO_SUMMARY_ID}`,
+    highlight: "[data-demo='summary-text']",
+    overlayText: "Summaries are your main study format.\n\nEvery file becomes a structured, easy-to-review summary. No more flipping through pages — just the key information you need.",
+    scriptedAction: null,
+    autoAdvance: false, // Manual advance via Next button
+  },
+  6: {
+    route: `/summaries/${DEMO_SUMMARY_ID}`,
+    highlight: "[data-demo='summary-ask-astra-bubble']",
+    overlayText: "Highlight any text and ask Astra.\n\nNo app switching. No copy-paste. Astra already understands your summary context — just select and ask.",
+    scriptedAction: {
+      type: "wait_for_selection",
+    },
+    autoAdvance: false, // User must click Ask Astra, then Next
+  },
+  7: {
+    route: "/flashcards",
+    highlight: null, // Show flashcards list
+    overlayText: "Flashcards generated automatically.\n\nSpaced repetition built in. Review what you need, when you need it.",
+    scriptedAction: null,
+    autoAdvance: false, // Manual advance via Next button
+  },
+  8: {
+    route: `/mcq/${DEMO_MCQ_DECK_ID}`,
+    highlight: "[data-demo='mcq-option']",
+    overlayText: "Exam-style questions, instantly generated.\n\nPractice with real MCQs. Review mistakes. Resume anytime. Your progress is always saved.",
+    scriptedAction: null,
+    autoAdvance: false, // Manual advance via Next button
+  },
+  9: {
+    route: "/dashboard",
     highlight: null, // No highlight on final step
     overlayText: "Ready to get started? Upload your first file and see how Synapse works with your own content.",
     scriptedAction: null,

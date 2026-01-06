@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useDemo } from "./DemoContext";
 import { getStep, getRequiredRoute } from "./demoScript";
 import { DEMO_FILE_ID, DEMO_IMAGE_ONLY_PAGE_INDEX } from "./demoData/demoFile";
+import { DEMO_SUMMARY_ID } from "./demoData/demoSummary";
 
 // DemoOverlay - Script Engine + Step Renderer
 // Handles step-specific highlights, overlay text, scripted actions, and strict interaction locking.
@@ -97,6 +98,31 @@ export default function DemoOverlay() {
 
   // Step 3: Auto-type and send is handled by FileViewer component
   // (FileViewer listens to demo context and auto-executes scripted action)
+
+  // Step 4: Auto-navigate to summaries when quick actions bar is visible
+  useEffect(() => {
+    if (!isDemo || currentStep !== 4) return;
+    if (!location.pathname.includes(`/library/${DEMO_FILE_ID}`)) return;
+
+    // Check if quick actions bar is present
+    const quickActionsBar = document.querySelector("[data-demo='quick-actions-bar']");
+    if (!quickActionsBar) return;
+
+    // Small delay to show the highlight, then navigate
+    const timer = setTimeout(() => {
+      navigate(`/summaries/${DEMO_SUMMARY_ID}`, { replace: true });
+      // Auto-advance to step 5 after navigation
+      setTimeout(() => {
+        nextStep?.();
+      }, 500);
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [isDemo, currentStep, location.pathname, navigate, nextStep]);
+
+  // Step 6: Allow text selection and Ask Astra interaction
+  // User must manually select text and click Ask Astra, then click Next
+  // No auto-advance - user controls the interaction
 
   // Update overlay text and highlight target when step changes
   useEffect(() => {
@@ -204,6 +230,14 @@ export default function DemoOverlay() {
       if (sendButton) targets.push(sendButton);
     }
     
+    // Step 6: Allow summary text selection and Ask Astra bubble
+    if (currentStep === 6) {
+      const summaryText = document.querySelector("[data-demo='summary-text']");
+      const askAstraBubble = document.querySelector("[data-demo='summary-ask-astra-bubble']");
+      if (summaryText) targets.push(summaryText);
+      if (askAstraBubble) targets.push(askAstraBubble);
+    }
+    
     // Always allow highlighted element
     if (highlightedElement) {
       targets.push(highlightedElement);
@@ -231,7 +265,9 @@ export default function DemoOverlay() {
         // Also check if target itself is an allowed demo element
         const isAllowedDemoElement = target.closest('[data-demo="astra-chat-container"]') ||
                                      target.closest('[data-demo="astra-chat-send"]') ||
-                                     target.closest('[data-demo="quick-action-ask-astra"]');
+                                     target.closest('[data-demo="quick-action-ask-astra"]') ||
+                                     target.closest('[data-demo="summary-text"]') ||
+                                     target.closest('[data-demo="summary-ask-astra-bubble"]');
         
         if (!isOverlayContent && !isHighlightedElement && !isInsideAllowedTarget && !isAllowedDemoElement) {
           handleBackdropClick();
@@ -275,7 +311,7 @@ export default function DemoOverlay() {
               >
                 Skip demo
               </button>
-              {currentStep === 4 ? (
+              {currentStep === 9 ? (
                 <button
                   onClick={() => exitDemo?.("primary_cta_upload")}
                   className="px-5 py-2.5 rounded-lg bg-[#00f5cc] text-black font-semibold hover:bg-[#00ffe0] transition transform hover:scale-105"

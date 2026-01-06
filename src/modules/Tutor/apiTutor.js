@@ -1,5 +1,6 @@
 // src/modules/tutor/apiTutor.js
 import { supabase } from "../../lib/supabaseClient";
+import { demoApiIntercept } from "../demo/demoApiRuntime";
 
 const API_BASE = import.meta.env.VITE_API_URL;
 
@@ -196,6 +197,15 @@ export const sendMessageToTutor = async ({
 
     console.log("📤 sendMessageToTutor payload:", payload);
 
+    const demoRes = demoApiIntercept({
+        method: "POST",
+        url: "/ai/tutor/chat",
+        body: payload,
+    });
+    if (demoRes.handled) {
+        return demoRes.data;
+    }
+
     const res = await fetch(`${API_BASE}/ai/tutor/chat`, {
         method: "POST",
         headers: {
@@ -237,6 +247,23 @@ export const sendSummaryMessageToTutor = async ({
     fileId = null,
     resourceSelection = null,
 }) => {
+    // Demo Mode interception: summary messages → canned response
+    const demoRes = demoApiIntercept({
+        method: "POST",
+        url: "/ai/tutor/chat",
+        body: {
+            summaryId,
+            selectionText,
+            content: selectionText || message,
+        },
+    });
+    if (demoRes.handled) {
+        return {
+            text: demoRes.data?.answer?.answer || demoRes.data?.text || "",
+            raw: demoRes.data?.answer || demoRes.data?.raw || {},
+        };
+    }
+
     const token = await getToken();
 
     // Create structured payload for summary messages

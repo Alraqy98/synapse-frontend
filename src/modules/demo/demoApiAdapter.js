@@ -15,6 +15,8 @@ import {
   demoMcqProgressInProgress,
   demoMcqProgressCompleted,
   demoMcqReadyNotification,
+  DEMO_SUMMARY_ID,
+  demoSummary,
 } from "./demoData";
 
 /**
@@ -45,8 +47,29 @@ export function getDemoResponse(req) {
     };
   }
 
-  // Astra chat — demo vision moment for "Explain this image"
+  // Astra chat — check for summary messages first, then file-based messages
   if (upperMethod === "POST" && url.includes("/ai/tutor/chat")) {
+    // Check for summary-based messages first
+    const bodySummaryId = body?.summaryId || body?.payload?.summaryId;
+    if (bodySummaryId === DEMO_SUMMARY_ID) {
+      // This is a demo summary message - return canned response
+      const selectionText = body?.selectionText || body?.payload?.content || body?.content || "";
+      return {
+        handled: true,
+        data: {
+          success: true,
+          answer: {
+            answer: `This is a demo response about the selected text: "${selectionText.substring(0, 50)}...". In the real app, Astra would provide detailed explanations based on the summary content and your selection.`,
+          },
+        },
+        text: `This is a demo response about the selected text: "${selectionText.substring(0, 50)}...". In the real app, Astra would provide detailed explanations based on the summary content and your selection.`,
+        raw: {
+          answer: `This is a demo response about the selected text: "${selectionText.substring(0, 50)}...". In the real app, Astra would provide detailed explanations based on the summary content and your selection.`,
+        },
+      };
+    }
+    
+    // Check for file-based "Explain this image" prompt
     const msg = body?.message || "";
     if (
       typeof msg === "string" &&
@@ -55,8 +78,10 @@ export function getDemoResponse(req) {
       return {
         handled: true,
         data: {
-          text: demoAstraExplainImageResponse,
-          raw: { answer: demoAstraExplainImageResponse },
+          success: true,
+          answer: {
+            answer: demoAstraExplainImageResponse,
+          },
         },
       };
     }
@@ -139,6 +164,32 @@ export function getDemoResponse(req) {
       handled: true,
       data: [demoMcqReadyNotification],
     };
+  }
+
+  // Summaries list → demo summary
+  if (upperMethod === "GET" && url.includes("/ai/summaries") && !url.includes("/ai/summaries/")) {
+    // GET /ai/summaries (list all)
+    return {
+      handled: true,
+      data: {
+        summaries: [demoSummary],
+      },
+    };
+  }
+
+  // Summary by ID → demo summary
+  if (upperMethod === "GET" && url.includes("/ai/summaries/")) {
+    // GET /ai/summaries/:id
+    const summaryIdMatch = url.match(/\/ai\/summaries\/([^/?]+)/);
+    if (summaryIdMatch && summaryIdMatch[1] === DEMO_SUMMARY_ID) {
+      return {
+        handled: true,
+        data: {
+          summary: demoSummary,
+        },
+      };
+    }
+    return { handled: false };
   }
 
   // Default: not handled

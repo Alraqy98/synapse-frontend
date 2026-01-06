@@ -1,5 +1,6 @@
 // src/modules/summaries/apiSummaries.js
 import api from "../../lib/api";
+import { demoApiIntercept } from "../demo/demoApiRuntime";
 
 // ===============================================================
 // SUMMARIES API
@@ -21,6 +22,15 @@ export const getSummariesByFile = async (fileId) => {
  * Returns: { summaries: [...] }
  */
 export const getAllSummaries = async () => {
+    // Demo Mode interception: summaries list → demo summary
+    const demoRes = demoApiIntercept({
+        method: "GET",
+        url: "/ai/summaries",
+    });
+    if (demoRes.handled) {
+        return demoRes.data?.summaries || [];
+    }
+
     try {
         const res = await api.get("/ai/summaries");
         return res.data?.summaries || [];
@@ -39,6 +49,16 @@ export const getAllSummaries = async () => {
  */
 export const getSummary = async (summaryId) => {
     if (!summaryId) throw new Error("Summary ID is missing");
+
+    // Demo Mode interception: summary by ID → demo summary
+    const demoRes = demoApiIntercept({
+        method: "GET",
+        url: `/ai/summaries/${summaryId}`,
+    });
+    if (demoRes.handled) {
+        return demoRes.data?.summary || null;
+    }
+
     const res = await api.get(`/ai/summaries/${summaryId}`);
     return res.data?.summary || null;
 };
