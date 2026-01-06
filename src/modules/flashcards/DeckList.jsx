@@ -100,6 +100,48 @@ export default function DeckList({ openDeck, search, sortMode = "date", onShowIm
         return list;
     }, [decks, search, sortMode]);
 
+    // Precompute deck cards array (outside JSX)
+    const deckCards = visibleDecks.map((deck) => {
+        const isGenerating = deck.generating === true || deck.status === "generating";
+        
+        // Determine status and progress
+        let status = "ready";
+        let progress = 100;
+        
+        if (isGenerating) {
+            status = "generating";
+            progress = 60; // Simulated progress during generation
+        } else if (deck.status === "failed") {
+            status = "failed";
+            progress = 0;
+        }
+
+        // Compute demo props before JSX
+        const cardProps =
+            deck.id === "demo-flashcard-ct"
+                ? { dataDemo: "flashcard-deck-card" }
+                : {};
+
+        return (
+            <UnifiedCard
+                key={deck.id}
+                {...cardProps}
+                title={deck.title}
+                meta={deck.card_count ? `${deck.card_count} cards • ${deck.mode || ""}` : null}
+                progress={progress}
+                status={status}
+                statusText="Flashcard Deck"
+                date={deck.updated_at || deck.created_at ? new Date(deck.updated_at || deck.created_at).toLocaleDateString() : null}
+                isGenerating={isGenerating}
+                onClick={() => openDeck(deck.id)}
+                onDelete={() => setConfirmDelete({ id: deck.id, title: deck.title })}
+                onRename={(newTitle) => handleRename(deck.id, newTitle)}
+                itemId={deck.id}
+                shareItem={shareDeck}
+            />
+        );
+    });
+
     return (
         <>
             {/* GRID */}
@@ -115,41 +157,7 @@ export default function DeckList({ openDeck, search, sortMode = "date", onShowIm
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                    {visibleDecks.map((deck) => {
-                        const isGenerating = deck.generating === true || deck.status === "generating";
-                        
-                        // Determine status and progress
-                        let status = "ready";
-                        let progress = 100;
-                        
-                        if (isGenerating) {
-                            status = "generating";
-                            progress = 60; // Simulated progress during generation
-                        } else if (deck.status === "failed") {
-                            status = "failed";
-                            progress = 0;
-                        }
-
-                        return (
-                            <UnifiedCard
-                                key={deck.id}
-                                title={deck.title}
-                                meta={deck.card_count ? `${deck.card_count} cards • ${deck.mode || ""}` : null}
-                                progress={progress}
-                                status={status}
-                                statusText="Flashcard Deck"
-                                date={deck.updated_at || deck.created_at ? new Date(deck.updated_at || deck.created_at).toLocaleDateString() : null}
-                                isGenerating={isGenerating}
-                                onClick={() => openDeck(deck.id)}
-                                onDelete={() => setConfirmDelete({ id: deck.id, title: deck.title })}
-                                onRename={(newTitle) => handleRename(deck.id, newTitle)}
-                                itemId={deck.id}
-                                shareItem={shareDeck}
-                                {...(deck.id === "demo-flashcard-ct"
-                                  ? { dataDemo: "flashcard-deck-card" }
-                                  : {})}
-                            />
-                    })}
+                    {deckCards}
                 </div>
             )}
 
