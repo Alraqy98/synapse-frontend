@@ -29,7 +29,7 @@ export default function MCQEntryModal({
                 onClick={(e) => e.stopPropagation()}
                 data-demo="mcq-resume-modal"
             >
-                <h2 className="text-xl font-semibold text-white mb-4">
+                <h2 className="text-xl font-semibold text-white mb-4" data-demo="mcq-deck-title">
                     {isInProgress ? "Continue Practice?" : "Deck Complete"}
                 </h2>
 

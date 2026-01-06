@@ -6,5 +6,6 @@ export * from "./demoAstra";
 export * from "./demoMcq";
 export * from "./demoNotifications";
 export * from "./demoSummary";
+export * from "./demoFlashcards";
 
 

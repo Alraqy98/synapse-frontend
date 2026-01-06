@@ -644,7 +644,7 @@ export default function MCQDeckView({ deckId, goBack }) {
                     </div>
                 </div>
                 <div className="flex items-start justify-between gap-6 mb-3">
-                    <div className="text-[1.35rem] font-semibold leading-relaxed">
+                    <div className="text-[1.35rem] font-semibold leading-relaxed" data-demo="mcq-question-text">
                         {q.question}
                     </div>
                     <button className="btn btn-secondary shrink-0">
@@ -700,6 +700,7 @@ export default function MCQDeckView({ deckId, goBack }) {
                                             ? "bg-teal/10 border-teal/30"
                                             : "bg-red-500/10 border-red-400/30"
                                             }`}
+                                        data-demo="mcq-explanation-container"
                                     >
                                         <div className="text-muted whitespace-pre-line">
                                             {explanation}

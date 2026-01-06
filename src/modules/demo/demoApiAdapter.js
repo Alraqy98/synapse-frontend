@@ -17,6 +17,8 @@ import {
   demoMcqReadyNotification,
   DEMO_SUMMARY_ID,
   demoSummary,
+  DEMO_FLASHCARD_DECK_ID,
+  demoFlashcardDeck,
 } from "./demoData";
 
 /**
@@ -190,6 +192,16 @@ export function getDemoResponse(req) {
       };
     }
     return { handled: false };
+  }
+
+  // Flashcards deck list → demo flashcard deck
+  if (upperMethod === "GET" && url.includes("/flashcards/decks") && !url.includes("/flashcards/decks/")) {
+    return {
+      handled: true,
+      data: {
+        decks: [demoFlashcardDeck],
+      },
+    };
   }
 
   // Default: not handled

@@ -47,6 +47,7 @@ const MessageBubble = ({ message }) => {
                         overflowWrap: "anywhere",
                         wordBreak: "break-word",
                     }}
+                    data-demo={!isUser ? "demo-summary-response" : undefined}
                 >
                     {isUser ? (
                         message.content

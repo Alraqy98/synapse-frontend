@@ -61,28 +61,57 @@ export const DEMO_STEPS = {
   },
   6: {
     route: `/summaries/${DEMO_SUMMARY_ID}`,
-    highlight: "[data-demo='summary-ask-astra-bubble']",
-    overlayText: "Just highlight text. Astra appears instantly — no copy-paste, no app switching.",
+    highlight: "[data-demo='demo-summary-response']",
+    overlayText: "Normally, you'd screenshot this, switch apps, paste it into another AI, and explain the context.\n\nWith Synapse, Astra already understands your material. Just ask — right where you study.",
     scriptedAction: {
-      type: "trigger_text_selection",
+      type: "auto_show_summary_response",
     },
     autoAdvance: false, // User clicks Next to advance
   },
   7: {
     route: "/flashcards",
-    highlight: "[data-demo='flashcards-generate']",
-    overlayText: "Flashcards generated automatically.\n\nSpaced repetition built in. Review what you need, when you need it.",
+    highlight: "[data-demo='flashcard-deck-card']",
+    overlayText: "Flashcards are generated automatically from your material.\n\nReview what matters. When it matters.",
     scriptedAction: null,
     autoAdvance: false, // Manual advance via Next button
   },
   8: {
     route: `/mcq/${DEMO_MCQ_DECK_ID}`,
-    highlight: "[data-demo='mcq-option']",
-    overlayText: "Exam-style questions, instantly generated.\n\nPractice with real MCQs. Review mistakes. Resume anytime. Your progress is always saved.",
-    scriptedAction: null,
+    highlight: "[data-demo='mcq-deck-title']",
+    overlayText: "Exam-style questions, generated from your own material.",
+    scriptedAction: {
+      type: "start_mcq_demo",
+    },
     autoAdvance: false, // Manual advance via Next button
   },
   9: {
+    route: `/mcq/${DEMO_MCQ_DECK_ID}`,
+    highlight: "[data-demo='mcq-question-text']",
+    overlayText: "Exam-style questions, generated from your own material.",
+    scriptedAction: {
+      type: "show_mcq_question",
+    },
+    autoAdvance: false, // Manual advance via Next button
+  },
+  10: {
+    route: `/mcq/${DEMO_MCQ_DECK_ID}`,
+    highlight: "[data-demo='mcq-option']",
+    overlayText: "Every choice is evaluated instantly.",
+    scriptedAction: {
+      type: "select_wrong_answer",
+    },
+    autoAdvance: false, // Manual advance via Next button
+  },
+  11: {
+    route: `/mcq/${DEMO_MCQ_DECK_ID}`,
+    highlight: "[data-demo='mcq-explanation-container']",
+    overlayText: "Every answer is explained — so you learn, not just guess.",
+    scriptedAction: {
+      type: "show_explanation",
+    },
+    autoAdvance: false, // Final MCQ step - user clicks Next
+  },
+  12: {
     route: "/dashboard",
     highlight: null, // No highlight on final step
     overlayText: "Ready to get started? Upload your first file and see how Synapse works with your own content.",

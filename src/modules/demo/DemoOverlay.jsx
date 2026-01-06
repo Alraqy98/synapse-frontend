@@ -142,69 +142,23 @@ export default function DemoOverlay() {
     });
   };
 
-  // Step 6: Programmatically trigger text selection to show Ask Astra bubble
+  // Step 6: Wait for demo summary response bubble to appear
   useEffect(() => {
     if (!isDemo || currentStep !== 6) return;
     if (!location.pathname.includes(`/summaries/${DEMO_SUMMARY_ID}`)) return;
 
-    // Wait for summary content to be rendered
-    const triggerSelection = async () => {
-      const summaryTextContainer = document.querySelector("[data-demo='summary-text']");
-      if (!summaryTextContainer) {
-        // Retry if not ready yet
-        setTimeout(triggerSelection, 200);
-        return;
-      }
-
-      // Find a text node inside the summary content
-      const walker = document.createTreeWalker(
-        summaryTextContainer,
-        NodeFilter.SHOW_TEXT,
-        null
-      );
-
-      let textNode = walker.nextNode();
-      while (textNode) {
-        const text = textNode.textContent?.trim() || "";
-        // Find a text node with at least 10 characters for reliable selection
-        if (text.length >= 10) {
-          // Create a range and select text
-          const range = document.createRange();
-          // Select first 20 characters of this text node
-          const startOffset = 0;
-          const endOffset = Math.min(20, textNode.textContent.length);
-          range.setStart(textNode, startOffset);
-          range.setEnd(textNode, endOffset);
-
-          // Apply selection
-          const selection = window.getSelection();
-          selection.removeAllRanges();
-          selection.addRange(range);
-
-          // Trigger mouseup event to activate the selection handler
-          const mouseUpEvent = new MouseEvent("mouseup", {
-            bubbles: true,
-            cancelable: true,
-            view: window,
-          });
-          summaryTextContainer.dispatchEvent(mouseUpEvent);
-
-          // Wait for bubble to appear and have dimensions before highlighting
-          try {
-            const bubble = await waitForElement("[data-demo='summary-ask-astra-bubble']", 3000);
-            setHighlightedElement(bubble);
-          } catch (err) {
-            console.warn("[Demo] Ask Astra bubble not found:", err);
-          }
-
-          break;
-        }
-        textNode = walker.nextNode();
+    // Wait for response bubble to appear and have dimensions before highlighting
+    const waitForResponse = async () => {
+      try {
+        const responseBubble = await waitForElement("[data-demo='demo-summary-response']", 3000);
+        setHighlightedElement(responseBubble);
+      } catch (err) {
+        console.warn("[Demo] Summary response bubble not found:", err);
       }
     };
 
     // Small delay to ensure DOM is stable
-    const timer = setTimeout(triggerSelection, 500);
+    const timer = setTimeout(waitForResponse, 500);
     return () => clearTimeout(timer);
   }, [isDemo, currentStep, location.pathname]);
 
@@ -232,8 +186,9 @@ export default function DemoOverlay() {
     setOverlayText(step.overlayText || "");
 
     // Find and highlight target element (poll until found)
-    // Skip Step 6 - handled programmatically by triggerSelection effect
-    if (currentStep !== 6 && step.highlight) {
+    // Skip Step 6 - handled programmatically by waitForResponse effect
+    // Skip Steps 8-11 - handled by MCQ demo effects
+    if (currentStep !== 6 && currentStep < 8 && step.highlight) {
       const findTarget = () => {
         const target = document.querySelector(step.highlight);
         if (target) {
@@ -411,7 +366,7 @@ export default function DemoOverlay() {
               >
                 Skip demo
               </button>
-              {currentStep === 9 ? (
+              {currentStep === 12 ? (
                 <button
                   onClick={() => exitDemo?.("primary_cta_upload")}
                   className="px-5 py-2.5 rounded-lg bg-[#00f5cc] text-black font-semibold hover:bg-[#00ffe0] transition transform hover:scale-105"

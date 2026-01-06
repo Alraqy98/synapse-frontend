@@ -15,6 +15,16 @@ const authHeaders = () => ({
 // ======================================================
 
 export const getDecks = async () => {
+    // Demo Mode interception: flashcards list → demo deck
+    const { demoApiIntercept } = await import("../demo/demoApiRuntime");
+    const demoRes = demoApiIntercept({
+        method: "GET",
+        url: "/flashcards/decks",
+    });
+    if (demoRes.handled) {
+        return demoRes.data?.decks || [];
+    }
+
     const res = await axios.get(`${API_BASE}/flashcards/decks`, {
         headers: authHeaders(),
     });
