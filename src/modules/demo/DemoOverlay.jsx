@@ -137,9 +137,16 @@ export default function DemoOverlay() {
     }
 
     // Step 3: Handle prefill action (prefill input, don't auto-send)
-    if (currentStep === 3 && step.scriptedAction?.type === "prefill_input") {
-      // Prefill is handled by DemoAstraChat component
-      // No auto-advance - user must click send button
+    // Auto-advance to Step 4 is handled by DemoAstraChat after response renders
+    if (currentStep === 3 && step.autoAdvance?.condition === "astra_response_visible") {
+      const checkResponse = setInterval(() => {
+        const responseBubble = document.querySelector("[data-demo='astra-response-bubble']");
+        if (responseBubble) {
+          clearInterval(checkResponse);
+          // Auto-advance is handled by DemoAstraChat component after send
+        }
+      }, 200);
+      return () => clearInterval(checkResponse);
     }
   }, [step, currentStep, location.pathname, nextStep]);
 
@@ -236,7 +243,7 @@ export default function DemoOverlay() {
               >
                 Skip demo
               </button>
-              {currentStep === 3 ? (
+              {currentStep === 5 ? (
                 <button
                   onClick={() => exitDemo?.("primary_cta_upload")}
                   className="px-5 py-2.5 rounded-lg bg-[#00f5cc] text-black font-semibold hover:bg-[#00ffe0] transition transform hover:scale-105"
@@ -247,6 +254,9 @@ export default function DemoOverlay() {
                 >
                   Upload your first file
                 </button>
+              ) : currentStep === 3 ? (
+                // Step 3: No Next button - auto-advances after user clicks send
+                null
               ) : (
                 <button
                   onClick={(e) => {

@@ -48,6 +48,7 @@ const MessageBubble = ({ message }) => {
                         overflowWrap: "anywhere",
                         wordBreak: "break-word",
                     }}
+                    data-demo={!isUser ? "astra-response-bubble" : undefined}
                 >
                     {isUser ? (
                         message.content
@@ -135,7 +136,7 @@ const MessageBubble = ({ message }) => {
  * - Instantly renders canned demo response
  */
 export default function DemoAstraChat({ file, activePage }) {
-    const { isDemo, currentStep } = useDemo() || {};
+    const { isDemo, currentStep, nextStep } = useDemo() || {};
     const [messages, setMessages] = useState([]);
     const [chatInput, setChatInput] = useState("");
     const chatEndRef = useRef(null);
@@ -179,9 +180,13 @@ export default function DemoAstraChat({ file, activePage }) {
             };
             setMessages((prev) => [...prev, assistantMsg]);
             
-            // Step 3: After user sends and receives response, allow demo to continue
-            // (Demo overlay will show "Upload your first file" button)
-            // Don't auto-advance - user must click the exit CTA
+            // Step 3: After user sends and receives response, auto-advance to Step 4
+            // Small delay to ensure message is rendered before advancing
+            setTimeout(() => {
+                if (currentStep === 3) {
+                    nextStep?.();
+                }
+            }, 500);
         }
     };
 

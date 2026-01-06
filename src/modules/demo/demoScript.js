@@ -1,5 +1,5 @@
 // src/modules/demo/demoScript.js
-// Step definitions for Demo Mode showroom (Steps 1-3 only)
+// Step definitions for Demo Mode showroom (Steps 1-4 only)
 
 import { DEMO_FILE_ID, DEMO_IMAGE_ONLY_PAGE_INDEX } from "./demoData/demoFile";
 import { DEMO_ASTRA_EXPLAIN_IMAGE_PROMPT } from "./demoData/demoAstra";
@@ -37,11 +37,27 @@ export const DEMO_STEPS = {
     highlight: "[data-demo='astra-chat-container']", // Highlights both input + send button
     overlayText: "Astra understands images—even when there's no text. Ask it anything.",
     scriptedAction: {
-      type: "prefill_input", // Changed from auto_type_and_send
+      type: "prefill_input",
       text: DEMO_ASTRA_EXPLAIN_IMAGE_PROMPT,
       target: "[data-demo='astra-chat-input']",
     },
-    autoAdvance: false, // User must click send, then we advance
+    autoAdvance: {
+      condition: "astra_response_visible", // Auto-advance to Step 4 after response renders
+    },
+  },
+  4: {
+    route: `/library/${DEMO_FILE_ID}`,
+    highlight: "[data-demo='astra-response-bubble']", // Highlights the Astra answer bubble
+    overlayText: "Astra understands images using vision and prompt enhancement—even when there's no text.",
+    scriptedAction: null,
+    autoAdvance: false, // Manual advance via Next button
+  },
+  5: {
+    route: `/library/${DEMO_FILE_ID}`,
+    highlight: null, // No highlight on final step
+    overlayText: "Ready to get started? Upload your first file and see how Synapse works with your own content.",
+    scriptedAction: null,
+    autoAdvance: false, // Final step - user clicks "Upload your first file" to exit
   },
 };
 
