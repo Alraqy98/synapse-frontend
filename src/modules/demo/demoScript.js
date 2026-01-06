@@ -62,11 +62,11 @@ export const DEMO_STEPS = {
   6: {
     route: `/summaries/${DEMO_SUMMARY_ID}`,
     highlight: "[data-demo='summary-ask-astra-bubble']",
-    overlayText: "Highlight any text and ask Astra.\n\nNo app switching. No copy-paste. Astra already understands your summary context — just select and ask.",
+    overlayText: "Just highlight text. Astra appears instantly — no copy-paste, no app switching.",
     scriptedAction: {
-      type: "wait_for_selection",
+      type: "trigger_text_selection",
     },
-    autoAdvance: false, // User must click Ask Astra, then Next
+    autoAdvance: false, // User clicks Next to advance
   },
   7: {
     route: "/flashcards",

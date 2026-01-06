@@ -101,26 +101,89 @@ export default function DemoOverlay() {
 
   // Step 4: Auto-navigate to summaries when quick actions bar is visible
   // Navigation only - NO auto-advance (user must click Next)
+  // Delay navigation until overlay is fully mounted to prevent visual jitter
   useEffect(() => {
     if (!isDemo || currentStep !== 4) return;
     if (!location.pathname.includes(`/library/${DEMO_FILE_ID}`)) return;
 
-    // Check if quick actions bar is present
-    const quickActionsBar = document.querySelector("[data-demo='quick-actions-bar']");
-    if (!quickActionsBar) return;
-
-    // Small delay to show the highlight, then navigate
-    // User must click Next to advance to step 5
+    // Wait for overlay to be fully mounted and DOM to be stable
     const timer = setTimeout(() => {
+      // Check if quick actions bar is present
+      const quickActionsBar = document.querySelector("[data-demo='quick-actions-bar']");
+      if (!quickActionsBar) return;
+
+      // Navigate after overlay is stable
       navigate(`/summaries/${DEMO_SUMMARY_ID}`, { replace: true });
-    }, 2000);
+    }, 2500); // Increased delay to ensure overlay is fully mounted
 
     return () => clearTimeout(timer);
   }, [isDemo, currentStep, location.pathname, navigate]);
 
-  // Step 6: Allow text selection and Ask Astra interaction
-  // User must manually select text and click Ask Astra, then click Next
-  // No auto-advance - user controls the interaction
+  // Step 6: Programmatically trigger text selection to show Ask Astra bubble
+  useEffect(() => {
+    if (!isDemo || currentStep !== 6) return;
+    if (!location.pathname.includes(`/summaries/${DEMO_SUMMARY_ID}`)) return;
+
+    // Wait for summary content to be rendered
+    const triggerSelection = () => {
+      const summaryTextContainer = document.querySelector("[data-demo='summary-text']");
+      if (!summaryTextContainer) {
+        // Retry if not ready yet
+        setTimeout(triggerSelection, 200);
+        return;
+      }
+
+      // Find a text node inside the summary content
+      const walker = document.createTreeWalker(
+        summaryTextContainer,
+        NodeFilter.SHOW_TEXT,
+        null
+      );
+
+      let textNode = walker.nextNode();
+      while (textNode) {
+        const text = textNode.textContent?.trim() || "";
+        // Find a text node with at least 10 characters for reliable selection
+        if (text.length >= 10) {
+          // Create a range and select text
+          const range = document.createRange();
+          // Select first 20 characters of this text node
+          const startOffset = 0;
+          const endOffset = Math.min(20, textNode.textContent.length);
+          range.setStart(textNode, startOffset);
+          range.setEnd(textNode, endOffset);
+
+          // Apply selection
+          const selection = window.getSelection();
+          selection.removeAllRanges();
+          selection.addRange(range);
+
+          // Trigger mouseup event to activate the selection handler
+          const mouseUpEvent = new MouseEvent("mouseup", {
+            bubbles: true,
+            cancelable: true,
+            view: window,
+          });
+          summaryTextContainer.dispatchEvent(mouseUpEvent);
+
+          // Recalculate highlight after bubble appears
+          setTimeout(() => {
+            const bubble = document.querySelector("[data-demo='summary-ask-astra-bubble']");
+            if (bubble) {
+              setHighlightedElement(bubble);
+            }
+          }, 100);
+
+          break;
+        }
+        textNode = walker.nextNode();
+      }
+    };
+
+    // Small delay to ensure DOM is stable
+    const timer = setTimeout(triggerSelection, 500);
+    return () => clearTimeout(timer);
+  }, [isDemo, currentStep, location.pathname]);
 
   // Update overlay text and highlight target when step changes
   useEffect(() => {
@@ -133,16 +196,19 @@ export default function DemoOverlay() {
     setOverlayText(step.overlayText || "");
 
     // Find and highlight target element (poll until found)
-    const findTarget = () => {
-      const target = document.querySelector(step.highlight);
-      if (target) {
-        setHighlightedElement(target);
-      } else {
-        // Retry after a short delay if element not found yet
-        setTimeout(findTarget, 200);
-      }
-    };
-    findTarget();
+    // Skip Step 6 - handled programmatically by triggerSelection effect
+    if (currentStep !== 6 && step.highlight) {
+      const findTarget = () => {
+        const target = document.querySelector(step.highlight);
+        if (target) {
+          setHighlightedElement(target);
+        } else {
+          // Retry after a short delay if element not found yet
+          setTimeout(findTarget, 200);
+        }
+      };
+      findTarget();
+    }
 
     // Auto-advance logic for Step 1 (when FileViewer becomes visible)
     if (currentStep === 1 && step.autoAdvance?.condition === "fileviewer_visible") {
