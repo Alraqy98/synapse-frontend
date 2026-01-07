@@ -46,36 +46,14 @@ export default function DemoOverlay() {
         z-index: 10002;
       }
       
-      /* Step 9-11: Ensure MCQ question text and options are always visible above dimmed backdrop */
-      [data-demo="mcq-question-text"] {
-        position: relative !important;
-        z-index: 10001 !important;
-        background-color: transparent !important;
-      }
-      
-      /* Ensure MCQ options container is also visible */
-      [data-demo="mcq-option"] {
-        position: relative !important;
-        z-index: 10001 !important;
-      }
-      
-      /* Ensure MCQ explanation containers are visible */
-      [data-demo="mcq-explanation-container"] {
-        position: relative !important;
-        z-index: 10001 !important;
-      }
-      
-      /* Ensure parent containers don't clip z-index */
+      /* Step 9-12: Ensure MCQ question text and options are always visible above dimmed backdrop */
       [data-demo="mcq-question-text"],
       [data-demo="mcq-option"],
+      [data-demo="mcq-explain-all-button"],
       [data-demo="mcq-explanation-container"] {
-        isolation: isolate;
-      }
-      
-      /* Ensure explanation containers are visible */
-      [data-demo="mcq-explanation-container"] {
-        position: relative;
+        position: relative !important;
         z-index: 10001 !important;
+        isolation: isolate;
       }
       `;
       document.head.appendChild(styleSheet);
@@ -275,9 +253,30 @@ export default function DemoOverlay() {
     return () => clearTimeout(timer);
   }, [isDemo, currentStep, location.pathname]);
 
-  // Step 11: Programmatically trigger "Explain All" (REAL expansion)
+  // Step 11: Highlight Explain All button (DO NOT expand yet)
   useEffect(() => {
     if (!isDemo || currentStep !== 11) return;
+    if (!location.pathname.includes(`/mcq/${DEMO_MCQ_DECK_ID}`)) return;
+
+    const highlightExplainAllButton = async () => {
+      try {
+        // Wait for Explain All button to be rendered
+        const explainAllButton = await waitForElement("[data-demo='mcq-explain-all-button']", 3000);
+        if (explainAllButton) {
+          setHighlightedElement(explainAllButton);
+        }
+      } catch (err) {
+        console.warn("[Demo] Explain All button not found:", err);
+      }
+    };
+
+    const timer = setTimeout(highlightExplainAllButton, 500);
+    return () => clearTimeout(timer);
+  }, [isDemo, currentStep, location.pathname]);
+
+  // Step 12: Programmatically trigger "Explain All" (REAL expansion)
+  useEffect(() => {
+    if (!isDemo || currentStep !== 12) return;
     if (!location.pathname.includes(`/mcq/${DEMO_MCQ_DECK_ID}`)) return;
 
     const triggerExplainAll = async () => {
@@ -304,9 +303,7 @@ export default function DemoOverlay() {
           window.demoMcqExplainAll();
         } else {
           // Fallback: find and click the "Explain All" button
-          const explainAllButton = Array.from(document.querySelectorAll('button')).find(
-            btn => btn.textContent?.includes('Explain All') || btn.textContent?.includes('Explain all')
-          );
+          const explainAllButton = document.querySelector("[data-demo='mcq-explain-all-button']");
           if (explainAllButton) {
             explainAllButton.click();
           }
@@ -340,9 +337,9 @@ export default function DemoOverlay() {
 
     // Find and highlight target element (poll until found)
     // Skip Step 6 - handled programmatically by waitForResponse effect
-    // Skip Steps 8, 10-11 - handled by MCQ demo effects
+    // Skip Steps 8, 10-12 - handled by MCQ demo effects
     // Step 9 is handled here
-    if (currentStep !== 6 && currentStep !== 8 && currentStep !== 10 && currentStep !== 11 && currentStep < 8 && step.highlight) {
+    if (currentStep !== 6 && currentStep !== 8 && currentStep !== 10 && currentStep !== 11 && currentStep !== 12 && currentStep < 8 && step.highlight) {
       const findTarget = () => {
         const target = document.querySelector(step.highlight);
         if (target) {
@@ -426,9 +423,8 @@ export default function DemoOverlay() {
     ? (() => {
         const rect = highlightedElement.getBoundingClientRect();
         
-        // Step 9-11: Exclude question text and options from dimmed backdrop
-        // Reduce shadow opacity for MCQ steps to ensure readability
-        const isMCQStep = currentStep === 9 || currentStep === 10 || currentStep === 11;
+        // Step 9-12: Reduce shadow opacity for MCQ steps to ensure readability
+        const isMCQStep = currentStep === 9 || currentStep === 10 || currentStep === 11 || currentStep === 12;
         const shadowOpacity = isMCQStep ? 0.4 : 0.7; // Less dimming for MCQ steps (0.4 as required)
         
         return {
@@ -541,7 +537,7 @@ export default function DemoOverlay() {
               >
                 Skip demo
               </button>
-              {currentStep === 12 ? (
+              {currentStep === 13 ? (
                 <button
                   onClick={() => exitDemo?.("primary_cta_upload")}
                   className="px-5 py-2.5 rounded-lg bg-[#00f5cc] text-black font-semibold hover:bg-[#00ffe0] transition transform hover:scale-105"

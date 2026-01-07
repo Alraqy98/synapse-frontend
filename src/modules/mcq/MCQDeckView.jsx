@@ -785,6 +785,7 @@ export default function MCQDeckView({ deckId, goBack }) {
                         {answerState && !answerState.explainAll && (
                             <button
                                 className="btn btn-secondary"
+                                data-demo="mcq-explain-all-button"
                                 onClick={() =>
                                     setAnswers((prev) => ({
                                         ...prev,

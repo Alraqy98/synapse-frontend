@@ -94,7 +94,7 @@ export const DEMO_STEPS = {
   10: {
     route: `/mcq/${DEMO_MCQ_DECK_ID}`,
     highlight: "[data-demo='mcq-option']",
-    overlayText: "Every choice is evaluated instantly.",
+    overlayText: "Every answer is evaluated instantly. Wrong answers are marked — and the correct one is shown.",
     scriptedAction: {
       type: "select_wrong_answer",
     },
@@ -102,14 +102,21 @@ export const DEMO_STEPS = {
   },
   11: {
     route: `/mcq/${DEMO_MCQ_DECK_ID}`,
+    highlight: "[data-demo='mcq-explain-all-button']",
+    overlayText: "Want to understand why? One click explains every option.",
+    scriptedAction: null, // Do NOT expand yet
+    autoAdvance: false, // Manual advance via Next button
+  },
+  12: {
+    route: `/mcq/${DEMO_MCQ_DECK_ID}`,
     highlight: "[data-demo='mcq-explanation-container']",
-    overlayText: "Every answer is explained — so you learn, not just guess.",
+    overlayText: "Every option is explained — so you learn, not just guess.",
     scriptedAction: {
       type: "show_explanation",
     },
-    autoAdvance: false, // Final MCQ step - user clicks Next
+    autoAdvance: false, // Manual advance via Next button
   },
-  12: {
+  13: {
     route: "/dashboard",
     highlight: null, // No highlight on final step
     overlayText: "Ready to get started? Upload your first file and see how Synapse works with your own content.",
