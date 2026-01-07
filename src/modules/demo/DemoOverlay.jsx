@@ -254,15 +254,45 @@ export default function DemoOverlay() {
   }, [isDemo, currentStep, location.pathname]);
 
   // Step 11: Highlight Explain All button (DO NOT expand yet)
+  // Explain All is only highlighted once enabled by real MCQ answer state
+  // The button only renders when: answerState exists && !answerState.explainAll
   useEffect(() => {
     if (!isDemo || currentStep !== 11) return;
     if (!location.pathname.includes(`/mcq/${DEMO_MCQ_DECK_ID}`)) return;
 
     const highlightExplainAllButton = async () => {
       try {
-        // Wait for Explain All button to be rendered
-        const explainAllButton = await waitForElement("[data-demo='mcq-explain-all-button']", 3000);
-        if (explainAllButton) {
+        // Poll for BOTH conditions:
+        // a) Answer state exists (button only renders when answerState exists)
+        // b) Explain All button exists AND is enabled (not disabled)
+        let explainAllButton = null;
+        let retries = 0;
+        const maxRetries = 60; // 6 seconds max wait (100ms intervals)
+        
+        while (retries < maxRetries) {
+          // Check if button exists (its existence means answerState exists)
+          explainAllButton = document.querySelector("[data-demo='mcq-explain-all-button']");
+          
+          if (explainAllButton) {
+            // Check if button is enabled (not disabled)
+            const isDisabled = explainAllButton.hasAttribute('disabled') || 
+                              explainAllButton.disabled ||
+                              explainAllButton.classList.contains('disabled');
+            
+            // Verify button is visible (button only renders when answerState && !answerState.explainAll)
+            const isVisible = explainAllButton.offsetParent !== null;
+            
+            if (!isDisabled && isVisible) {
+              // Both conditions met: answer state exists and button is enabled
+              break;
+            }
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, 100));
+          retries++;
+        }
+        
+        if (explainAllButton && !explainAllButton.disabled && explainAllButton.offsetParent !== null) {
           // Auto-scroll the button into view before highlighting
           explainAllButton.scrollIntoView({ 
             behavior: "smooth", 
@@ -277,6 +307,8 @@ export default function DemoOverlay() {
               setHighlightedElement(explainAllButton);
             });
           });
+        } else {
+          console.warn("[Demo] Explain All button not enabled or answer state missing");
         }
       } catch (err) {
         console.warn("[Demo] Explain All button not found:", err);
