@@ -116,7 +116,9 @@ export default function MCQDeckView({ deckId, goBack }) {
 
         for (const row of q.options_full) {
             byLetter[row.letter] = row;
-            byTextNorm[normalize(row.option_text)] = row;
+            // Handle both option_text (from backend) and text (from demo data)
+            const optionText = row.option_text || row.text || "";
+            byTextNorm[normalize(optionText)] = row;
         }
 
         return { byLetter, byTextNorm };
@@ -419,9 +421,14 @@ export default function MCQDeckView({ deckId, goBack }) {
         const letter = LETTERS[i];
         const correctLetter = answerState.correctLetter;
 
+        // Always show correct option in green when answer exists
         if (letter === correctLetter) return "correct";
-        if (letter === answerState.selectedLetter && answerState.isCorrect === false)
+        
+        // Show selected wrong option in red
+        if (letter === answerState.selectedLetter && answerState.isCorrect === false) {
             return "wrong";
+        }
+        
         return "idle";
     }
 
@@ -510,8 +517,37 @@ export default function MCQDeckView({ deckId, goBack }) {
         if (typeof window !== "undefined") {
             // Expose handleSelect for Step 10
             window.demoMcqSelectOption = (optText) => {
-                if (q && !answerState && !reviewMode) {
-                    handleSelect(optText);
+                if (!q || answerState || reviewMode) return;
+                
+                // Try to use the real handleSelect first
+                // But if it fails (e.g., option not found in lookup), directly seed state
+                const selectedRow = optionLookup?.byTextNorm?.[normalize(optText)] || 
+                                  q.options_full?.find(opt => {
+                                      const optTextNorm = normalize(opt.text || opt.option_text || "");
+                                      return optTextNorm === normalize(optText);
+                                  });
+                
+                if (selectedRow) {
+                    // Directly set answer state - this ensures state is always set in demo
+                    setAnswers((prev) => ({
+                        ...prev,
+                        [q.id]: {
+                            selectedText: optText,
+                            selectedLetter: selectedRow.letter,
+                            isCorrect: !!selectedRow.is_correct,
+                            correctLetter: q.correct_option_letter ?? null,
+                            explanationSelected: selectedRow.explanation || "",
+                            timeSpent: 0,
+                            explainAll: false,
+                        },
+                    }));
+                } else {
+                    // Fallback: try handleSelect if direct lookup fails
+                    try {
+                        handleSelect(optText);
+                    } catch (err) {
+                        console.warn("[Demo] Failed to select option:", err);
+                    }
                 }
             };
 
