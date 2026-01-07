@@ -263,6 +263,16 @@ export default function DemoOverlay() {
         // Wait for Explain All button to be rendered
         const explainAllButton = await waitForElement("[data-demo='mcq-explain-all-button']", 3000);
         if (explainAllButton) {
+          // Auto-scroll the button into view before highlighting
+          explainAllButton.scrollIntoView({ 
+            behavior: "smooth", 
+            block: "center",
+            inline: "nearest"
+          });
+          
+          // Wait for scroll to complete before highlighting
+          await new Promise(resolve => setTimeout(resolve, 200));
+          
           setHighlightedElement(explainAllButton);
         }
       } catch (err) {
