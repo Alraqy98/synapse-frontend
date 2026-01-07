@@ -3,6 +3,7 @@ import { apiMCQ } from "./apiMCQ";
 import { Send, ArrowLeft, Clock3, CheckCircle2, XCircle } from "lucide-react";
 import MCQEntryModal from "./MCQEntryModal";
 import { useDemo } from "../demo/DemoContext";
+import { DEMO_MCQ_DECK_ID } from "../demo/demoData/demoMcq";
 
 const LETTERS = ["A", "B", "C", "D", "E"];
 
@@ -377,6 +378,11 @@ export default function MCQDeckView({ deckId, goBack }) {
         }));
 
         // STEP B: Background backend sync (non-blocking)
+        // In demo mode, skip backend call
+        if (isDemo && deckId === DEMO_MCQ_DECK_ID) {
+            return; // Skip backend sync in demo mode
+        }
+
         // Fire backend call asynchronously - don't await
         const timeMs = timeSpent * 1000; // Convert seconds to milliseconds
         apiMCQ.answerMCQQuestion(q.id, selectedLetter, timeMs)
@@ -490,6 +496,46 @@ export default function MCQDeckView({ deckId, goBack }) {
         return null;
     }
 
+    // Expose handlers for demo mode programmatic triggering
+    useEffect(() => {
+        if (!isDemo || deckId !== DEMO_MCQ_DECK_ID) {
+            // Clean up window globals when not in demo mode
+            if (typeof window !== "undefined") {
+                delete window.demoMcqSelectOption;
+                delete window.demoMcqExplainAll;
+            }
+            return;
+        }
+
+        if (typeof window !== "undefined") {
+            // Expose handleSelect for Step 10
+            window.demoMcqSelectOption = (optText) => {
+                if (q && !answerState && !reviewMode) {
+                    handleSelect(optText);
+                }
+            };
+
+            // Expose explain all handler for Step 11
+            window.demoMcqExplainAll = () => {
+                if (q && answerState && !answerState.explainAll) {
+                    setAnswers((prev) => ({
+                        ...prev,
+                        [q.id]: {
+                            ...prev[q.id],
+                            explainAll: true,
+                        },
+                    }));
+                }
+            };
+        }
+
+        return () => {
+            if (typeof window !== "undefined") {
+                delete window.demoMcqSelectOption;
+                delete window.demoMcqExplainAll;
+            }
+        };
+    }, [isDemo, deckId, q, answerState, reviewMode]);
 
     // ---------------- Render ----------------
     if (loading) return <div className="text-muted">Loading…</div>;

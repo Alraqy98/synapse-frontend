@@ -5,6 +5,7 @@ import { useDemo } from "./DemoContext";
 import { getStep, getRequiredRoute } from "./demoScript";
 import { DEMO_FILE_ID, DEMO_IMAGE_ONLY_PAGE_INDEX } from "./demoData/demoFile";
 import { DEMO_SUMMARY_ID } from "./demoData/demoSummary";
+import { DEMO_MCQ_DECK_ID } from "./demoData/demoMcq";
 
 // DemoOverlay - Script Engine + Step Renderer
 // Handles step-specific highlights, overlay text, scripted actions, and strict interaction locking.
@@ -45,14 +46,34 @@ export default function DemoOverlay() {
         z-index: 10002;
       }
       
-      /* Step 9: Ensure MCQ question text and options are always visible above dimmed backdrop */
+      /* Step 9-11: Ensure MCQ question text and options are always visible above dimmed backdrop */
       [data-demo="mcq-question-text"] {
-        position: relative;
+        position: relative !important;
         z-index: 10001 !important;
+        background-color: transparent !important;
       }
       
       /* Ensure MCQ options container is also visible */
       [data-demo="mcq-option"] {
+        position: relative !important;
+        z-index: 10001 !important;
+      }
+      
+      /* Ensure MCQ explanation containers are visible */
+      [data-demo="mcq-explanation-container"] {
+        position: relative !important;
+        z-index: 10001 !important;
+      }
+      
+      /* Ensure parent containers don't clip z-index */
+      [data-demo="mcq-question-text"],
+      [data-demo="mcq-option"],
+      [data-demo="mcq-explanation-container"] {
+        isolation: isolate;
+      }
+      
+      /* Ensure explanation containers are visible */
+      [data-demo="mcq-explanation-container"] {
         position: relative;
         z-index: 10001 !important;
       }
@@ -187,6 +208,126 @@ export default function DemoOverlay() {
     }
   }, [isDemo, currentStep]);
 
+  // Step 9: Wait for MCQ question to appear, then highlight it
+  useEffect(() => {
+    if (!isDemo || currentStep !== 9) return;
+    if (!location.pathname.includes(`/mcq/${DEMO_MCQ_DECK_ID}`)) return;
+
+    const waitForQuestion = async () => {
+      try {
+        const questionText = await waitForElement("[data-demo='mcq-question-text']", 3000);
+        setHighlightedElement(questionText);
+      } catch (err) {
+        console.warn("[Demo] MCQ question text not found:", err);
+      }
+    };
+
+    const timer = setTimeout(waitForQuestion, 500);
+    return () => clearTimeout(timer);
+  }, [isDemo, currentStep, location.pathname]);
+
+  // Step 10: Programmatically select a wrong option (REAL UI change)
+  useEffect(() => {
+    if (!isDemo || currentStep !== 10) return;
+    if (!location.pathname.includes(`/mcq/${DEMO_MCQ_DECK_ID}`)) return;
+
+    const selectWrongOption = async () => {
+      try {
+        // Wait for question and options to be fully rendered
+        await waitForElement("[data-demo='mcq-question-text']", 3000);
+        await waitForElement("[data-demo='mcq-option']", 3000);
+        
+        // Wait a bit more to ensure handlers are exposed
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        // Find option B (index 1) - "Cavernous hemangioma" which is wrong
+        const wrongOption = document.querySelector("[data-demo='mcq-option'][data-demo-index='1']");
+        if (wrongOption) {
+          // Get the option text from the DOM
+          const optionTextElement = wrongOption.querySelector('.flex-1');
+          const optionText = optionTextElement?.textContent?.trim();
+          
+          if (optionText && typeof window !== "undefined" && window.demoMcqSelectOption) {
+            // Trigger the REAL handler - this will update UI state
+            window.demoMcqSelectOption(optionText);
+            
+            // Wait for UI to update, then highlight the selected (wrong) option
+            setTimeout(() => {
+              const updatedOption = document.querySelector("[data-demo='mcq-option'][data-demo-index='1']");
+              if (updatedOption) {
+                setHighlightedElement(updatedOption);
+              }
+            }, 400);
+          } else if (wrongOption) {
+            // Fallback: simulate click if handler not available
+            wrongOption.click();
+            setTimeout(() => {
+              setHighlightedElement(wrongOption);
+            }, 300);
+          }
+        }
+      } catch (err) {
+        console.warn("[Demo] Failed to select wrong option:", err);
+      }
+    };
+
+    const timer = setTimeout(selectWrongOption, 500);
+    return () => clearTimeout(timer);
+  }, [isDemo, currentStep, location.pathname]);
+
+  // Step 11: Programmatically trigger "Explain All" (REAL expansion)
+  useEffect(() => {
+    if (!isDemo || currentStep !== 11) return;
+    if (!location.pathname.includes(`/mcq/${DEMO_MCQ_DECK_ID}`)) return;
+
+    const triggerExplainAll = async () => {
+      try {
+        // Wait for answer state to exist (Step 10 must have completed)
+        // Check for selected option state
+        let retries = 0;
+        const maxRetries = 20; // 2 seconds max wait
+        while (retries < maxRetries) {
+          const hasAnswerState = document.querySelector("[data-demo='mcq-option']")?.classList.contains("border-red-400") ||
+                                 document.querySelector("[data-demo='mcq-option']")?.classList.contains("border-teal");
+          if (hasAnswerState || (typeof window !== "undefined" && window.demoMcqExplainAll)) {
+            break;
+          }
+          await new Promise(resolve => setTimeout(resolve, 100));
+          retries++;
+        }
+        
+        // Wait a bit more to ensure handlers are ready
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        // Trigger the REAL handler - this will expand all explanations
+        if (typeof window !== "undefined" && window.demoMcqExplainAll) {
+          window.demoMcqExplainAll();
+        } else {
+          // Fallback: find and click the "Explain All" button
+          const explainAllButton = Array.from(document.querySelectorAll('button')).find(
+            btn => btn.textContent?.includes('Explain All') || btn.textContent?.includes('Explain all')
+          );
+          if (explainAllButton) {
+            explainAllButton.click();
+          }
+        }
+        
+        // Wait for explanations to render, then highlight the first explanation container
+        setTimeout(() => {
+          const explanationContainers = document.querySelectorAll("[data-demo='mcq-explanation-container']");
+          if (explanationContainers.length > 0) {
+            setHighlightedElement(explanationContainers[0]);
+          }
+        }, 600);
+      } catch (err) {
+        console.warn("[Demo] Failed to trigger explain all:", err);
+      }
+    };
+
+    const timer = setTimeout(triggerExplainAll, 500);
+    return () => clearTimeout(timer);
+  }, [isDemo, currentStep, location.pathname]);
+
   // Update overlay text and highlight target when step changes
   useEffect(() => {
     if (!step) {
@@ -199,8 +340,9 @@ export default function DemoOverlay() {
 
     // Find and highlight target element (poll until found)
     // Skip Step 6 - handled programmatically by waitForResponse effect
-    // Skip Steps 8-11 - handled by MCQ demo effects
-    if (currentStep !== 6 && currentStep < 8 && step.highlight) {
+    // Skip Steps 8, 10-11 - handled by MCQ demo effects
+    // Step 9 is handled here
+    if (currentStep !== 6 && currentStep !== 8 && currentStep !== 10 && currentStep !== 11 && currentStep < 8 && step.highlight) {
       const findTarget = () => {
         const target = document.querySelector(step.highlight);
         if (target) {
@@ -211,6 +353,21 @@ export default function DemoOverlay() {
         }
       };
       findTarget();
+    }
+    
+    // Step 9: Wait for MCQ question to be rendered, then highlight it
+    if (currentStep === 9 && step.highlight) {
+      const findQuestion = async () => {
+        try {
+          const questionElement = await waitForElement("[data-demo='mcq-question-text']", 3000);
+          if (questionElement) {
+            setHighlightedElement(questionElement);
+          }
+        } catch (err) {
+          console.warn("[Demo] MCQ question not found:", err);
+        }
+      };
+      findQuestion();
     }
 
     // Auto-advance logic for Step 1 (when FileViewer becomes visible)
@@ -269,11 +426,10 @@ export default function DemoOverlay() {
     ? (() => {
         const rect = highlightedElement.getBoundingClientRect();
         
-        // Step 9: Exclude question text and options from dimmed backdrop
-        // We'll use CSS to ensure they're always visible, but we can also
-        // adjust the shadow to be less aggressive for MCQ steps
+        // Step 9-11: Exclude question text and options from dimmed backdrop
+        // Reduce shadow opacity for MCQ steps to ensure readability
         const isMCQStep = currentStep === 9 || currentStep === 10 || currentStep === 11;
-        const shadowOpacity = isMCQStep ? 0.5 : 0.7; // Less dimming for MCQ steps
+        const shadowOpacity = isMCQStep ? 0.4 : 0.7; // Less dimming for MCQ steps (0.4 as required)
         
         return {
           position: "absolute",
