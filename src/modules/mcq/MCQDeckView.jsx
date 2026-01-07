@@ -817,7 +817,9 @@ export default function MCQDeckView({ deckId, goBack }) {
                     </button>
 
                     <div className="flex gap-3">
-                        {/* ✅ Backend route is disabled, so don't show this button right now */}
+                        {/* PRIMARY Explain All button - ONLY button with data-demo="mcq-explain-all-button" */}
+                        {/* This button is in the MCQ action bar and only renders when answerState exists and explainAll is false */}
+                        {/* No other element in the DOM should have this selector */}
                         {answerState && !answerState.explainAll && (
                             <button
                                 className="btn btn-secondary"

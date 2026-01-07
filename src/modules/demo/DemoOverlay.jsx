@@ -270,10 +270,22 @@ export default function DemoOverlay() {
         const maxRetries = 60; // 6 seconds max wait (100ms intervals)
         
         while (retries < maxRetries) {
-          // Check if button exists (its existence means answerState exists)
-          explainAllButton = document.querySelector("[data-demo='mcq-explain-all-button']");
+          // Query for the PRIMARY Explain All button in the action bar
+          // This selector should ONLY exist on the action bar button (no duplicates)
+          const allButtons = document.querySelectorAll("[data-demo='mcq-explain-all-button']");
+          
+          // Ensure there's exactly one button with this selector (no duplicates)
+          if (allButtons.length > 1) {
+            console.warn("[Demo] Multiple Explain All buttons found, using first one");
+          }
+          
+          explainAllButton = allButtons.length > 0 ? allButtons[0] : null;
           
           if (explainAllButton) {
+            // Verify this is the action bar button (not a duplicate or wrong element)
+            const isInActionBar = explainAllButton.closest('.flex.gap-3') !== null ||
+                                  explainAllButton.textContent?.trim() === "Explain All";
+            
             // Check if button is enabled (not disabled)
             const isDisabled = explainAllButton.hasAttribute('disabled') || 
                               explainAllButton.disabled ||
@@ -282,8 +294,8 @@ export default function DemoOverlay() {
             // Verify button is visible (button only renders when answerState && !answerState.explainAll)
             const isVisible = explainAllButton.offsetParent !== null;
             
-            if (!isDisabled && isVisible) {
-              // Both conditions met: answer state exists and button is enabled
+            if (isInActionBar && !isDisabled && isVisible) {
+              // All conditions met: correct button, answer state exists, and button is enabled
               break;
             }
           }
