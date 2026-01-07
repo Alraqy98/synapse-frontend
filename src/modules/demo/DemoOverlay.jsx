@@ -270,10 +270,13 @@ export default function DemoOverlay() {
             inline: "nearest"
           });
           
-          // Wait for scroll to complete before highlighting
-          await new Promise(resolve => setTimeout(resolve, 200));
-          
-          setHighlightedElement(explainAllButton);
+          // Wait for layout stabilization after scroll using double requestAnimationFrame
+          // This ensures the bounding box is computed after reflow completes
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              setHighlightedElement(explainAllButton);
+            });
+          });
         }
       } catch (err) {
         console.warn("[Demo] Explain All button not found:", err);
