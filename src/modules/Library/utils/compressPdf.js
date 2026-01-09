@@ -35,15 +35,10 @@ export async function compressPdfFile(file, maxSizeBytes = 3 * 1024 * 1024) {
             }
         );
 
-        // Check if compressed file is still too large
-        if (compressedFile.size > maxSizeBytes) {
-            throw new Error(
-                `Unable to compress PDF below ${(maxSizeBytes / 1024 / 1024).toFixed(0)}MB. ` +
-                `Compressed size: ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB. ` +
-                `Please compress manually.`
-            );
-        }
-
+        // TEMP EXPERIMENT — size limits disabled to observe render cost
+        // Return compressed file even if it's still above maxSizeBytes
+        // Compression is optional, not required
+        
         return compressedFile;
     } catch (error) {
         // If compression fails, throw a readable error

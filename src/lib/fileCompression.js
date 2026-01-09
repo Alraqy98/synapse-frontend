@@ -78,42 +78,38 @@ export const compressImage = async (file, onProgress) => {
  * Validate file size and type before upload
  * @param {File} file - The file to validate
  * @returns {Object} - { isValid: boolean, error: string|null, canCompress: boolean }
+ * 
+ * TEMP EXPERIMENT — size limits disabled to observe render cost
+ * All files are now considered valid, compression is optional
  */
 export const validateFileForUpload = (file) => {
     if (!file) {
         return { isValid: false, error: 'No file selected', canCompress: false };
     }
 
-    const fileSizeMB = file.size / 1024 / 1024;
+    // TEMP EXPERIMENT — all files are valid regardless of size
+    // Compression is still attempted for images/PDFs > 3MB, but not required
 
-    // If file is <= 3MB, it's valid
+    // If file is <= 3MB, no compression needed
     if (file.size <= MAX_FILE_SIZE) {
         return { isValid: true, error: null, canCompress: false };
     }
 
-    // File is > 3MB - check type
+    // File is > 3MB - check if compression is possible (optional)
     if (isImageFile(file)) {
-        // Images can be compressed
-        return { isValid: false, error: null, canCompress: true };
+        // Images can be compressed (optional)
+        return { isValid: true, error: null, canCompress: true };
     }
 
     if (isPdfFile(file)) {
-        // PDFs can be compressed (using pdf-lib)
-        return { isValid: false, error: null, canCompress: true };
+        // PDFs can be compressed (optional)
+        return { isValid: true, error: null, canCompress: true };
     }
 
-    if (isOfficeFile(file)) {
-        return {
-            isValid: false,
-            error: 'File exceeds 3MB. Please reduce file size and try again.',
-            canCompress: false
-        };
-    }
-
-    // Other file types
+    // Office files and other types - valid but cannot be compressed
     return {
-        isValid: false,
-        error: 'File exceeds 3MB. Please reduce file size and try again.',
+        isValid: true,
+        error: null,
         canCompress: false
     };
 };

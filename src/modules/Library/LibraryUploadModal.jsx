@@ -52,19 +52,8 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null, e
             setError(null);
             setCompressionInfo(null);
             
-            // Validate file immediately
-            const validation = validateFileForUpload(selectedFile);
-            
-            if (!validation.isValid && !validation.canCompress) {
-                // File is invalid and cannot be compressed - show error immediately
-                setError(validation.error || 'File exceeds 3MB and cannot be compressed.');
-                setFile(null);
-                // Clear file input
-                if (fileInputRef.current) {
-                    fileInputRef.current.value = '';
-                }
-                return;
-            }
+            // TEMP EXPERIMENT — size limits disabled to observe render cost
+            // File validation no longer blocks uploads - all files are accepted
             
             setFile(selectedFile);
         }
@@ -73,22 +62,17 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null, e
     const handleUpload = async () => {
         if (!file) return;
 
-        // Validate file before proceeding
-        const validation = validateFileForUpload(file);
-        
-        if (!validation.isValid && !validation.canCompress) {
-            // File is invalid and cannot be compressed - block upload
-            setError(validation.error || 'File exceeds 3MB and cannot be compressed.');
-            return;
-        }
+        // TEMP EXPERIMENT — size limits disabled to observe render cost
+        // Compression is attempted but not required - upload proceeds even if compression fails
 
         setIsUploading(true);
         setError(null);
         
         try {
             let fileToUpload = file;
+            const validation = validateFileForUpload(file);
             
-            // Compress images that are > 3MB
+            // OPTIONAL: Attempt to compress images that are > 3MB (non-blocking)
             if (validation.canCompress && isImageFile(file)) {
                 setIsCompressing(true);
                 setCompressionProgress(0);
@@ -105,23 +89,23 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null, e
                         compressedSize: result.compressedSize
                     });
                 } catch (compressionError) {
-                    setIsCompressing(false);
-                    setError(compressionError.message || "Image compression failed. Please try a smaller image.");
-                    setIsUploading(false);
-                    return;
+                    // Compression failed - use original file, don't block upload
+                    console.warn("Image compression failed, using original file:", compressionError);
+                    fileToUpload = file;
+                    setCompressionInfo(null);
                 } finally {
                     setIsCompressing(false);
                 }
             }
             
-            // Compress PDFs that are > 3MB
+            // OPTIONAL: Attempt to compress PDFs that are > 3MB (non-blocking)
             if (validation.canCompress && isPdfFile(file) && file.type === "application/pdf") {
                 setIsCompressing(true);
                 setCompressionProgress(0);
                 
                 try {
                     const originalSize = file.size;
-                    setCompressionProgress(50); // Show progress indicator
+                    setCompressionProgress(50);
                     
                     const compressedFile = await compressPdfFile(file, 3 * 1024 * 1024);
                     
@@ -133,22 +117,16 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null, e
                         compressedSize: compressedFile.size
                     });
                 } catch (compressionError) {
-                    setIsCompressing(false);
-                    setError(compressionError.message || "Unable to compress PDF below 3 MB. Please compress manually.");
-                    setIsUploading(false);
-                    return;
+                    // Compression failed - use original file, don't block upload
+                    console.warn("PDF compression failed, using original file:", compressionError);
+                    fileToUpload = file;
+                    setCompressionInfo(null);
                 } finally {
                     setIsCompressing(false);
                 }
             }
             
-            // Final validation - ensure file is <= 3MB before upload
-            if (fileToUpload.size > 3 * 1024 * 1024) {
-                setError('File still exceeds 3MB after compression. Please use a smaller file.');
-                setIsUploading(false);
-                return;
-            }
-            
+            // TEMP EXPERIMENT — no size validation, upload proceeds regardless of file size
             // Upload the file (compressed or original)
             // Use selectedFolderId if folder selection is enabled, otherwise use parentFolderId prop
             const targetFolderId = enableFolderSelection ? selectedFolderId : parentFolderId;
@@ -238,9 +216,9 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null, e
                                             </span>
                                         )}
                                     </p>
-                                    {file.size > 3 * 1024 * 1024 && (isImageFile(file) || isPdfFile(file)) && (
+                                    {file.size > 3 * 1024 * 1024 && (
                                         <p className="text-yellow-400 text-xs">
-                                            File will be compressed before upload
+                                            Large files may take longer to process
                                         </p>
                                     )}
                                 </div>
@@ -250,7 +228,7 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null, e
                                 <UploadCloud size={40} className="text-muted mb-4" />
                                 <p className="font-medium text-white">Click to upload</p>
                                 <p className="text-sm text-muted mt-1">
-                                    PDF, Images, DOC, DOCX, PPT, PPTX, TXT (Max 3MB)
+                                    PDF, Images, DOC, DOCX, PPT, PPTX, TXT
                                 </p>
                             </>
                         )}

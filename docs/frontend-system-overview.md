@@ -1,625 +1,830 @@
+---
+Title: Synapse Frontend System Overview
+Version: v1.0 (Current Production State)
+Status: Factual Architecture Documentation
+Last Updated: January 2026
+---
+
 # Synapse Frontend System Overview
 
-**Document Version:** 1.0  
-**Last Updated:** 2025  
-**Purpose:** Technical overview for accelerator/investor review
+## Executive Summary
+
+This document provides a factual snapshot of the Synapse frontend architecture as it exists in production. It describes how users navigate the application, how state is managed, how data flows through the UI, and how the frontend communicates with backend services.
+
+**Scope:** This document describes ONLY what is currently implemented and available to users. It does not include planned features, experimental code, or deprecated functionality.
 
 ---
 
-## 1. Frontend Architecture
+## 1. Application Structure
 
 ### 1.1 Technology Stack
 
-- **Framework:** React 19.2.0 (functional components with hooks)
-- **Build Tool:** Vite 7.2.4
-- **Routing:** React Router DOM 7.11.0 (client-side routing)
-- **Styling:** Tailwind CSS 3.4.10 (utility-first CSS framework)
-- **Authentication:** Supabase Auth (@supabase/supabase-js 2.84.0)
-- **HTTP Client:** Axios 1.13.2 (with custom interceptor)
-- **PDF Rendering:** pdfjs-dist 5.4.394, react-pdf 10.2.0
-- **Math Rendering:** KaTeX 0.16.25 (with react-markdown, remark-math, rehype-katex)
-- **Icons:** lucide-react 0.554.0, react-icons 5.5.0
+- **Framework:** React 18+ (functional components with hooks)
+- **Routing:** React Router DOM v7.11.0 (client-side SPA)
+- **State Management:** Component-local state + React Context (no global store)
+- **Authentication:** Supabase Auth (email/password + OAuth callbacks)
+- **API Communication:** RESTful API calls via `fetch` with Supabase token
+- **Styling:** CSS modules + Tailwind CSS classes
+- **Build Tool:** Vite
 
-### 1.2 Project Structure
+### 1.2 Application Entry Point
+
+**File:** `src/main.jsx` → `src/App.jsx`
+
+**Root Component:** `App()` wraps `SynapseOS` with `DemoProvider`
+
+**Initial Flow:**
+1. App checks Supabase session on mount
+2. If authenticated → fetch profile → check onboarding status
+3. If not authenticated → show landing page
+4. If profile incomplete → show onboarding flow
+5. If profile complete → show main application
+
+### 1.3 Layout Structure
 
 ```
-src/
-├── App.jsx                    # Root component, routing, auth state
-├── main.jsx                   # React entry point
-├── components/                # Shared UI components
-│   ├── auth/                 # Authentication components
-│   ├── onboarding/           # Onboarding flow components
-│   ├── ErrorBoundary.jsx     # React error boundary
-│   └── UnifiedCard.jsx       # Reusable card component
-├── modules/                  # Feature modules
-│   ├── Library/             # File management
-│   ├── Tutor/               # AI chat interface
-│   ├── summaries/           # Summary generation & viewing
-│   ├── mcq/                 # MCQ deck management
-│   ├── flashcards/          # Flashcard deck management
-│   └── settings/            # User settings
-├── lib/                     # Core utilities
-│   ├── api.js               # Axios instance with auth interceptor
-│   ├── supabaseClient.js    # Supabase client configuration
-│   └── fileCompression.js    # File compression utilities
-└── styles.css               # Global styles
+┌─────────────────────────────────────────┐
+│  Header (Notifications + Profile)      │
+├──────────┬──────────────────────────────┤
+│          │                              │
+│ Sidebar  │  Main Content Area           │
+│ (Fixed)  │  (Routes)                    │
+│          │                              │
+│          │                              │
+└──────────┴──────────────────────────────┘
 ```
 
-### 1.3 Routing Model
+**Sidebar:**
+- Fixed left sidebar (80px width)
+- Navigation icons: Dashboard, Library, Tutor, Flashcards, MCQ, Summaries, OSCE, Oral Exam, Planner, Analytics, Settings
+- Always visible when authenticated
 
-- **Client-side routing:** All routes handled by React Router
-- **Route structure:**
-  - `/` → Redirects to `/tutor`
-  - `/library` → Library file grid
-  - `/library/:fileId` → File viewer with page navigation
-  - `/library/:fileId/page/:pageNumber` → File viewer at specific page
-  - `/tutor` → AI tutor chat interface
-  - `/summaries` → Summaries list
-  - `/summaries/:summaryId` → Summary viewer (route-level component)
-  - `/mcq` → MCQ decks list
-  - `/flashcards` → Flashcard decks list
-  - `/flashcards/:deckId` → Flashcard deck view
-  - `/settings` → Settings page
-  - Placeholder routes: `/osce`, `/oral`, `/planner`, `/analytics`
-- **Route protection:** Authentication check in `App.jsx` via Supabase session
-- **Deep linking:** Supported for files, summaries, MCQ decks, flashcard decks via notification clicks
+**Header:**
+- Fixed top bar (64px height)
+- Left: "Synapse Beta" branding
+- Right: Notifications bell + Profile avatar/name
 
-### 1.4 Component Architecture
-
-- **Functional components:** All components use React hooks (no class components except ErrorBoundary)
-- **Component composition:** Modular feature-based structure
-- **Shared components:** `UnifiedCard` used across Summaries, MCQ, Flashcards for consistent UI
-- **Error boundaries:** `ErrorBoundary` wraps main route content to catch render-time crashes
+**Main Content:**
+- Scrollable content area (flex-1)
+- Routes render within this area
+- Modals render as overlays
 
 ---
 
-## 2. Core User Flows
+## 2. Routing & Navigation
 
-### 2.1 Authentication & Onboarding
+### 2.1 Route Structure
+
+**Root Route:**
+- `/` → Redirects to `/dashboard`
+
+**Authentication Routes:**
+- `/auth/callback` → OAuth callback handler (special case, renders before main app)
+
+**Main Application Routes:**
+- `/dashboard` → Dashboard page (home)
+- `/library` → Library file grid
+- `/library/:fileId` → FileViewer (file detail view)
+- `/library/:fileId/page/:pageNumber` → FileViewer (specific page)
+- `/tutor` → Standalone Tutor/Astra chat page
+- `/summaries` → Summaries list
+- `/summaries/:summaryId` → Summary viewer
+- `/mcq` → MCQ decks list
+- `/mcq/:deckId` → MCQ deck viewer (route-based)
+- `/flashcards` → Flashcards decks list
+- `/flashcards/:deckId` → Flashcard deck viewer (route-based)
+- `/settings` → Settings page
+- `/osce`, `/oral`, `/planner`, `/analytics` → Placeholder pages ("Coming Soon")
+
+**Route Protection:**
+- All routes except `/auth/callback` require authentication
+- Unauthenticated users → redirected to landing page
+- Incomplete profile → redirected to onboarding
+
+### 2.2 Navigation Patterns
+
+**Sidebar Navigation:**
+- Click sidebar icon → `navigate()` to route
+- Active route highlighted with accent color
+- URL updates immediately
+
+**Deep Linking:**
+- ✅ Supported: Library files, Summaries, MCQ decks, Flashcard decks
+- ✅ Notification clicks navigate to deep links
+- ✅ Browser back/forward works for route-based navigation
+- ✅ URL updates on page navigation (FileViewer page changes)
+
+**State-Driven Navigation:**
+- Auth screens (landing, signup, login, onboarding) use component state, not routes
+- Modal state managed in `App.jsx` (centralized modal state)
+
+---
+
+## 3. Core Modules
+
+### 3.1 Library Module
+
+**Route:** `/library`, `/library/:fileId`, `/library/:fileId/page/:pageNumber`
+
+**Components:**
+- `LibraryPage.jsx` - Main container (handles routing, file selection)
+- `LibraryGrid.jsx` - File grid display
+- `LibraryCard.jsx` - Individual file card
+- `LibraryFilters.jsx` - Filter by category/type
+- `FileViewer.jsx` - Full-screen file viewer (rendered within LibraryPage)
+- `LibraryUploadModal.jsx` - File upload interface
+
+**State Management:**
+- `items` - Array of library items (files + folders)
+- `currentFolder` - Currently selected folder (null = root)
+- `activeFilter` - Current filter ("All", "PDFs", "Images", etc.)
+- `selectedFile` - Currently open file (for FileViewer)
+- Local state only, no global store
+
+**Key Features:**
+- Folder navigation (breadcrumbs)
+- File filtering by type
+- File upload with folder selection
+- File operations (rename, move, delete, change category)
+- Polling for processing files (30s interval while files are rendering)
+
+**API Calls:**
+- `getLibraryItems(filter, folderId)` - Fetch files/folders
+- `getItemById(fileId)` - Fetch single file with page contents
+- `deleteItem(id)` - Delete file/folder
+- `moveItem(id, targetFolderId)` - Move to folder
+- `performLibraryAction(action, params)` - Generic action handler
+
+**File Processing States:**
+- Files polled every 30s while `render_state.status !== "completed"` OR `ocr_status !== "completed"`
+- Terminal states: both must be "completed" for file to be considered ready
+
+---
+
+### 3.2 FileViewer Module
+
+**Route:** `/library/:fileId` (rendered within LibraryPage)
+
+**Components:**
+- `FileViewer.jsx` - Main viewer component
+- `PdfJsPage.jsx` - PDF.js page renderer (fallback)
+- `DemoAstraChat.jsx` - Demo-only chat (isolated from backend)
+- Generation modals: `GenerateSummaryModal`, `GenerateMCQModal`, `GenerateFlashcardsModal`
+
+**State Management:**
+- `activePage` - Current page number (synced with URL)
+- `totalPages` - PDF page count (from PDF.js)
+- `fileSessionId` - Tutor session ID (stored in localStorage per file)
+- `chatMessages` - Chat message array (local state)
+- `renderedImageUrl` - Cached rendered page image URL
+- `relatedSummary/MCQ/Flashcard` - Generation status tracking
+
+**Key Features:**
+- Page navigation (Previous/Next, page input, keyboard shortcuts)
+- Page rendering priority:
+  1. Rendered PNG URL (from backend)
+  2. `image_url` from `page_contents` (backend-provided)
+  3. PDF.js fallback (client-side rendering from `signed_url`)
+- File-specific Astra chat (session per file)
+- Text selection → "Ask Astra" bubble
+- Quick actions bar: Generate Summary, Generate MCQ, Generate Flashcards
+- Generation status polling (checks for completed summaries/MCQs/flashcards)
+
+**Astra Chat Integration:**
+- Session ID stored in `localStorage`: `synapse_file_session_${file.id}`
+- Messages fetched on mount if session exists
+- Chat sends `fileId` + `page` number to backend
+- Backend receives page image for vision context
+
+**API Calls:**
+- `getItemById(fileId)` - Fetch file with page contents
+- `sendMessageToTutor({ sessionId, message, fileId, page })` - Send chat message
+- `createNewSession(title)` - Create new tutor session
+- `getSessionMessages(sessionId)` - Load chat history
+- `apiSummaries.getAllSummaries()` - Check for related summary
+- `apiMCQ.getMCQDecks()` - Check for related MCQ
+- `getFlashcardDecksByFile(fileId)` - Check for related flashcards
+
+---
+
+### 3.3 Tutor/Astra Module
+
+**Route:** `/tutor`
+
+**Components:**
+- `TutorPage.jsx` - Main container
+- `ChatSidebar.jsx` - Session list (left panel)
+- `ChatWindow.jsx` - Chat interface (right panel)
+- `MessageBubble.jsx` - Message display component
+
+**State Management:**
+- `sessions` - Array of tutor sessions
+- `selectedSessionId` - Currently active session
+- `messages` - Messages for selected session
+- `isTyping` - Loading state for AI response
+- All state is component-local
+
+**Key Features:**
+- Standalone chat interface (no file context)
+- Session management (create, select, delete, rename)
+- Message history loaded on session select
+- Streaming responses (real-time display)
+- No auto-selection of sessions (sidebar starts empty)
+
+**API Calls:**
+- `getAllSessions()` - Fetch user's sessions
+- `createNewSession(title)` - Create new session
+- `getSessionMessages(sessionId)` - Load messages for session
+- `sendMessageToTutor({ sessionId, message })` - Send message (no fileId/page)
+- `deleteSession(sessionId)` - Delete session
+- `renameSession(sessionId, newTitle)` - Rename session
+
+**Differences from FileViewer Chat:**
+- FileViewer chat: file-specific, includes `fileId` + `page` in payload
+- TutorPage chat: standalone, no file context
+
+---
+
+### 3.4 Summaries Module
+
+**Route:** `/summaries`, `/summaries/:summaryId`
+
+**Components:**
+- `SummariesTab.jsx` - Summary list view
+- `SummaryCard.jsx` - Individual summary card
+- `SummaryViewer.jsx` - Summary detail view (rendered when `summaryId` in URL)
+- `GenerateSummaryModal.jsx` - Generation modal
+- `DemoSummaryChat.jsx` - Demo-only chat (isolated from backend)
+
+**State Management:**
+- `summaries` - Array of summaries (fetched on mount)
+- `selectedSummary` - Currently viewed summary (from URL param)
+- `messages` - Chat messages for summary (local state)
+- `currentSessionId` - Tutor session ID for summary chat
+
+**Key Features:**
+- Summary list with cards (title, file name, created date)
+- Summary viewer with structured sections
+- Text highlighting → "Ask Astra" bubble
+- Summary-specific Astra chat (context-aware)
+- Deep linking via notification clicks
+
+**Astra Chat Integration:**
+- Selection-based: User highlights text → clicks "Ask Astra" → sends selection + summary context
+- Summary-aware: Backend receives `summaryId` + `selectionText`
+- Session per summary (stored in component state)
+
+**API Calls:**
+- `getAllSummaries()` - Fetch all summaries
+- `getSummary(summaryId)` - Fetch single summary
+- `sendSummaryMessageToTutor({ sessionId, message, summaryId, selectionText })` - Send summary chat
+- `createNewSession(title)` - Create summary chat session
+
+---
+
+### 3.5 MCQ Module
+
+**Route:** `/mcq`, `/mcq/:deckId`
+
+**Components:**
+- `MCQTab.jsx` - MCQ decks list
+- `MCQDeckView.jsx` - MCQ exam interface
+- `MCQEntryModal.jsx` - Resume/restart modal
+- `GenerateMCQModal.jsx` - Generation modal
+
+**State Management:**
+- `questions` - Array of questions (fetched on deck open)
+- `index` - Current question index
+- `answers` - Object keyed by question ID: `{ [questionId]: { selectedLetter, isCorrect, correctLetter, ... } }`
+- `progress` - Backend progress object (`status`, `last_question_index`, etc.)
+- `finished` - Boolean (all questions answered)
+- `reviewMode` - Boolean (reviewing completed exam)
+- `elapsed` - Time spent on current question
+
+**Progress Resumption:**
+1. On deck open: Call `/ai/mcq/decks/:id/start`
+2. Backend returns `progress` object:
+   - `status: "in_progress" | "completed" | null`
+   - `last_question_index: number` (last answered question)
+3. If progress exists → show entry modal (Continue/Retake Mistakes/Restart)
+4. If user continues → resume at `last_question_index + 1`
+5. Load existing answers from `questions[].user_answer` (backend-provided)
+6. Restore answer state: `answers[questionId] = { selectedLetter, isCorrect, ... }`
+
+**Key Features:**
+- Question-by-question navigation (Previous/Next)
+- Answer selection → immediate feedback (red/green)
+- "Explain All" button → expands explanations for all options
+- Timer per question (tracks time spent)
+- Review mode: Review all questions or only mistakes
+- Optimistic UI: Answer state updated immediately, backend sync in background
+
+**API Calls:**
+- `getMCQDecks()` - Fetch all MCQ decks
+- `getMCQQuestions(deckId)` - Fetch questions for deck
+- `startMCQDeck(deckId)` - Initialize or get progress
+- `answerMCQQuestion(deckId, questionId, optionLetter)` - Submit answer
+- `resetMCQDeck(deckId)` - Reset progress
+- `retakeWrongMCQ(deckId)` - Retake only wrong answers
+
+**Answer State Structure:**
+```javascript
+answers[questionId] = {
+  selectedText: string,
+  selectedLetter: string,
+  isCorrect: boolean,
+  correctLetter: string,
+  explanationSelected: string,
+  timeSpent: number,
+  explainAll: boolean
+}
+```
+
+---
+
+### 3.6 Flashcards Module
+
+**Route:** `/flashcards`, `/flashcards/:deckId`
+
+**Components:**
+- `FlashcardsTab.jsx` - Flashcard decks list
+- `DeckView.jsx` - Deck viewer (card list)
+- `CardViewer.jsx` - Individual card viewer
+- `ReviewScreen.jsx` - Review mode (spaced repetition)
+- `GenerateFlashcardsModal.jsx` - Generation modal
+
+**State Management:**
+- `decks` - Array of flashcard decks
+- `cards` - Array of cards for current deck
+- `index` - Current card index
+- `view` - View state: "list" | "deck" | "review"
+- `deckId` - Currently selected deck ID
+
+**Progress Resumption:**
+- Flashcards do NOT have progress resumption
+- Each deck is a collection of cards
+- Review mode tracks card familiarity but doesn't persist across sessions
+- User always starts from first card
+
+**Key Features:**
+- Deck list with cards count
+- Card viewer (front/back flip)
+- Review mode (spaced repetition algorithm)
+- Generation status polling (3s interval while `deck.generating === true`)
+
+**API Calls:**
+- `getDecks()` - Fetch all flashcard decks
+- `getDeck(deckId)` - Fetch single deck
+- `getDeckCards(deckId)` - Fetch cards for deck
+- `getFlashcardDecksByFile(fileId)` - Get decks for a file
+
+---
+
+### 3.7 Demo Tour Module
+
+**Route:** Integrated into all routes (overlay system)
+
+**Components:**
+- `DemoContext.jsx` - Demo state provider (React Context)
+- `DemoOverlay.jsx` - Overlay + script engine
+- `demoScript.js` - Step definitions
+- `demoApiAdapter.js` - API interception router
+- `demoApiRuntime.js` - Runtime interception flag
+- `demoData/` - Static demo data (files, MCQs, summaries, etc.)
+
+**State Management:**
+- `isDemo` - Boolean (demo active)
+- `currentStep` - Number (current step 1-13)
+- `allowedInteractions` - Object (phase: "strict" | "semi-guided")
+- Completion flag: `localStorage.synapse_demo_completed`
+
+**Entry Points:**
+1. Post-onboarding: Auto-offer (skippable, never auto-repeats)
+2. Manual CTA: "See how Synapse works" (dashboard)
+
+**Exit Points:**
+1. Primary CTA: "Upload your first file" → exits → navigates to `/library`
+2. Backdrop click → exits → navigates to `/dashboard`
+3. ESC key → exits → navigates to `/dashboard`
+
+**Key Features:**
+- Frontend-only (no backend calls, no DB writes)
+- API interception: All API calls short-circuited when `isDemo === true`
+- Static demo data: Files, MCQs, summaries, flashcards, notifications
+- Step-based script engine: 13 steps with highlights, overlay text, scripted actions
+- Interaction locking: Phase 1 (strict) vs Phase 2 (semi-guided)
+- Zero residue: All demo state cleared on exit
+
+**Demo Flow:**
+1. File conversion proof (Library → FileViewer)
+2. Image-only page demonstration
+3. Astra vision moment (instant image explanation)
+4. Quick actions (Summaries navigation)
+5. Summary viewer overview
+6. Highlight → Ask Astra (Summaries)
+7. Flashcards overview
+8. MCQ deck overview
+9. MCQ question display
+10. MCQ wrong answer selection
+11. MCQ Explain All available
+12. MCQ Explain All expanded
+13. Final CTA
+
+**API Interception:**
+- Library: `getLibraryItems()`, `getItemById()`
+- Tutor: `sendMessageToTutor()`, `sendSummaryMessageToTutor()`
+- MCQ: `getMCQDecks()`, `getMCQQuestions()`, `startMCQDeck()`, etc.
+- Summaries: `getAllSummaries()`, `getSummary()`
+- Flashcards: `getDecks()`, `getDeck()`
+- Notifications: `fetchNotifications()`
+
+---
+
+## 4. State Management Patterns
+
+### 4.1 Component-Local State
+
+**Pattern:** `useState` hooks in components
+
+**Usage:**
+- UI state (modals, dropdowns, inputs)
+- Loading states
+- Form data
+- Component-specific data (e.g., `activePage` in FileViewer)
+
+**Examples:**
+- `LibraryPage`: `items`, `currentFolder`, `activeFilter`
+- `FileViewer`: `activePage`, `chatMessages`, `fileSessionId`
+- `MCQDeckView`: `questions`, `index`, `answers`, `progress`
+
+### 4.2 React Context
+
+**Pattern:** `createContext` + `Provider` + `useContext`
+
+**Usage:**
+- Demo mode state (`DemoContext`)
+- No other global contexts currently
+
+**Demo Context API:**
+```javascript
+const { isDemo, currentStep, nextStep, exitDemo, startDemo } = useDemo();
+```
+
+### 4.3 localStorage Persistence
+
+**Pattern:** Direct `localStorage` access (no abstraction layer)
+
+**Usage:**
+- Auth token: `localStorage.access_token` (synced from Supabase session)
+- File session IDs: `localStorage.synapse_file_session_${fileId}`
+- Demo completion: `localStorage.synapse_demo_completed`
+
+**No Persistence For:**
+- MCQ progress (backend-only)
+- Flashcard review state (ephemeral)
+- Chat messages (backend-only)
+- UI preferences (not implemented)
+
+### 4.4 Server-Driven State
+
+**Pattern:** Fetch on mount, poll for updates
+
+**Usage:**
+- Library items (polled while processing)
+- Generation status (polled while generating)
+- Notifications (polled every 30s)
+- MCQ progress (fetched on deck open)
+
+**No Optimistic Updates For:**
+- File uploads (wait for backend confirmation)
+- Generation requests (wait for backend job creation)
+- MCQ answers (optimistic UI, but backend sync required)
+
+---
+
+## 5. User Flows
+
+### 5.1 Authentication & Onboarding
 
 **Flow:**
-1. **Landing page** → User sees marketing content
-2. **Sign up / Login** → Supabase email/password authentication
-3. **OTP verification** → Email OTP required for signup
-4. **Onboarding flow** → Multi-step form collecting:
+1. Landing page → User clicks "Sign Up" or "Log In"
+2. Sign up → Email/password → OTP verification → Profile creation
+3. Log in → Email/password → Session established
+4. Profile check → If missing `field_of_study` or `stage` → Onboarding
+5. Onboarding → Multi-step form:
    - Account type (student/professional)
    - Country
    - University
    - Year of study or specialty
    - Primary goals (multi-select)
    - Resource preferences
-5. **Profile creation** → Data saved to Supabase `profiles` table
-6. **Session persistence** → Access token stored in `localStorage`, auto-refresh enabled
+6. Profile saved → Main app access granted
 
-**Implementation:**
-- Auth state managed in `App.jsx` via `supabase.auth.onAuthStateChange()`
-- Onboarding data collected via controlled form components
-- Profile completeness check: `field_of_study` and `stage` must exist to skip onboarding
+**State-Driven (Not Routes):**
+- Landing, Sign Up, Log In, Onboarding use component state
+- Only `/auth/callback` is a route (OAuth redirects)
 
-### 2.2 Library & File Management
+### 5.2 File Upload & Viewing
 
 **Flow:**
-1. **File upload** → Drag-and-drop or click to upload (PDF, PPT, images)
-2. **File processing** → Backend renders pages and performs OCR
-3. **Status polling** → Frontend polls every 4 seconds until `render_state.status === "completed"` and `render_state.ocr_status === "completed"`
-4. **File viewing** → Click file to open `FileViewer` component
-5. **Page navigation** → URL-based page navigation (`/library/:fileId/page/:pageNumber`)
-6. **Folder organization** → Create folders, move files, rename items
+1. User navigates to `/library`
+2. Clicks "Upload" → `LibraryUploadModal` opens
+3. Selects file + folder → Upload starts
+4. File appears in library immediately (optimistic)
+5. File processing happens in background (polling every 30s)
+6. User clicks file card → `FileViewer` opens
+7. FileViewer loads file data + page contents
+8. User navigates pages → URL updates: `/library/:fileId/page/:pageNumber`
+9. User can chat with Astra (file-specific session)
+10. User can generate Summary/MCQ/Flashcards (modals)
 
-**Implementation:**
-- Files stored in Supabase Storage, metadata in `library_items` table
-- File readiness determined by `render_state` object from backend
-- Polling stops when all files reach terminal states (`completed`, `partial`, `failed`)
-- File viewer uses PDF.js to render pages as PNG images
+**Key Behaviors:**
+- Files accessible immediately after upload (no blocking)
+- Page rendering: Backend PNG → `image_url` → PDF.js fallback
+- Chat session persists per file (localStorage)
+- Generation status polled until complete
 
-### 2.3 AI Interaction (Tutor)
+### 5.3 Astra Chat (File Context)
 
 **Flow:**
-1. **Session management** → User creates/selects chat sessions
-2. **Message sending** → User types question, sends to `POST /ai/tutor/chat`
-3. **Streaming response** → Backend streams response, frontend displays incrementally
-4. **Message persistence** → Messages stored in backend, loaded on session select
-5. **Context awareness** → Tutor can reference current file/page if opened from FileViewer
+1. User opens file in FileViewer
+2. Chat sidebar appears on right
+3. First message → New session created → Session ID stored in localStorage
+4. Subsequent messages → Existing session used
+5. Messages include `fileId` + `page` number
+6. Backend receives page image for vision context
+7. User can select text → "Ask Astra" bubble appears
+8. Selection sent with file context
 
-**Implementation:**
-- Sessions stored in backend, loaded on mount
-- Messages fetched via `GET /ai/tutor/sessions/:sessionId/messages`
-- Session ID stored in `localStorage` for file-specific chats
-- Chat UI uses `MessageBubble` component for rendering
+**Session Management:**
+- One session per file: `synapse_file_session_${file.id}`
+- Session persists across page refreshes
+- Messages loaded on FileViewer mount if session exists
 
-### 2.4 Learning Modules
+### 5.4 Astra Chat (Summary Context)
 
-#### Summaries
-1. **Generation** → User selects file, clicks "Generate Summary", modal collects parameters
-2. **Backend processing** → `POST /ai/summaries/generate` triggers async generation
-3. **Notification** → Backend creates notification when complete
-4. **Viewing** → Click summary card opens `SummaryViewer` with full content
-5. **Chat integration** → Summary viewer includes chat sidebar for Q&A
+**Flow:**
+1. User navigates to `/summaries/:summaryId`
+2. SummaryViewer renders summary content
+3. User highlights text → "Ask Astra" bubble appears
+4. User clicks "Ask Astra" → Selection sent with `summaryId`
+5. Backend receives summary context + selection
+6. Response displayed in chat sidebar
 
-#### MCQ Decks
-1. **Generation** → User selects file, clicks "Generate MCQ", modal collects parameters
-2. **Backend processing** → `POST /ai/mcq/generate` triggers async generation
-3. **Notification** → Backend creates notification when complete
-4. **Viewing** → Click deck opens `MCQPlayer` for practice
-5. **Sharing** → Generate import code via `POST /ai/mcq/:id/share`
+**Session Management:**
+- One session per summary (component state, not persisted)
+- Session created on first message
+- Messages loaded on SummaryViewer mount if session exists
 
-#### Flashcard Decks
-1. **Generation** → User selects file, clicks "Generate Flashcards", modal collects parameters
-2. **Backend processing** → `POST /ai/flashcards/generate` triggers async generation
-3. **Notification** → Backend creates notification when complete
-4. **Viewing** → Click deck opens `DeckView`, then `ReviewScreen` for spaced repetition
-5. **Sharing** → Generate import code via `POST /ai/flashcards/:id/share`
+### 5.5 MCQ Exam Flow
 
-### 2.5 Import/Export Flow
+**Flow:**
+1. User navigates to `/mcq` → Sees deck list
+2. User clicks deck → Navigates to `/mcq/:deckId`
+3. `MCQDeckView` calls `/start` → Gets progress
+4. If progress exists → Entry modal (Continue/Retake Mistakes/Restart)
+5. If no progress → Load questions, start at question 0
+6. User answers question → Answer state updated immediately (optimistic)
+7. Backend sync happens in background
+8. User clicks "Next" → Advance to next question
+9. On last question → "Next" → Results screen
+10. User can review all questions or only mistakes
 
-**Export (Generate Import Code):**
-1. User clicks "Generate Import Code" in overflow menu
-2. Frontend calls `POST /ai/{module}/:id/share` (Summaries, MCQ, Flashcards)
-3. Backend returns `{ share_code: "SYN-XXXXX" }` or `{ code: "SYN-XXXXX" }`
-4. Modal displays code with copy-to-clipboard button
+**Progress Resumption:**
+- Backend tracks `last_question_index`
+- Frontend resumes at `last_question_index + 1`
+- Existing answers loaded from `questions[].user_answer`
+- Answer state restored: `answers[questionId] = { selectedLetter, isCorrect, ... }`
 
-**Import:**
-1. User clicks "Import" button in module tab
-2. Modal opens with code input field
-3. Frontend validates format: `/^SYN-[A-Z0-9]{5}$/i` (9 characters total)
-4. User pastes code, clicks "Import"
-5. Frontend calls `POST /ai/{module}/import` with `{ code }`
-6. Backend validates and creates item, frontend refreshes list
-7. Error messages sanitized via `sanitizeErrorMessage()` utility
+### 5.6 Generation Flow (Summary/MCQ/Flashcards)
+
+**Flow:**
+1. User opens file in FileViewer
+2. Clicks "Generate Summary" (or MCQ/Flashcards)
+3. Modal opens → User selects options → Submits
+4. Backend job created → Modal closes
+5. Frontend polls for status:
+   - Summary: Polls `getAllSummaries()` until summary appears
+   - MCQ: Polls `getMCQDecks()` until deck appears
+   - Flashcards: Polls `getDeck(deckId)` until `generating === false`
+6. When complete → Notification appears
+7. User clicks notification → Navigates to generated content
+
+**Polling Intervals:**
+- Summaries: Polled on FileViewer mount + when generation button clicked
+- MCQs: Polled on FileViewer mount + when generation button clicked
+- Flashcards: Polled every 3s while `deck.generating === true`
 
 ---
 
-## 3. State Management Strategy
+## 6. API Communication
 
-### 3.1 Local State (Component-Level)
+### 6.1 API Client Pattern
 
-**Pattern:** React `useState` hooks for component-specific state
-
-**Examples:**
-- `FileViewer`: `activePage`, `chatMessages`, `chatInput`, `isChatTyping`
-- `SummaryViewer`: `summary`, `loading`, `error`, `messages`, `sessionId`
-- `TutorPage`: `sessions`, `activeSessionId`, `isLoadingSessions`
-- `LibraryPage`: `items`, `activeFilter`, `currentFolder`, `selectedFile`
-
-**State lifecycle:**
-- Initialized on component mount
-- Updated via user interactions or API responses
-- Cleared on component unmount (no persistence unless explicitly stored)
-
-### 3.2 Global State (App-Level)
-
-**Pattern:** State lifted to `App.jsx` for cross-component sharing
-
-**Global state:**
-- `isAuthenticated` → Auth status
-- `profile` → User profile data from Supabase
-- `notifications` → Notification list (fetched from Supabase, polled every 30 seconds)
-
-**State synchronization:**
-- Auth state synced via `supabase.auth.onAuthStateChange()`
-- Profile fetched on auth change
-- Notifications polled while authenticated
-
-### 3.3 Server-Driven State
-
-**Pattern:** Backend is source of truth, frontend fetches on mount and polls for updates
-
-**Polling strategies:**
-- **File processing:** 4-second interval until terminal states reached
-- **Notifications:** 30-second interval while authenticated
-- **Generation status:** 4-second interval in `FileViewer` for related summaries/MCQ/flashcards
-
-**Data fetching:**
-- Initial load on component mount (`useEffect` with empty dependency array)
-- Refetch on route params change (`useEffect` with params in dependencies)
-- Manual refresh via user actions (delete, rename, import)
-
-### 3.4 Persistent State
-
-**Pattern:** `localStorage` for client-side persistence
-
-**Stored data:**
-- `access_token` → Supabase auth token (synced from session)
-- `synapse_file_session_{fileId}` → File-specific tutor session IDs
-- Supabase auth session (handled by Supabase client, stored in `localStorage`)
-
-**No global state management library:** No Redux, Zustand, or Context API for global state (except React Router context)
-
----
-
-## 4. Integration Points with Backend APIs
-
-### 4.1 API Client Configuration
-
-**Base setup:**
-- Axios instance in `src/lib/api.js`
-- Base URL: `import.meta.env.VITE_API_URL`
-- Auth interceptor: Attaches `Authorization: Bearer ${token}` from `localStorage`
-- Token source: `localStorage.getItem("access_token")` (synced from Supabase session)
-
-### 4.2 API Module Structure
-
-**Module-based organization:**
-- `src/modules/summaries/apiSummaries.js` → Summary CRUD, generation, sharing
-- `src/modules/mcq/apiMCQ.js` → MCQ deck CRUD, generation, sharing
-- `src/modules/flashcards/apiFlashcards.js` → Flashcard deck CRUD, generation, sharing
-- `src/modules/Tutor/apiTutor.js` → Session management, message sending
-- `src/modules/Library/apiLibrary.js` → File/folder CRUD, upload
-- `src/modules/settings/settings.api.js` → Settings management
-
-**API function patterns:**
-- Async functions returning `res.data`
-- Error handling via try/catch in calling components
-- Consistent error format: `err.response?.data?.error || err.response?.data?.message || err.message`
-
-### 4.3 Key API Endpoints Used
+**Base URL:** `import.meta.env.VITE_API_URL`
 
 **Authentication:**
-- Supabase Auth (client-side): `supabase.auth.signInWithPassword()`, `supabase.auth.getUser()`
-- Custom endpoints: `POST /auth/signup`, `POST /auth/verify-otp`, `POST /auth/login` (not currently used, Supabase handles auth)
+- Token retrieved from `localStorage.access_token` (synced from Supabase)
+- Token included in `Authorization: Bearer ${token}` header
+- Token refreshed automatically by Supabase client
 
-**File Management:**
-- `GET /library/items` → List files/folders
-- `POST /library/upload` → Upload file
-- `GET /library/items/:id` → Get file metadata
-- `DELETE /library/items/:id` → Delete file/folder
-- `PATCH /library/items/:id` → Update file/folder (rename, move, category)
+**API Modules:**
+- `apiLibrary.js` - Library operations
+- `apiTutor.js` - Tutor/Astra chat
+- `apiMCQ.js` - MCQ operations
+- `apiSummaries.js` - Summary operations
+- `apiFlashcards.js` - Flashcard operations
+- `settings.api.js` - Settings operations
 
-**AI Generation:**
-- `POST /ai/summaries/generate` → Generate summary
-- `POST /ai/mcq/generate` → Generate MCQ deck
-- `POST /ai/flashcards/generate` → Generate flashcard deck
+**Error Handling:**
+- Network errors logged to console
+- User-facing errors shown in UI (toast/alert patterns)
+- No global error boundary for API calls (component-level handling)
 
-**Sharing:**
-- `POST /ai/summaries/:id/share` → Generate import code for summary
-- `POST /ai/mcq/:id/share` → Generate import code for MCQ deck
-- `POST /ai/flashcards/:id/share` → Generate import code for flashcard deck
+### 6.2 Demo Mode Interception
 
-**Import:**
-- `POST /ai/summaries/import` → Import summary by code
-- `POST /ai/mcq/import` → Import MCQ deck by code
-- `POST /ai/flashcards/import` → Import flashcard deck by code
+**Pattern:** API calls check `isDemo` flag before executing
 
-**Tutor:**
-- `GET /ai/tutor/sessions` → List chat sessions
-- `POST /ai/tutor/sessions` → Create new session
-- `POST /ai/tutor/chat` → Send message (returns streaming response)
-- `GET /ai/tutor/sessions/:sessionId/messages` → Get session messages
+**Implementation:**
+- `demoApiIntercept({ method, url, body })` called at start of API functions
+- If `isDemo === true` → Returns static demo data
+- If `isDemo === false` → Proceeds with real API call
 
-**Notifications:**
-- Supabase Realtime: `supabase.from("notifications").select()` (polled every 30 seconds, not realtime subscription)
+**Intercepted Endpoints:**
+- `GET /library` → Demo file list
+- `GET /library/:id` → Demo file with pages
+- `POST /ai/tutor/chat` → Canned Astra response
+- `GET /ai/mcq/decks` → Demo MCQ deck
+- `GET /ai/summaries` → Demo summary
+- `GET /flashcards/decks` → Demo flashcard deck
+- `GET /notifications` → Demo notification
 
-### 4.4 Supabase Integration
-
-**Direct Supabase usage:**
-- **Auth:** `supabase.auth` for authentication
-- **Database:** `supabase.from("notifications").select()` for notifications
-- **Storage:** File uploads via Supabase Storage (handled by backend, frontend calls backend API)
-
-**Supabase client config:**
-- Session persistence: `persistSession: true`
-- Storage: `localStorage`
-- Auto-refresh: `autoRefreshToken: true`
+**Zero Backend Calls:**
+- When `isDemo === true`, no `fetch` calls are made
+- All data comes from static `demoData/` files
+- Network tab shows zero requests during demo
 
 ---
 
-## 5. Handling of Async States, Loading, Errors, and Edge Cases
+## 7. Progress Resumption
 
-### 5.1 Loading States
+### 7.1 MCQ Progress
 
-**Pattern:** Boolean state variables (`isLoading`, `isGenerating`, `isTyping`)
+**Backend-Driven:**
+- Progress stored in backend (`mcq_progress` table)
+- Frontend fetches progress on deck open: `/ai/mcq/decks/:id/start`
+- Progress object: `{ status, last_question_index, ... }`
 
-**UI indicators:**
-- Spinner icons or "Loading..." text
-- Disabled buttons during operations
-- Skeleton loaders: Not used (simple text/spinner only)
+**Resumption Logic:**
+1. Call `/start` → Get progress
+2. If `status === "in_progress"` → Show entry modal
+3. User clicks "Continue" → Resume at `last_question_index + 1`
+4. Load existing answers from `questions[].user_answer`
+5. Restore answer state: `answers[questionId] = { ... }`
 
-**Examples:**
-- `FileViewer`: `isChatTyping`, `isChatLoading`
-- `SummaryViewer`: `loading`, `isTyping`, `isLoading`
-- `LibraryPage`: `isLoading`, `isLoadingFile`
-- `TutorPage`: `isLoadingSessions`
+**No Local Persistence:**
+- Progress NOT stored in localStorage
+- Progress NOT stored in component state across refreshes
+- Always fetched from backend on deck open
 
-### 5.2 Error Handling
+### 7.2 Flashcard Progress
 
-**Pattern:** Try/catch blocks with user-facing error messages
+**No Progress Resumption:**
+- Flashcards do NOT have progress tracking
+- Each deck is a collection of cards
+- User always starts from first card
+- Review mode tracks familiarity but doesn't persist
 
-**Error display:**
-- Inline error messages in modals/forms
-- Error messages in chat (for Tutor/Astra failures)
-- Console logging for debugging
-- Error boundary for render-time crashes
+### 7.3 File Processing Progress
 
-**Error sources:**
-- API errors: `err.response?.data?.error || err.response?.data?.message || err.message`
-- Network errors: Caught and displayed generically
-- Validation errors: Frontend validation before API calls
+**Polling-Based:**
+- Files polled every 30s while processing
+- Terminal states: `render_state.status === "completed"` AND `ocr_status === "completed"`
+- Polling stops when both are "completed"
 
-**Error sanitization:**
-- `sanitizeErrorMessage()` utility removes SQL patterns, technical details
-- User-friendly messages for common errors (duplicate, not found, permission)
-
-### 5.3 Polling & Retries
-
-**Polling intervals:**
-- File processing: 4 seconds (until terminal states)
-- Notifications: 30 seconds (while authenticated)
-- Generation status: 4 seconds (in FileViewer for related items)
-
-**Retry logic:**
-- No exponential backoff (fixed intervals)
-- Polling stops when terminal states reached
-- No manual retry buttons (automatic polling only)
-
-**Terminal states:**
-- File render: `status === "completed"` AND `ocr_status === "completed"`
-- Generation: Determined by notification or backend status field
-
-### 5.4 Edge Cases Handled
-
-**Null/undefined data:**
-- `normalizeSummary()` function in `SummaryViewer` ensures all nested fields are arrays/objects
-- Optional chaining (`?.`) used throughout for nested property access
-- Render guards: `if (!summary) return <LoadingState />` before property access
-
-**Missing data:**
-- Default values for missing fields (e.g., `title ?? "Untitled summary"`)
-- Empty arrays for missing collections (e.g., `sections: Array.isArray(raw.sections) ? raw.sections : []`)
-
-**Route mismatches:**
-- `useParams()` values validated before use
-- Early returns if required params missing
-- Error boundary catches render crashes
-
-**Session management:**
-- Session ID stored in `localStorage` for file-specific chats
-- Session ID validated before API calls
-- Fallback to null if session not found
-
-**File readiness:**
-- `isFileReady()` utility checks `render_state` terminal states
-- Files accessible immediately after upload (no blocking)
-- Progress bars removed from Library (processing non-blocking)
+**No Resume:**
+- File processing is backend job
+- Frontend only polls for completion
+- No "resume" concept (job runs to completion)
 
 ---
 
-## 6. File Viewing and Interaction Logic
+## 8. Stable vs Evolving
 
-### 6.1 PDF Rendering
+### 8.1 Stable (Production-Ready)
 
-**Technology:** PDF.js (pdfjs-dist) via react-pdf wrapper
+**Core Modules:**
+- ✅ Library (file upload, viewing, management)
+- ✅ FileViewer (page rendering, chat, generation)
+- ✅ Tutor/Astra (standalone chat, file context chat, summary context chat)
+- ✅ Summaries (list, viewer, generation)
+- ✅ MCQs (list, exam, progress resumption)
+- ✅ Flashcards (list, viewer, review mode)
+- ✅ Demo Tour (13-step interactive demo)
+- ✅ Onboarding (multi-step profile collection)
+- ✅ Notifications (polling, deep linking)
 
-**Rendering approach:**
-- Pages rendered as PNG images (not native PDF rendering)
-- `PdfJsPage` component handles individual page rendering
-- PDF document cached in `pdfCache.js` to avoid re-fetching
+**Architecture:**
+- ✅ Routing structure (React Router)
+- ✅ State management patterns (component-local + Context)
+- ✅ API communication (RESTful + Supabase)
+- ✅ Authentication flow (Supabase Auth)
 
-**Page navigation:**
-- URL-based: `/library/:fileId/page/:pageNumber`
-- State sync: `activePage` synced with URL params
-- Navigation: Previous/Next buttons, page input, keyboard shortcuts
+### 8.2 Evolving (In Development)
 
-**Performance:**
-- Pages loaded on-demand (not all at once)
-- Caching prevents re-rendering same page
-- Image compression for large PDFs
+**Placeholder Modules:**
+- ⚠️ OSCE (`/osce` - "Coming Soon")
+- ⚠️ Oral Exam (`/oral` - "In Development")
+- ⚠️ Planner (`/planner` - "Coming Soon")
+- ⚠️ Analytics (`/analytics` - "Coming Soon")
 
-### 6.2 Context Awareness
+**Features:**
+- ⚠️ Settings page (basic structure, limited functionality)
+- ⚠️ Dashboard (recent activity, stats preview - basic implementation)
 
-**File context in Tutor:**
-- When opened from FileViewer, tutor chat includes file ID and page number
-- `POST /ai/tutor/chat` includes `file_id` and `page_number` in payload
-- Tutor can reference current file content in responses
-
-**Summary context:**
-- Summary viewer includes chat sidebar
-- Chat messages sent with summary ID for context
-- `POST /ai/tutor/chat` includes `summary_id` when chatting from summary
-
-### 6.3 Interactive Features
-
-**Text selection:**
-- User can select text on rendered pages
-- Selection bubble appears with "Ask Astra" button
-- Selected text sent to tutor chat with page context
-
-**Page navigation:**
-- Previous/Next buttons
-- Page number input
-- Keyboard shortcuts (arrow keys, page up/down)
-- URL updates on navigation (browser back/forward works)
-
-**Chat integration:**
-- FileViewer includes chat sidebar
-- Messages persisted to backend
-- Streaming responses displayed incrementally
-- Message history loaded on mount
-
-### 6.4 Generation Actions
-
-**From FileViewer:**
-- "Generate Summary" button opens modal
-- "Generate MCQ" button opens modal
-- "Generate Flashcards" button opens modal
-- Modals collect parameters (academic stage, specialty, goal)
-- Generation triggered via API, status polled until complete
-
-**Status tracking:**
-- `FileViewer` polls for related summaries/MCQ/flashcards every 4 seconds
-- Status displayed in action buttons (e.g., "Summary Ready" vs "Generating...")
-- Navigation to generated items when ready
+**Not Included:**
+- ❌ Image crop features
+- ❌ Future tutor redesigns
+- ❌ Oral exam UI (only placeholder exists)
 
 ---
 
-## 7. Deployment Environment and Runtime Assumptions
+## 9. Key UX Assumptions
 
-### 7.1 Build Configuration
+### 9.1 Navigation
 
-**Build tool:** Vite
-- Development server: `npm run dev`
-- Production build: `npm run build` (outputs to `dist/`)
-- Preview: `npm run preview`
+- Users navigate primarily via sidebar icons
+- Deep linking used for notifications and sharing
+- Browser back/forward works for route-based navigation
+- FileViewer page navigation updates URL (refresh-safe)
 
-**Environment variables:**
-- `VITE_API_URL` → Backend API base URL
-- `VITE_SUPABASE_URL` → Supabase project URL
-- `VITE_SUPABASE_ANON_KEY` → Supabase anonymous key
+### 9.2 State Persistence
 
-**Runtime assumptions:**
-- Environment variables must be set at build time
-- No runtime environment detection (all config via env vars)
+- Auth sessions persist across refreshes (Supabase)
+- File chat sessions persist (localStorage)
+- MCQ progress persists (backend)
+- No UI preferences persistence (not implemented)
 
-### 7.2 Deployment
+### 9.3 Performance
 
-**Platform:** Vercel (based on `vercel.json`)
+- Files accessible immediately after upload (optimistic)
+- Page rendering: Backend PNG preferred, PDF.js fallback
+- Generation jobs run in background (non-blocking)
+- Polling intervals: 30s (files), 3s (flashcards), on-demand (summaries/MCQs)
 
-**Deployment config:**
-- `vercel.json` includes SPA rewrite rule (all routes → `/index.html`)
-- Client-side routing requires server-side rewrite for deep links
+### 9.4 Error Handling
 
-**Static assets:**
-- Built files in `dist/` directory
-- Assets hashed for cache busting
-- No server-side rendering (pure SPA)
-
-### 7.3 Browser Requirements
-
-**Assumptions:**
-- Modern browser with ES6+ support
-- LocalStorage API available
-- Fetch API or Axios polyfill (Axios handles this)
-- PDF.js requires WebAssembly support (modern browsers)
-
-**No polyfills:** Assumes modern browser environment
-
-### 7.4 Network Assumptions
-
-**CORS:**
-- Backend must allow frontend origin
-- Credentials: `withCredentials: false` in Axios config
-
-**API availability:**
-- Backend API must be accessible at `VITE_API_URL`
-- Supabase must be accessible at `VITE_SUPABASE_URL`
-- No offline mode (requires network for all operations)
-
-### 7.5 Security Considerations
-
-**Token storage:**
-- Access tokens stored in `localStorage` (vulnerable to XSS)
-- Tokens synced from Supabase session
-- No token refresh logic in frontend (Supabase handles this)
-
-**API authentication:**
-- All API requests include `Authorization: Bearer ${token}` header
-- Token retrieved from `localStorage` on each request
-- No token expiration handling (assumes Supabase auto-refresh works)
-
-**Input validation:**
-- Frontend validates import codes (regex: `/^SYN-[A-Z0-9]{5}$/i`)
-- Backend validation is source of truth (frontend validation is UX only)
+- Network errors logged to console
+- User-facing errors shown in modals/alerts
+- No global error boundary (component-level)
+- API errors don't crash app (graceful degradation)
 
 ---
 
-## 8. Additional Technical Details
+## 10. Integration Points
 
-### 8.1 Code Organization Patterns
+### 10.1 Backend API
 
-**Module structure:**
-- Each feature module contains:
-  - API functions (`api*.js`)
-  - UI components (`.jsx` files)
-  - Utilities (if needed, in `utils/` subdirectory)
+**Base URL:** `VITE_API_URL` environment variable
 
-**Component naming:**
-- PascalCase for components
-- Descriptive names (e.g., `SummaryViewer`, `FileViewer`, `MCQPlayer`)
+**Endpoints:**
+- `/library/*` - File operations
+- `/ai/tutor/*` - Tutor/Astra chat
+- `/ai/mcq/*` - MCQ operations
+- `/ai/summaries/*` - Summary operations
+- `/flashcards/*` - Flashcard operations
 
-**File naming:**
-- Components: PascalCase (e.g., `SummaryViewer.jsx`)
-- Utilities: camelCase (e.g., `fileReadiness.js`)
-- API modules: camelCase (e.g., `apiSummaries.js`)
+**Authentication:**
+- Supabase token in `Authorization` header
+- Token refreshed automatically
 
-### 8.2 Styling Approach
+### 10.2 Supabase
 
-**Tailwind CSS:**
-- Utility-first classes
-- Custom color palette: `teal`, `muted`, `void` (defined in `tailwind.config.js`)
-- Dark theme by default (no theme switching)
+**Services Used:**
+- Auth (email/password, OAuth)
+- Database (profiles, notifications)
+- Storage (file uploads, signed URLs)
 
-**Component styling:**
-- Inline Tailwind classes (no CSS modules or styled-components)
-- Reusable button classes: `btn btn-primary`, `btn btn-secondary`
-- Consistent spacing via Tailwind utilities
+**Client:**
+- `src/lib/supabaseClient.js` - Singleton client instance
 
-### 8.3 Performance Considerations
+### 10.3 Demo Mode
 
-**Optimizations:**
-- PDF page caching to avoid re-rendering
-- Polling intervals optimized (4s for processing, 30s for notifications)
-- Conditional polling (stops when terminal states reached)
+**Isolation:**
+- Frontend-only (no backend integration)
+- API interception layer
+- Static demo data
+- Zero residue on exit
 
-**No optimizations:**
-- No code splitting (single bundle)
-- No lazy loading of routes
-- No memoization of expensive computations (React.memo, useMemo not used)
-
-### 8.4 Testing & Quality
-
-**Linting:**
-- ESLint configured (eslint.config.js)
-- React hooks rules enforced
-
-**No testing framework:** No unit tests, integration tests, or E2E tests currently
-
-**Error tracking:**
-- Console logging for errors
-- Error boundary for render crashes
-- No external error tracking service (Sentry, etc.)
-
----
-
-## 9. Known Limitations & Constraints
-
-### 9.1 State Management
-
-- No global state management library (Redux, Zustand, etc.)
-- State lifted to `App.jsx` when needed across components
-- No Context API for shared state (except React Router)
-
-### 9.2 Real-time Features
-
-- Notifications polled (not realtime subscription)
-- No WebSocket connections
-- Chat messages loaded on session select (not realtime)
-
-### 9.3 Offline Support
-
-- No offline mode
-- No service workers
-- All operations require network connection
-
-### 9.4 Browser Compatibility
-
-- Assumes modern browser (no IE11 support)
-- No polyfills for older browsers
-- WebAssembly required for PDF.js
+**Integration:**
+- `DemoProvider` wraps entire app
+- `DemoOverlay` renders on all routes when active
+- API modules check `isDemo` flag
 
 ---
 
 ## Conclusion
 
-The Synapse frontend is a React-based single-page application with client-side routing, Supabase authentication, and modular feature architecture. State management is component-local with server-driven data fetching and polling. The application handles file viewing, AI-powered content generation, and interactive learning modules with consistent error handling and loading states.
+This document provides a factual snapshot of the Synapse frontend architecture as it exists in production. The application is a React-based SPA with component-local state management, React Router for navigation, and Supabase for authentication and data storage. Core modules (Library, FileViewer, Tutor, MCQs, Flashcards, Summaries) are stable and production-ready, while some modules (OSCE, Oral Exam, Planner, Analytics) are placeholders for future development.
 
-**Key strengths:**
-- Modular, feature-based architecture
-- Consistent UI patterns via shared components
-- Robust error handling and edge case management
-- URL-based navigation for deep linking
-
-**Areas for future enhancement:**
-- Global state management for complex state
-- Real-time subscriptions for notifications
-- Code splitting and lazy loading for performance
-- Comprehensive testing suite
-
+The frontend communicates with backend services via RESTful APIs, handles progress resumption for MCQs, and provides an interactive demo tour system that operates entirely in the frontend without backend integration.
