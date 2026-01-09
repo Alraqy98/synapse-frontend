@@ -178,6 +178,11 @@ const StepUniversity = ({ value, onChange, onNext, onBack }) => {
 
     // Handle input focus
     const handleFocus = () => {
+        // Don't show dropdown if input is locked
+        if (isLocked) {
+            return;
+        }
+        
         if (searchQuery.trim().length >= 2 && results.length > 0) {
             setShowDropdown(true);
         } else if (hasSearched && results.length === 0) {
@@ -290,7 +295,7 @@ const StepUniversity = ({ value, onChange, onNext, onBack }) => {
                                     </button>
                                 );
                             })
-                        ) : hasSearched ? (
+                        ) : hasSearched && !isLocked ? (
                             <button
                                 type="button"
                                 onClick={() => handleSelect('custom')}
