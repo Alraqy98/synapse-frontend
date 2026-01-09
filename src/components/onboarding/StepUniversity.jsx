@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Building2, Loader2 } from 'lucide-react';
+import { Building2, Loader2, X } from 'lucide-react';
 
 const StepUniversity = ({ value, onChange, onNext, onBack }) => {
     const [searchQuery, setSearchQuery] = useState(value || '');
@@ -124,6 +124,22 @@ const StepUniversity = ({ value, onChange, onNext, onBack }) => {
         }
     };
 
+    // Handle clear button click
+    const handleClear = () => {
+        setSearchQuery('');
+        onChange('');
+        setIsLocked(false);
+        setResults([]);
+        setShowDropdown(false);
+        setHasSearched(false);
+        setSelectedIndex(-1);
+        
+        // Focus the input so user can type again
+        if (inputRef.current) {
+            inputRef.current.focus();
+        }
+    };
+
     // Handle keyboard navigation
     const handleKeyDown = (e) => {
         if (!showDropdown || results.length === 0) {
@@ -218,11 +234,30 @@ const StepUniversity = ({ value, onChange, onNext, onBack }) => {
                     onKeyDown={handleKeyDown}
                     onFocus={handleFocus}
                     placeholder="Enter your university or hospital"
-                    className="w-full bg-black/20 border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white placeholder-muted outline-none focus:border-teal focus:shadow-[0_0_15px_rgba(0,200,180,0.15)] transition-all"
+                    className={`w-full bg-black/20 border border-white/10 rounded-xl py-4 pl-12 text-white placeholder-muted outline-none focus:border-teal focus:shadow-[0_0_15px_rgba(0,200,180,0.15)] transition-all ${
+                        isLocked ? 'pr-10' : isLoading ? 'pr-10' : 'pr-4'
+                    }`}
                     disabled={isLocked}
                 />
                 {isLoading && (
                     <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 text-muted animate-spin" size={20} />
+                )}
+                {isLocked && !isLoading && (
+                    <button
+                        type="button"
+                        onClick={handleClear}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                handleClear();
+                            }
+                        }}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-muted hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-teal/50 rounded"
+                        aria-label="Clear selection"
+                        tabIndex={0}
+                    >
+                        <X size={18} />
+                    </button>
                 )}
 
                 {/* Dropdown */}
