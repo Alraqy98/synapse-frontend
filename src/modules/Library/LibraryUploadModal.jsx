@@ -248,11 +248,17 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null, e
                                 <UploadCloud size={40} className="text-muted mb-4" />
                                 <p className="font-medium text-white">Click to upload</p>
                                 <p className="text-sm text-muted mt-1">
-                                    PDF, Images, DOC, DOCX, PPT, PPTX, TXT
+                                    {/* TEMP SAFETY RAIL — reflects backend 25MB upload limit */}
+                                    PDF, Images, DOC, DOCX, PPT, PPTX, TXT — Max 25MB
                                 </p>
                             </>
                         )}
                     </div>
+                    
+                    {/* TEMP SAFETY RAIL — reflects backend 25MB upload limit */}
+                    <p className="text-xs text-muted text-center">
+                        Maximum file size: 25MB
+                    </p>
 
                     {/* Folder Selection (only when enabled and user has existing items) */}
                     {enableFolderSelection && hasExistingItems && (
