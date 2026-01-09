@@ -57,7 +57,19 @@ const StepUniversity = ({ value, onChange, onNext, onBack }) => {
                 }
 
                 const data = await response.json();
-                setResults(data.results || data || []);
+                
+                // Normalize API response to always get an array of universities
+                // Supports: direct array, { results: [...] }, { data: [...] }
+                let universities = [];
+                if (Array.isArray(data)) {
+                    universities = data;
+                } else if (Array.isArray(data?.results)) {
+                    universities = data.results;
+                } else if (Array.isArray(data?.data)) {
+                    universities = data.data;
+                }
+                
+                setResults(universities);
                 setShowDropdown(true);
                 setSelectedIndex(-1);
             } catch (error) {
