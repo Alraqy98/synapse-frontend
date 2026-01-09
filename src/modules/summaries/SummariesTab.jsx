@@ -8,6 +8,7 @@ import SummaryCard from "./SummaryCard";
 import GenerateSummaryModal from "./GenerateSummaryModal";
 import SummaryViewer from "./SummaryViewer";
 import { isValidCodeFormat } from "./utils/summaryCode";
+import SummaryFailurePopup from "../../components/SummaryFailurePopup";
 
 // Clean error messages - remove SQL error strings and show user-friendly messages
 const sanitizeErrorMessage = (errorMsg) => {
@@ -71,6 +72,7 @@ export default function SummariesTab() {
     const [importCode, setImportCode] = useState("");
     const [importError, setImportError] = useState(null);
     const [isImporting, setIsImporting] = useState(false);
+    const [failurePopup, setFailurePopup] = useState({ isOpen: false, isProcessing: false, onRetry: null });
 
     // Handle deep link from URL
     useEffect(() => {
@@ -146,8 +148,17 @@ export default function SummariesTab() {
                         // Remove generating placeholder
                         setSummaries(prev => prev.filter(s => s.id !== summary.id));
                         
-                        // Show user-safe error
-                        alert("Summary generation failed");
+                        // Show in-app failure popup instead of browser alert
+                        // Check if file is still processing (would need file data, but for now assume not processing on failure)
+                        setFailurePopup({
+                            isOpen: true,
+                            isProcessing: false,
+                            onRetry: () => {
+                                // Retry by opening generate modal with same file
+                                setFailurePopup({ isOpen: false, isProcessing: false, onRetry: null });
+                                // Could store file info for retry, but for now just close and let user retry manually
+                            }
+                        });
                     }
                     // If pending, continue polling
                 } catch (err) {
@@ -481,6 +492,14 @@ export default function SummariesTab() {
                         </div>,
                         document.body
                     )}
+
+                    {/* Summary Failure Popup */}
+                    <SummaryFailurePopup
+                        isOpen={failurePopup.isOpen}
+                        onClose={() => setFailurePopup({ isOpen: false, isProcessing: false, onRetry: null })}
+                        onRetry={failurePopup.onRetry || (() => setFailurePopup({ isOpen: false, isProcessing: false, onRetry: null }))}
+                        isProcessing={failurePopup.isProcessing}
+                    />
                 </>
             )}
         </div>

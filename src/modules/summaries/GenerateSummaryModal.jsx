@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { apiSummaries } from "./apiSummaries";
 import { getLibraryItems, getItemById, prepareFile } from "../Library/apiLibrary";
 import { ChevronDown, Check, X } from "lucide-react";
+import SummaryFailurePopup from "../../components/SummaryFailurePopup";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -103,6 +104,7 @@ export default function GenerateSummaryModal({
     const [loadingTree, setLoadingTree] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [errorMessage, setErrorMessage] = useState(null);
+    const [failurePopup, setFailurePopup] = useState({ isOpen: false, isProcessing: false });
 
     // Load library tree
     useEffect(() => {
@@ -278,7 +280,8 @@ export default function GenerateSummaryModal({
 
         if (!looksLikeUuid(selectedFileId)) {
             console.warn("Invalid file ID:", selectedFileId);
-            return alert("Invalid file selected.");
+            setErrorMessage("Invalid file selected.");
+            return;
         }
 
         const payload = {
@@ -317,14 +320,18 @@ export default function GenerateSummaryModal({
             // Fail loudly if route is wrong
             if (err.code === "ROUTE_NOT_FOUND" || err.status === 404) {
                 const errorMsg = err.message || "Summary generation endpoint not found. Please check backend configuration.";
-                alert(`❌ Error: ${errorMsg}`);
                 setErrorMessage(errorMsg);
+                // Show failure popup for route errors
+                setFailurePopup({ isOpen: true, isProcessing: false });
             } else if (err.code === "FILE_NOT_READY" || err.message?.includes("Preparing content")) {
+                // File is still processing - show "Still preparing" popup
+                setFailurePopup({ isOpen: true, isProcessing: true });
                 setErrorMessage(err.message || "Preparing content. This usually takes a few seconds.");
             } else {
+                // Actual failure - show failure popup
                 const errorMsg = err.response?.data?.error || err.message || "Summary generation failed.";
-                alert(`❌ Error: ${errorMsg}`);
                 setErrorMessage(errorMsg);
+                setFailurePopup({ isOpen: true, isProcessing: false });
             }
             setSubmitting(false);
         }
@@ -515,6 +522,21 @@ export default function GenerateSummaryModal({
                     </button>
                 </div>
             </div>
+
+            {/* Summary Failure Popup */}
+            <SummaryFailurePopup
+                isOpen={failurePopup.isOpen}
+                onClose={() => {
+                    setFailurePopup({ isOpen: false, isProcessing: false });
+                    setErrorMessage(null);
+                }}
+                onRetry={() => {
+                    setFailurePopup({ isOpen: false, isProcessing: false });
+                    setErrorMessage(null);
+                    // User can retry by clicking Generate again
+                }}
+                isProcessing={failurePopup.isProcessing}
+            />
         </div>
     );
 }

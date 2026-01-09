@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Plus, FolderPlus } from "lucide-react";
+import HelpPopup from "../../components/HelpPopup";
 
 const filters = ["All", "Lecture", "Notes", "Exams", "Book"];
 
@@ -17,14 +18,29 @@ const LibraryFilters = ({
             {/* Upload + New Folder */}
             <div className="p-4 border-b border-white/5 flex flex-col gap-2">
 
-                {/* Upload Button */}
-                <button
-                    onClick={onUpload}
-                    className="flex items-center justify-center gap-2 py-2 rounded-xl bg-teal/20 text-teal hover:bg-teal hover:text-black transition font-medium"
-                >
-                    <Plus size={16} />
-                    Upload
-                </button>
+                {/* Upload Button with Help */}
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={onUpload}
+                        className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl bg-teal/20 text-teal hover:bg-teal hover:text-black transition font-medium"
+                    >
+                        <Plus size={16} />
+                        Upload
+                    </button>
+                    <HelpPopup
+                        title="How Synapse Works"
+                        content={[
+                            "Upload a file",
+                            "Open it in File Viewer",
+                            "OCR & rendering run automatically",
+                            "When finished, Summaries / MCQs / Flashcards unlock"
+                        ]}
+                        footer="Processing runs in the background."
+                        storageKey="hasSeenFileFlowHelp"
+                        placement="bottom"
+                        autoShow={true}
+                    />
+                </div>
 
                 {/* Folder Button (ONLY here) */}
                 <button

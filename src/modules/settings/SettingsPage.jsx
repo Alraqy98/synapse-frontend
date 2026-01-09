@@ -1,9 +1,68 @@
-import React from "react";
+import React, { useState } from "react";
 import AnnouncementsPanel from "./AnnouncementsPanel";
 import FeedbackBox from "./FeedbackBox";
 import { supabase } from "../../lib/supabaseClient";
+import { Lock, Loader2 } from "lucide-react";
 
 const SettingsPage = ({ profile, onLogout }) => {
+    // Password change state
+    const [newPassword, setNewPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
+    const [passwordLoading, setPasswordLoading] = useState(false);
+    const [passwordError, setPasswordError] = useState(null);
+    const [passwordSuccess, setPasswordSuccess] = useState(false);
+
+    const handlePasswordChange = async (e) => {
+        e.preventDefault();
+        setPasswordError(null);
+        setPasswordSuccess(false);
+
+        // Client-side validation
+        if (!newPassword.trim() || !confirmPassword.trim()) {
+            setPasswordError("Both fields are required.");
+            return;
+        }
+
+        if (newPassword !== confirmPassword) {
+            setPasswordError("Passwords do not match.");
+            return;
+        }
+
+        if (newPassword.length < 6) {
+            setPasswordError("Password must be at least 6 characters.");
+            return;
+        }
+
+        setPasswordLoading(true);
+
+        try {
+            const { error } = await supabase.auth.updateUser({
+                password: newPassword
+            });
+
+            if (error) {
+                throw error;
+            }
+
+            // Success
+            setPasswordSuccess(true);
+            setNewPassword("");
+            setConfirmPassword("");
+            
+            // Clear success message after 3 seconds
+            setTimeout(() => {
+                setPasswordSuccess(false);
+            }, 3000);
+        } catch (err) {
+            console.error("Password update error:", err);
+            // Show user-friendly error message
+            const errorMessage = err.message || "Failed to update password. Please try again.";
+            setPasswordError(errorMessage);
+        } finally {
+            setPasswordLoading(false);
+        }
+    };
+
     const handleLogout = async () => {
         try {
             await supabase.auth.signOut();
@@ -78,6 +137,73 @@ const SettingsPage = ({ profile, onLogout }) => {
                         <div className="text-xs text-muted mt-1">
                             Stage: {profile?.stage || "—"}
                         </div>
+                    </div>
+
+                    {/* Account Security - Change Password */}
+                    <div className="panel p-6 space-y-4">
+                        <div className="flex items-center gap-2">
+                            <Lock size={18} className="text-teal" />
+                            <h3 className="text-sm font-semibold text-white">Account Security</h3>
+                        </div>
+
+                        <form onSubmit={handlePasswordChange} className="space-y-4">
+                            <div>
+                                <label className="block text-xs text-muted mb-2">
+                                    New Password
+                                </label>
+                                <input
+                                    type="password"
+                                    value={newPassword}
+                                    onChange={(e) => setNewPassword(e.target.value)}
+                                    placeholder="Enter new password"
+                                    className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-muted outline-none focus:border-teal transition-colors"
+                                    disabled={passwordLoading}
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs text-muted mb-2">
+                                    Confirm New Password
+                                </label>
+                                <input
+                                    type="password"
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    placeholder="Confirm new password"
+                                    className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-muted outline-none focus:border-teal transition-colors"
+                                    disabled={passwordLoading}
+                                />
+                            </div>
+
+                            {/* Error Message */}
+                            {passwordError && (
+                                <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+                                    <p className="text-red-400 text-xs">{passwordError}</p>
+                                </div>
+                            )}
+
+                            {/* Success Message */}
+                            {passwordSuccess && (
+                                <div className="bg-teal/10 border border-teal/30 rounded-lg p-3">
+                                    <p className="text-teal text-xs">Password updated successfully</p>
+                                </div>
+                            )}
+
+                            <button
+                                type="submit"
+                                disabled={passwordLoading || !newPassword.trim() || !confirmPassword.trim()}
+                                className="w-full py-2 px-4 bg-teal hover:bg-teal-neon text-black font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            >
+                                {passwordLoading ? (
+                                    <>
+                                        <Loader2 size={16} className="animate-spin" />
+                                        Updating...
+                                    </>
+                                ) : (
+                                    "Update Password"
+                                )}
+                            </button>
+                        </form>
                     </div>
                 </div>
             </div>
