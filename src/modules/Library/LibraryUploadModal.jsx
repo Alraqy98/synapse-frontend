@@ -6,6 +6,9 @@ import { compressImageIfNeeded, validateFileForUpload, isImageFile, isPdfFile } 
 import { compressPdfFile } from "./utils/compressPdf";
 import { getUploadErrorMessage } from "./utils/uploadErrorMessages";
 
+// TEMP SAFETY RAIL — mirrors backend 25MB upload limit
+const MAX_UPLOAD_SIZE = 25 * 1024 * 1024; // 25MB in bytes
+
 const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null, enableFolderSelection = false }) => {
     const [file, setFile] = useState(null);
     const [category, setCategory] = useState("Lecture");
@@ -52,8 +55,19 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null, e
             setError(null);
             setCompressionInfo(null);
             
+            // TEMP SAFETY RAIL — mirrors backend 25MB upload limit
+            if (selectedFile.size > MAX_UPLOAD_SIZE) {
+                setError('Maximum file size is 25MB.');
+                setFile(null);
+                // Clear file input
+                if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                }
+                return;
+            }
+            
             // TEMP EXPERIMENT — size limits disabled to observe render cost
-            // File validation no longer blocks uploads - all files are accepted
+            // Files ≤ 25MB are accepted unconditionally
             
             setFile(selectedFile);
         }
@@ -61,6 +75,12 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null, e
 
     const handleUpload = async () => {
         if (!file) return;
+
+        // TEMP SAFETY RAIL — mirrors backend 25MB upload limit
+        if (file.size > MAX_UPLOAD_SIZE) {
+            setError('Maximum file size is 25MB.');
+            return;
+        }
 
         // TEMP EXPERIMENT — size limits disabled to observe render cost
         // Compression is attempted but not required - upload proceeds even if compression fails
@@ -325,7 +345,7 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null, e
                     </button>
                     <button
                         onClick={handleUpload}
-                        disabled={!file || isUploading || isCompressing}
+                        disabled={!file || isUploading || isCompressing || (file && file.size > MAX_UPLOAD_SIZE)}
                         className="px-6 py-2 bg-teal hover:bg-teal-neon text-black font-bold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                         {(isUploading || isCompressing) ? (
