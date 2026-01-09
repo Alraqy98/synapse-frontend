@@ -188,20 +188,22 @@ const StepUniversity = ({ value, onChange, onNext, onBack }) => {
         };
     }, []);
 
-    // Sync searchQuery with value prop when value changes externally (e.g., form reset)
+    // Sync searchQuery with value prop only on initial mount or when value is reset externally
     useEffect(() => {
-        // Only sync if value is empty (reset case) or if we're locked (selection was made)
+        // Only sync if value is empty (form reset case)
         if (value === '' && searchQuery !== '') {
             setSearchQuery('');
             setIsLocked(false);
             setShowDropdown(false);
             setResults([]);
-        } else if (isLocked && value !== searchQuery) {
-            // If locked and value changed externally, sync
-            setSearchQuery(value);
+            setHasSearched(false);
         }
-    }, [value, isLocked]);
+        // Don't sync when locked - searchQuery is already set by handleSelect
+        // Don't sync when user is typing - searchQuery is updated by handleInputChange
+    }, [value]);
 
+    // Use searchQuery as single source of truth for input value
+    // When locked (after selection), use value prop; otherwise use searchQuery
     const displayValue = isLocked ? value : searchQuery;
 
     return (
