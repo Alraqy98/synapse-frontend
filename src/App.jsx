@@ -8,6 +8,8 @@ import LandingPage from "./components/LandingPage";
 import SignUp from "./components/auth/SignUp";
 import Login from "./components/auth/Login";
 import AuthCallback from "./components/auth/AuthCallback";
+import ForgotPassword from "./components/auth/ForgotPassword";
+import ResetPassword from "./components/auth/ResetPassword";
 import OnboardingFlow from "./components/onboarding/OnboardingFlow";
 import { supabase } from "./lib/supabaseClient";
 import SettingsPage from "./modules/settings/SettingsPage";
@@ -508,6 +510,15 @@ const SynapseOS = () => {
         }}
       />
     );
+  }
+
+  // Password recovery routes (accessible without authentication)
+  if (window.location.pathname === "/forgot-password") {
+    return <ForgotPassword />;
+  }
+
+  if (window.location.pathname === "/reset-password") {
+    return <ResetPassword />;
   }
 
   // Onboarding

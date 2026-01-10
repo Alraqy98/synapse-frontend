@@ -1,25 +1,36 @@
 import React, { useState } from 'react';
 import { Mail, Lock, ArrowRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import AuthInput from './AuthInput';
 import { supabase } from '../../lib/supabaseClient';
 import AppLogo from '../AppLogo';
 
 const Login = ({ onSuccess, onSwitchToSignup }) => {
+    const navigate = useNavigate();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const [failedAttempts, setFailedAttempts] = useState(0);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
+        setError(null);
 
         try {
-            const { data, error } = await supabase.auth.signInWithPassword({
+            const { data, error: signInError } = await supabase.auth.signInWithPassword({
                 email,
                 password,
             });
 
-            if (error) throw error;
+            if (signInError) {
+                setFailedAttempts(prev => prev + 1);
+                throw signInError;
+            }
+
+            // Reset failed attempts on success
+            setFailedAttempts(0);
 
             // Get full user data
             const { data: userData, error: userError } = await supabase.auth.getUser();
@@ -39,7 +50,9 @@ const Login = ({ onSuccess, onSwitchToSignup }) => {
             });
 
         } catch (err) {
-            alert(err.message);
+            // Show user-friendly error message
+            const errorMessage = err.message || "Invalid email or password. Please try again.";
+            setError(errorMessage);
         } finally {
             setLoading(false);
         }
@@ -67,23 +80,49 @@ const Login = ({ onSuccess, onSwitchToSignup }) => {
                             label="Email Address"
                             icon={Mail}
                             value={email}
-                            onChange={e => setEmail(e.target.value)}
+                            onChange={e => {
+                                setEmail(e.target.value);
+                                setError(null); // Clear error when user types
+                            }}
                             required
                         />
 
-                        <AuthInput
-                            label="Password"
-                            icon={Lock}
-                            type="password"
-                            value={password}
-                            onChange={e => setPassword(e.target.value)}
-                            required
-                        />
+                        <div>
+                            <AuthInput
+                                label="Password"
+                                icon={Lock}
+                                type="password"
+                                value={password}
+                                onChange={e => {
+                                    setPassword(e.target.value);
+                                    setError(null); // Clear error when user types
+                                }}
+                                required
+                            />
+                            
+                            {/* Inline error message */}
+                            {error && (
+                                <p className="mt-2 text-sm text-red-400">
+                                    {error}
+                                </p>
+                            )}
+
+                            {/* Forgot password link - only show after failed attempt */}
+                            {failedAttempts > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={() => navigate('/forgot-password')}
+                                    className="mt-2 text-sm text-teal hover:underline"
+                                >
+                                    Forgot password?
+                                </button>
+                            )}
+                        </div>
 
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full mt-6 bg-teal text-black font-bold py-4 rounded-xl"
+                            className="w-full mt-6 bg-teal text-black font-bold py-4 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {loading ? "Signing In..." : "Log In"}
                         </button>
