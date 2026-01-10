@@ -97,6 +97,9 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
     const [isChatTyping, setIsChatTyping] = useState(false);
     const [isChatLoading, setIsChatLoading] = useState(false);
     const [tutorMode, setTutorMode] = useState("page_locked"); // "page_locked" | "open"
+    const [aiToolsCollapsed, setAiToolsCollapsed] = useState(true); // AI Tools section collapsed by default
+    const [chatMetadataCollapsed, setChatMetadataCollapsed] = useState(true); // Chat metadata collapsed by default
+    const [modeSelectorCollapsed, setModeSelectorCollapsed] = useState(true); // Mode selector collapsed by default
     const chatEndRef = useRef(null);
     const messagesInitializedRef = useRef(false); // Track if messages have been loaded from backend
 
@@ -1034,46 +1037,47 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
 
             {/* RIGHT SIDEBAR */}
             <div className="w-[400px] bg-[#1a1d24] flex flex-col border-l border-white/5 overflow-hidden">
-                <div className="p-6 border-b border-white/5 flex items-center justify-between">
-                    <div>
-                        <h3 className="font-bold text-lg mb-1">AI Tools</h3>
-                        <p className="text-sm text-muted">Page-aware agent</p>
-                    </div>
-
+                {/* AI Tools Section - Collapsible */}
+                <div className="border-b border-white/5">
                     <button
-                        onClick={() => setToolsCollapsed((x) => !x)}
-                        className="text-muted hover:text-white"
+                        onClick={() => setAiToolsCollapsed((x) => !x)}
+                        className="w-full p-3 flex items-center justify-between hover:bg-white/5 transition-colors"
                     >
-                        {toolsCollapsed ? <ChevronDown /> : <ChevronUp />}
+                        <div className="text-left">
+                            <h3 className="text-xs font-medium text-white/70 uppercase tracking-wider">AI Tools</h3>
+                            <p className="text-[10px] text-muted mt-0.5">Page-aware agent</p>
+                        </div>
+                        {aiToolsCollapsed ? <ChevronDown size={14} className="text-muted" /> : <ChevronUp size={14} className="text-muted" />}
                     </button>
-                </div>
 
-                {toolsCollapsed ? (
-                    <div
-                        className="flex gap-3 p-3 border-b border-white/5"
-                        data-demo="quick-actions-bar"
-                        data-demo-layout="collapsed"
-                    >
-                        {[
-                            { id: "summary", icon: FileText },
-                            { id: "flashcards", icon: Zap },
-                            { id: "quiz", icon: HelpCircle },
-                        ].map((a) => (
-                            <button
-                                key={a.id}
-                                onClick={() => handleAction(a.id)}
-                                className="p-2 rounded-lg bg-[#0f1115] border border-white/10 hover:bg-white/5"
-                            >
-                                <a.icon size={18} />
-                            </button>
-                        ))}
-                    </div>
-                ) : (
-                    <div
-                        className="grid grid-cols-2 gap-3 p-4 border-b border-white/5"
-                        data-demo="quick-actions-bar"
-                        data-demo-layout="expanded"
-                    >
+                    {!aiToolsCollapsed && (
+                        <div className="px-3 pb-3">
+                            {toolsCollapsed ? (
+                                <div
+                                    className="flex gap-3"
+                                    data-demo="quick-actions-bar"
+                                    data-demo-layout="collapsed"
+                                >
+                                    {[
+                                        { id: "summary", icon: FileText },
+                                        { id: "flashcards", icon: Zap },
+                                        { id: "quiz", icon: HelpCircle },
+                                    ].map((a) => (
+                                        <button
+                                            key={a.id}
+                                            onClick={() => handleAction(a.id)}
+                                            className="p-2 rounded-lg bg-[#0f1115] border border-white/10 hover:bg-white/5"
+                                        >
+                                            <a.icon size={18} />
+                                        </button>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div
+                                    className="grid grid-cols-2 gap-3"
+                                    data-demo="quick-actions-bar"
+                                    data-demo-layout="expanded"
+                                >
                             {[
                             { 
                                 id: "summary", 
@@ -1142,63 +1146,90 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
                                 </button>
                             );
                         })}
-                    </div>
-                )}
+                                </div>
+                            )}
+                            <div className="mt-2 flex justify-end">
+                                <button
+                                    onClick={() => setToolsCollapsed((x) => !x)}
+                                    className="text-[10px] text-muted hover:text-white/70 transition-colors"
+                                >
+                                    {toolsCollapsed ? "Show details" : "Show icons only"}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
 
-                {/* CHAT */}
+                {/* CHAT - Always Visible */}
                 {isDemo ? (
                     <DemoAstraChat file={file} activePage={activePage} />
                 ) : (
                     <div className="flex-1 flex flex-col bg-[#0f1115] overflow-hidden">
-                        <div className="p-3 border-b border-white/5">
-                            <div className="text-xs text-muted uppercase tracking-wider flex justify-between items-center mb-3">
-                                <span>
-                                    Chat • <span className="text-white">{file.title}</span>
+                        {/* Chat Metadata Section - Collapsible */}
+                        <div className="border-b border-white/5">
+                            <button
+                                onClick={() => setChatMetadataCollapsed((x) => !x)}
+                                className="w-full p-2 flex items-center justify-between hover:bg-white/5 transition-colors"
+                            >
+                                <span className="text-xs text-muted uppercase tracking-wider">
+                                    Chat • <span className="text-white/70">{file.title}</span>
                                 </span>
-                                {fileSessionId && (
-                                    <span className="text-teal/60">
-                                        Session #{fileSessionId} • Page {activePage}
-                                    </span>
-                                )}
-                            </div>
-                            
-                            {/* Astra Mode Selector */}
-                            <div className="space-y-1.5">
-                                <div className="text-[10px] text-muted uppercase tracking-wider">
-                                    Astra mode
-                                </div>
                                 <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={() => setTutorMode("page_locked")}
-                                        className={`
-                                            flex flex-col items-start px-3 py-2 rounded-lg transition-all
-                                            ${tutorMode === "page_locked" 
-                                                ? "bg-teal/10 border border-teal/30 text-white" 
-                                                : "bg-white/5 border border-white/10 text-white/60 hover:bg-white/10 hover:text-white/80"
-                                            }
-                                        `}
-                                    >
-                                        <span className="text-xs font-medium">Focused tutor</span>
-                                        <span className="text-[10px] text-white/50 mt-0.5">Uses only this page</span>
-                                    </button>
-                                    <button
-                                        onClick={() => setTutorMode("open")}
-                                        className={`
-                                            flex flex-col items-start px-3 py-2 rounded-lg transition-all
-                                            ${tutorMode === "open" 
-                                                ? "bg-teal/10 border border-teal/30 text-white" 
-                                                : "bg-white/5 border border-white/10 text-white/60 hover:bg-white/10 hover:text-white/80"
-                                            }
-                                        `}
-                                    >
-                                        <span className="text-xs font-medium">Thinking wider</span>
-                                        <span className="text-[10px] text-white/50 mt-0.5">Adds outside medical context</span>
-                                    </button>
+                                    {fileSessionId && (
+                                        <span className="text-[10px] text-teal/60">
+                                            Session #{fileSessionId} • Page {activePage}
+                                        </span>
+                                    )}
+                                    {chatMetadataCollapsed ? <ChevronDown size={12} className="text-muted" /> : <ChevronUp size={12} className="text-muted" />}
                                 </div>
-                                <div className="text-[10px] text-white/40 italic">
-                                    You can switch this anytime.
+                            </button>
+                        </div>
+                            
+                        {/* Astra Mode Selector - Collapsible */}
+                        <div className="border-b border-white/5">
+                            <button
+                                onClick={() => setModeSelectorCollapsed((x) => !x)}
+                                className="w-full p-2 flex items-center justify-between hover:bg-white/5 transition-colors"
+                            >
+                                <span className="text-[10px] text-muted uppercase tracking-wider">Astra mode</span>
+                                {modeSelectorCollapsed ? <ChevronDown size={12} className="text-muted" /> : <ChevronUp size={12} className="text-muted" />}
+                            </button>
+                            
+                            {!modeSelectorCollapsed && (
+                                <div className="px-3 pb-3 space-y-1.5">
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => setTutorMode("page_locked")}
+                                            className={`
+                                                flex flex-col items-start px-3 py-2 rounded-lg transition-all
+                                                ${tutorMode === "page_locked" 
+                                                    ? "bg-teal/10 border border-teal/30 text-white" 
+                                                    : "bg-white/5 border border-white/10 text-white/60 hover:bg-white/10 hover:text-white/80"
+                                                }
+                                            `}
+                                        >
+                                            <span className="text-xs font-medium">Focused tutor</span>
+                                            <span className="text-[10px] text-white/50 mt-0.5">Uses only this page</span>
+                                        </button>
+                                        <button
+                                            onClick={() => setTutorMode("open")}
+                                            className={`
+                                                flex flex-col items-start px-3 py-2 rounded-lg transition-all
+                                                ${tutorMode === "open" 
+                                                    ? "bg-teal/10 border border-teal/30 text-white" 
+                                                    : "bg-white/5 border border-white/10 text-white/60 hover:bg-white/10 hover:text-white/80"
+                                                }
+                                            `}
+                                        >
+                                            <span className="text-xs font-medium">Thinking wider</span>
+                                            <span className="text-[10px] text-white/50 mt-0.5">Adds outside medical context</span>
+                                        </button>
+                                    </div>
+                                    <div className="text-[10px] text-white/40 italic">
+                                        You can switch this anytime.
+                                    </div>
                                 </div>
-                            </div>
+                            )}
                         </div>
 
                         <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
