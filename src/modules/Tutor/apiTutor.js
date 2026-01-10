@@ -142,6 +142,7 @@ export const sendMessageToTutor = async ({
     resourceSelection,
     fileId,
     page,
+    tutorMode,
 }) => {
     const token = await getToken();
 
@@ -163,6 +164,7 @@ export const sendMessageToTutor = async ({
         lastUserMessage,
         fileId,
         page,
+        tutorMode, // "page_locked" | "open" (optional, only for FileViewer)
         resourceSelection: resourceSelection || {
             scope: "all",
             file_ids: [],

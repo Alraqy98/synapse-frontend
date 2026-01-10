@@ -19,6 +19,8 @@ import {
     ChevronUp,
     LayoutGrid,
     Scroll,
+    Lock,
+    Globe,
 } from "lucide-react";
 
 import GenerateFlashcardsModal from "../flashcards/GenerateFlashcardsModal";
@@ -96,6 +98,7 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
     const [chatInput, setChatInput] = useState("");
     const [isChatTyping, setIsChatTyping] = useState(false);
     const [isChatLoading, setIsChatLoading] = useState(false);
+    const [tutorMode, setTutorMode] = useState("page_locked"); // "page_locked" | "open"
     const chatEndRef = useRef(null);
     const messagesInitializedRef = useRef(false); // Track if messages have been loaded from backend
 
@@ -637,6 +640,7 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
                 page: normalizedPage,          // FORCE number
                 image: pageImageForTutor,
                 screenshotUrl: pageImageForTutor,
+                tutorMode: tutorMode,         // "page_locked" | "open"
                 resourceSelection: {
                     scope: "selected",
                     file_ids: [file.id],
@@ -1148,15 +1152,35 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
                     <DemoAstraChat file={file} activePage={activePage} />
                 ) : (
                     <div className="flex-1 flex flex-col bg-[#0f1115] overflow-hidden">
-                        <div className="p-3 border-b border-white/5 text-xs text-muted uppercase tracking-wider flex justify-between">
+                        <div className="p-3 border-b border-white/5 text-xs text-muted uppercase tracking-wider flex justify-between items-center">
                             <span>
                                 Chat • <span className="text-white">{file.title}</span>
                             </span>
-                            {fileSessionId && (
-                                <span className="text-teal/60">
-                                    Session #{fileSessionId} • Page {activePage}
-                                </span>
-                            )}
+                            <div className="flex items-center gap-3">
+                                {/* Tutor Mode Toggle */}
+                                <button
+                                    onClick={() => setTutorMode(prev => prev === "page_locked" ? "open" : "page_locked")}
+                                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all text-xs text-white/70 hover:text-white"
+                                    title={tutorMode === "page_locked" ? "Astra sees this page only" : "Astra can go beyond this page"}
+                                >
+                                    {tutorMode === "page_locked" ? (
+                                        <>
+                                            <Lock size={12} />
+                                            <span className="normal-case">This page only</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Globe size={12} />
+                                            <span className="normal-case">Beyond this page</span>
+                                        </>
+                                    )}
+                                </button>
+                                {fileSessionId && (
+                                    <span className="text-teal/60">
+                                        Session #{fileSessionId} • Page {activePage}
+                                    </span>
+                                )}
+                            </div>
                         </div>
 
                         <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
