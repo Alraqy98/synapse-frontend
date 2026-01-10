@@ -19,8 +19,6 @@ import {
     ChevronUp,
     LayoutGrid,
     Scroll,
-    Lock,
-    Globe,
 } from "lucide-react";
 
 import GenerateFlashcardsModal from "../flashcards/GenerateFlashcardsModal";
@@ -1152,34 +1150,54 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
                     <DemoAstraChat file={file} activePage={activePage} />
                 ) : (
                     <div className="flex-1 flex flex-col bg-[#0f1115] overflow-hidden">
-                        <div className="p-3 border-b border-white/5 text-xs text-muted uppercase tracking-wider flex justify-between items-center">
-                            <span>
-                                Chat • <span className="text-white">{file.title}</span>
-                            </span>
-                            <div className="flex items-center gap-3">
-                                {/* Tutor Mode Toggle */}
-                                <button
-                                    onClick={() => setTutorMode(prev => prev === "page_locked" ? "open" : "page_locked")}
-                                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all text-xs text-white/70 hover:text-white"
-                                    title={tutorMode === "page_locked" ? "Astra sees this page only" : "Astra can go beyond this page"}
-                                >
-                                    {tutorMode === "page_locked" ? (
-                                        <>
-                                            <Lock size={12} />
-                                            <span className="normal-case">This page only</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Globe size={12} />
-                                            <span className="normal-case">Beyond this page</span>
-                                        </>
-                                    )}
-                                </button>
+                        <div className="p-3 border-b border-white/5">
+                            <div className="text-xs text-muted uppercase tracking-wider flex justify-between items-center mb-3">
+                                <span>
+                                    Chat • <span className="text-white">{file.title}</span>
+                                </span>
                                 {fileSessionId && (
                                     <span className="text-teal/60">
                                         Session #{fileSessionId} • Page {activePage}
                                     </span>
                                 )}
+                            </div>
+                            
+                            {/* Astra Mode Selector */}
+                            <div className="space-y-1.5">
+                                <div className="text-[10px] text-muted uppercase tracking-wider">
+                                    Astra mode
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setTutorMode("page_locked")}
+                                        className={`
+                                            flex flex-col items-start px-3 py-2 rounded-lg transition-all
+                                            ${tutorMode === "page_locked" 
+                                                ? "bg-teal/10 border border-teal/30 text-white" 
+                                                : "bg-white/5 border border-white/10 text-white/60 hover:bg-white/10 hover:text-white/80"
+                                            }
+                                        `}
+                                    >
+                                        <span className="text-xs font-medium">Focused tutor</span>
+                                        <span className="text-[10px] text-white/50 mt-0.5">Uses only this page</span>
+                                    </button>
+                                    <button
+                                        onClick={() => setTutorMode("open")}
+                                        className={`
+                                            flex flex-col items-start px-3 py-2 rounded-lg transition-all
+                                            ${tutorMode === "open" 
+                                                ? "bg-teal/10 border border-teal/30 text-white" 
+                                                : "bg-white/5 border border-white/10 text-white/60 hover:bg-white/10 hover:text-white/80"
+                                            }
+                                        `}
+                                    >
+                                        <span className="text-xs font-medium">Thinking wider</span>
+                                        <span className="text-[10px] text-white/50 mt-0.5">Adds outside medical context</span>
+                                    </button>
+                                </div>
+                                <div className="text-[10px] text-white/40 italic">
+                                    You can switch this anytime.
+                                </div>
                             </div>
                         </div>
 
