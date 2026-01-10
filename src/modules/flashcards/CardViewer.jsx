@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 
-export default function CardViewer({ card }) {
+export default function CardViewer({ card, onGrade }) {
     const [flipped, setFlipped] = useState(false);
     const [showRef, setShowRef] = useState(false);
 
@@ -151,6 +151,47 @@ export default function CardViewer({ card }) {
                     </div>
                 )}
             </div>
+
+            {/* Grading Buttons - Only show when flipped AND onGrade is provided */}
+            {flipped && onGrade && (
+                <div className="mt-4 w-full max-w-3xl">
+                    <div className="flex items-center justify-center gap-3">
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (onGrade && card?.id) {
+                                    onGrade(card.id, "correct");
+                                }
+                            }}
+                            className="min-h-[44px] px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20 hover:text-white transition-all text-sm font-medium"
+                        >
+                            Correct
+                        </button>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (onGrade && card?.id) {
+                                    onGrade(card.id, "not_sure");
+                                }
+                            }}
+                            className="min-h-[44px] px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20 hover:text-white transition-all text-sm font-medium"
+                        >
+                            Not sure
+                        </button>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (onGrade && card?.id) {
+                                    onGrade(card.id, "incorrect");
+                                }
+                            }}
+                            className="min-h-[44px] px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20 hover:text-white transition-all text-sm font-medium"
+                        >
+                            Incorrect
+                        </button>
+                    </div>
+                </div>
+            )}
 
             <div className="mt-3 text-[11px] text-muted text-center">
                 Click to flip. Use arrows to move between cards.

@@ -9,6 +9,7 @@ export default function DeckView({ deckId, goBack }) {
     const [cards, setCards] = useState([]);
     const [index, setIndex] = useState(0);
     const [loading, setLoading] = useState(true);
+    const [flipKey, setFlipKey] = useState(0); // Key to reset CardViewer flip state
 
     // ------------------------------------------------------------
     // LOAD ONE TIME + POLLING WHILE GENERATING
@@ -95,8 +96,29 @@ export default function DeckView({ deckId, goBack }) {
     }
 
     function goNext() {
-        if (!atLast) setIndex((i) => i + 1);
-        else goBack();
+        if (!atLast) {
+            setIndex((i) => i + 1);
+            setFlipKey((k) => k + 1); // Reset flip state when navigating
+        } else {
+            goBack();
+        }
+    }
+
+    function handleGrade(cardId, result) {
+        // Placeholder: Log grading response
+        console.log({
+            cardId,
+            result, // "correct" | "incorrect" | "not_sure"
+            timestamp: Date.now()
+        });
+
+        // Advance to next card and reset flip state
+        if (!atLast) {
+            setIndex((i) => i + 1);
+            setFlipKey((k) => k + 1); // Reset flip state
+        } else {
+            goBack();
+        }
     }
 
     return (
@@ -159,7 +181,11 @@ export default function DeckView({ deckId, goBack }) {
             --------------------------------------------------------- */}
             {!deck.generating && current && (
                 <>
-                    <CardViewer key={current.id} card={current} />
+                    <CardViewer 
+                        key={`${current.id}-${flipKey}`} 
+                        card={current} 
+                        onGrade={handleGrade}
+                    />
 
                     {/* Navigation */}
                     <div className="mt-6 flex items-center gap-8">
