@@ -12,6 +12,7 @@ import CreateFolderModal from "./CreateFolderModal";
 import RenameModal from "./RenameModal";
 import MoveToFolderModal from "./MoveToFolderModal";
 import ChangeCategoryModal from "./ChangeCategoryModal";
+import DeleteConfirmationModal from "../../components/DeleteConfirmationModal";
 
 import {
     getLibraryItems,
@@ -37,6 +38,7 @@ const LibraryPage = () => {
     const [renameTarget, setRenameTarget] = useState(null);
     const [moveTarget, setMoveTarget] = useState(null);
     const [categoryTarget, setCategoryTarget] = useState(null);
+    const [deleteTarget, setDeleteTarget] = useState(null);
 
     const [isLoading, setIsLoading] = useState(false);
     const [isOpening, setIsOpening] = useState(false);
@@ -222,13 +224,19 @@ const LibraryPage = () => {
     // ----------------------------------------------
     // DELETE
     // ----------------------------------------------
-    const handleDelete = async (id) => {
-        if (!window.confirm("Are you sure you want to delete this?")) return;
+    const handleDelete = (id) => {
+        setDeleteTarget(id);
+    };
+
+    const confirmDelete = async () => {
+        if (!deleteTarget) return;
         try {
-            await deleteItem(id);
+            await deleteItem(deleteTarget);
             await loadItems(activeFilter, currentFolder?.id || null);
+            setDeleteTarget(null);
         } catch {
             alert("Failed to delete");
+            setDeleteTarget(null);
         }
     };
 
@@ -414,6 +422,13 @@ const LibraryPage = () => {
                     }}
                 />
             )}
+
+            {/* Delete confirmation */}
+            <DeleteConfirmationModal
+                open={deleteTarget !== null}
+                onConfirm={confirmDelete}
+                onCancel={() => setDeleteTarget(null)}
+            />
         </div>
     );
 };

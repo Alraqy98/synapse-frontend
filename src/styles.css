@@ -542,6 +542,19 @@ select.input-field {
     background: rgba(255, 255, 255, 0.08);
 }
 
+.btn-danger {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #fca5a5;
+    backdrop-filter: blur(8px);
+}
+
+.btn-danger:hover {
+    background: rgba(239, 68, 68, 0.25);
+    border-color: rgba(239, 68, 68, 0.5);
+    color: #fee2e2;
+}
+
 /* =========================================================
    PANEL UPGRADE — Premium Glass Panel
    ========================================================= */
