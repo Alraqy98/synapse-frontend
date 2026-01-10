@@ -9,6 +9,7 @@ import { useDemo } from "../../modules/demo/DemoContext";
 import DemoAstraChat from "./DemoAstraChat";
 import {
     ArrowLeft,
+    ArrowRight,
     Sparkles,
     FileText,
     Zap,
@@ -16,6 +17,8 @@ import {
     Send,
     ChevronDown,
     ChevronUp,
+    LayoutGrid,
+    Scroll,
 } from "lucide-react";
 
 import GenerateFlashcardsModal from "../flashcards/GenerateFlashcardsModal";
@@ -96,6 +99,12 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
     const chatEndRef = useRef(null);
     const messagesInitializedRef = useRef(false); // Track if messages have been loaded from backend
 
+    // View mode: 'page' or 'scroll'
+    const [viewMode, setViewMode] = useState(() => {
+        const stored = localStorage.getItem('synapse_fileviewer_mode');
+        return stored === 'scroll' ? 'scroll' : 'page';
+    });
+
     // Page renderer
     // Sync activePage with URL params
     const urlPage = urlPageNumber ? Number(urlPageNumber) : null;
@@ -106,6 +115,8 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
     const [totalPages, setTotalPages] = useState(1); // PDF.js determined page count
     const [isLoadingPageCount, setIsLoadingPageCount] = useState(false);
     const pdfCanvasRef = useRef(null);
+    const scrollContainerRef = useRef(null);
+    const pageRefs = useRef({}); // Store refs for each page in scroll mode
     
     // Use refs for stable tracking that doesn't reset on re-renders
     const renderAttemptedRef = useRef(new Set()); // Track render attempts per page: `${file.id}:${page}`
@@ -684,6 +695,165 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
         goToPage(newPage);
     };
 
+
+    // Keyboard navigation (Page Mode only)
+    useEffect(() => {
+        if (viewMode !== 'page') return;
+
+        const handleKeyDown = (e) => {
+            // Only handle if not typing in an input
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+            if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                if (activePage > 1) {
+                    bumpPage(-1);
+                }
+            } else if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                if (activePage < totalPages) {
+                    bumpPage(1);
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [viewMode, activePage, totalPages]);
+
+    // Scroll-based page indicator update (Scroll Mode)
+    useEffect(() => {
+        if (viewMode !== 'scroll' || !scrollContainerRef.current) return;
+
+        const container = scrollContainerRef.current;
+        const updateActivePageFromScroll = () => {
+            const containerRect = container.getBoundingClientRect();
+            const containerTop = containerRect.top;
+            const containerHeight = containerRect.height;
+            const viewportCenter = containerTop + containerHeight / 2;
+
+            let closestPage = 1;
+            let closestDistance = Infinity;
+
+            // Find the page closest to viewport center
+            for (let page = 1; page <= totalPages; page++) {
+                const pageRef = pageRefs.current[page];
+                if (pageRef) {
+                    const pageRect = pageRef.getBoundingClientRect();
+                    const pageCenter = pageRect.top + pageRect.height / 2;
+                    const distance = Math.abs(pageCenter - viewportCenter);
+
+                    if (distance < closestDistance) {
+                        closestDistance = distance;
+                        closestPage = page;
+                    }
+                }
+            }
+
+            if (closestPage !== activePage) {
+                setActivePage(closestPage);
+                // Update URL without triggering navigation
+                if (file?.id) {
+                    if (closestPage === 1) {
+                        window.history.replaceState({}, '', `/library/${file.id}`);
+                    } else {
+                        window.history.replaceState({}, '', `/library/${file.id}/page/${closestPage}`);
+                    }
+                }
+            }
+        };
+
+        container.addEventListener('scroll', updateActivePageFromScroll);
+        // Also check on mount/resize
+        updateActivePageFromScroll();
+
+        return () => {
+            container.removeEventListener('scroll', updateActivePageFromScroll);
+        };
+    }, [viewMode, totalPages, activePage, file?.id]);
+
+    // Render a single page (reusable for both modes)
+    const renderPage = (pageNum, isScrollMode = false) => {
+        const pageKey = `${file.id}:${pageNum}`;
+        const imageFailed = imageLoadFailedRef.current.has(pageKey);
+        const pageIndex = pageNum - 1;
+        const currentPage = pages[pageIndex];
+        const imageUrl = currentPage?.image_url || currentPage?.image_path || null;
+        
+        // Get rendered URL for this page
+        const cachedRenderedUrl = renderedImageUrlsRef.current.get(pageKey);
+
+        if (isDemo) {
+            if (imageUrl) {
+                return (
+                    <img
+                        src={imageUrl}
+                        alt={`Page ${pageNum}`}
+                        className={isScrollMode ? "w-full h-auto" : "max-w-full max-h-full object-contain"}
+                        loading="lazy"
+                    />
+                );
+            }
+            return (
+                <div className="text-muted text-sm opacity-50">
+                    Demo page {pageNum}
+                </div>
+            );
+        }
+
+        // Priority (a): Use rendered PNG URL if present and not failed
+        if (cachedRenderedUrl && !imageFailed) {
+            return (
+                <img
+                    src={cachedRenderedUrl}
+                    alt={`Page ${pageNum}`}
+                    className={isScrollMode ? "w-full h-auto" : "max-w-full max-h-full object-contain"}
+                    loading="lazy"
+                    onError={() => {
+                        console.warn(`Rendered image failed to load for page ${pageNum}`);
+                        imageLoadFailedRef.current.add(pageKey);
+                    }}
+                />
+            );
+        }
+
+        // Priority (b): Use image_url from page_contents if available and not failed
+        if (imageUrl && !imageFailed) {
+            return (
+                <img
+                    src={imageUrl}
+                    alt={`Page ${pageNum}`}
+                    className={isScrollMode ? "w-full h-auto" : "max-w-full max-h-full object-contain"}
+                    loading="lazy"
+                    onError={() => {
+                        console.warn(`Image ${imageUrl} failed to load for page ${pageNum}`);
+                        imageLoadFailedRef.current.add(pageKey);
+                    }}
+                />
+            );
+        }
+
+        // Priority (c): Use PDF.js fallback with signed_url
+        if (file.signed_url) {
+            return (
+                <div className={isScrollMode ? "w-full" : "w-full h-full flex items-center justify-center"}>
+                    <PdfJsPage
+                        pdfUrl={file.signed_url}
+                        pageNumber={pageNum}
+                        onRenderComplete={pageNum === activePage ? handlePdfRenderComplete : undefined}
+                    />
+                </div>
+            );
+        }
+
+        // Fallback
+        return (
+            <div className="text-muted text-sm opacity-50">
+                Page {pageNum} unavailable
+            </div>
+        );
+    };
+
     // =====================================================================
     // RENDER UI
     // =====================================================================
@@ -705,133 +875,158 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
                         <p className="text-xs text-muted uppercase">{file.category}</p>
                     </div>
 
-                    {totalPages > 1 && (
-                        <div className="ml-auto flex items-center gap-2 text-xs text-muted">
-                            <span>Page:</span>
-
-                            <div className="flex items-center gap-1 bg-black/40 rounded-lg border border-white/10 px-2 py-1">
-                                <button onClick={() => bumpPage(-1)}>–</button>
-
-                                <input
-                                    type="number"
-                                    value={activePage}
-                                    min={1}
-                                    max={totalPages}
-                                    onChange={(e) => {
-                                        const newPage = Math.max(
-                                            1,
-                                            Math.min(Number(e.target.value), totalPages)
-                                        );
-                                        goToPage(newPage);
-                                    }}
-                                    className="w-12 bg-transparent text-center text-xs outline-none"
-                                />
-
-                                <span>/ {totalPages}</span>
-
-                                <button onClick={() => bumpPage(1)}>+</button>
-                            </div>
+                    <div className="ml-auto flex items-center gap-4">
+                        {/* View Mode Toggle */}
+                        <div className="flex items-center gap-2 bg-black/40 rounded-lg border border-white/10 p-1">
+                            <button
+                                onClick={() => {
+                                    if (viewMode !== 'page') {
+                                        setViewMode('page');
+                                        localStorage.setItem('synapse_fileviewer_mode', 'page');
+                                    }
+                                }}
+                                className={`px-3 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                                    viewMode === 'page'
+                                        ? 'bg-teal/20 text-teal border border-teal/30'
+                                        : 'text-muted hover:text-white'
+                                }`}
+                                title="Page Mode"
+                            >
+                                <LayoutGrid size={14} />
+                                Page
+                            </button>
+                            <button
+                                onClick={() => {
+                                    if (viewMode !== 'scroll') {
+                                        setViewMode('scroll');
+                                        localStorage.setItem('synapse_fileviewer_mode', 'scroll');
+                                        // Scroll to current page when switching to scroll mode
+                                        setTimeout(() => {
+                                            const pageRef = pageRefs.current[activePage];
+                                            if (pageRef && scrollContainerRef.current) {
+                                                pageRef.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                            }
+                                        }, 100);
+                                    }
+                                }}
+                                className={`px-3 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                                    viewMode === 'scroll'
+                                        ? 'bg-teal/20 text-teal border border-teal/30'
+                                        : 'text-muted hover:text-white'
+                                }`}
+                                title="Scroll Mode"
+                            >
+                                <Scroll size={14} />
+                                Scroll
+                            </button>
                         </div>
-                    )}
+
+                        {/* Page Indicator */}
+                        {totalPages > 1 && (
+                            <div className="flex items-center gap-2 text-xs text-muted">
+                                <span>Page:</span>
+                                {viewMode === 'page' ? (
+                                    <div className="flex items-center gap-1 bg-black/40 rounded-lg border border-white/10 px-2 py-1">
+                                        <input
+                                            type="number"
+                                            value={activePage}
+                                            min={1}
+                                            max={totalPages}
+                                            onChange={(e) => {
+                                                const newPage = Math.max(
+                                                    1,
+                                                    Math.min(Number(e.target.value), totalPages)
+                                                );
+                                                goToPage(newPage);
+                                            }}
+                                            className="w-12 bg-transparent text-center text-xs outline-none"
+                                        />
+                                        <span>/ {totalPages}</span>
+                                    </div>
+                                ) : (
+                                    <div className="bg-black/40 rounded-lg border border-white/10 px-2 py-1">
+                                        <span>{activePage} / {totalPages}</span>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* MAIN VIEWER */}
-                <div className="flex-1 overflow-hidden bg-[#050609] p-3 flex">
-                    <div
-                        className="flex-1 bg-[#0f1115] rounded-lg border border-white/5 shadow-xl overflow-hidden flex items-center justify-center"
-                        style={{ userSelect: "text" }}
-                        data-demo="page-canvas"
-                    >
-                        {(() => {
-                            const pageKey = `${file.id}:${activePage}`;
-                            const imageFailed = imageLoadFailedRef.current.has(pageKey);
-                            
-                            // DEMO MODE: Render demo images directly from page_contents.image_url
-                            if (isDemo) {
-                                const imageUrl = getCurrentPageImageUrl();
-                                if (imageUrl) {
-                                    return (
-                                        <img
-                                            src={imageUrl}
-                                            alt={`Page ${activePage}`}
-                                            className="max-w-full max-h-full object-contain"
-                                            loading="lazy"
-                                        />
-                                    );
-                                }
-                                // Fallback for demo if no image_url
-                                return (
-                                    <div className="text-muted text-sm opacity-50">
-                                        Demo page {activePage}
-                                    </div>
-                                );
-                            }
-                            
-                            // REAL MODE: Use existing rendering logic
-                            // Priority (a): Use rendered PNG URL if present and not failed
-                            if (renderedImageUrl && !imageFailed) {
-                                return (
-                                    <img
-                                        src={renderedImageUrl}
-                                        alt={`Page ${activePage}`}
-                                        className="max-w-full max-h-full object-contain"
-                                        loading="lazy"
-                                        onError={() => {
-                                            console.warn(`Rendered image failed to load, falling back to PDF.js`);
-                                            imageLoadFailedRef.current.add(pageKey);
-                                            setRenderedImageUrl(null);
-                                        }}
-                                    />
-                                );
-                            }
+                <div className="flex-1 overflow-hidden bg-[#050609] p-3 flex relative">
+                    {viewMode === 'page' ? (
+                        // PAGE MODE: Single page with large arrow buttons
+                        <>
+                            {/* Left Arrow Button */}
+                            {activePage > 1 && (
+                                <button
+                                    onClick={() => bumpPage(-1)}
+                                    className="absolute left-4 top-1/2 -translate-y-1/2 z-10 w-12 h-12 min-w-[44px] min-h-[44px] bg-black/60 hover:bg-black/80 border border-white/20 rounded-full flex items-center justify-center transition-all active:scale-95"
+                                    aria-label="Previous page"
+                                >
+                                    <ArrowLeft size={24} className="text-white" />
+                                </button>
+                            )}
 
-                            // Priority (b): Use image_url from page_contents if available and not failed
-                            const imageUrl = getCurrentPageImageUrl();
-                            if (imageUrl && !imageFailed) {
-                                return (
-                                    <img
-                                        src={imageUrl}
-                                        alt={`Page ${activePage}`}
-                                        className="max-w-full max-h-full object-contain"
-                                        loading="lazy"
-                                        onError={() => {
-                                            console.warn(`Image ${imageUrl} failed to load, falling back to PDF.js`);
-                                            imageLoadFailedRef.current.add(pageKey);
-                                        }}
-                                    />
-                                );
-                            }
-                            
-                            // Priority (c): Show loading while attempting backend render
-                            if (isRendering) {
-                                return (
-                                    <div className="text-muted text-sm opacity-50">
-                                        Rendering page...
-                                    </div>
-                                );
-                            }
-                            
-                            // Priority (d): Use PDF.js fallback with signed_url (permanent for this page)
-                            if (file.signed_url) {
-                                return (
-                                    <div ref={pdfCanvasRef} className="w-full h-full flex items-center justify-center">
-                                        <PdfJsPage
-                                            pdfUrl={file.signed_url}
-                                            pageNumber={activePage}
-                                            onRenderComplete={handlePdfRenderComplete}
-                                        />
-                                    </div>
-                                );
-                            }
-                            
-                            // Fallback if no signed_url
-                            return (
-                                <div className="text-muted text-sm opacity-50">
-                                    Page unavailable (no signed URL)
-                                </div>
-                            );
-                        })()}
-                    </div>
+                            {/* Right Arrow Button */}
+                            {activePage < totalPages && (
+                                <button
+                                    onClick={() => bumpPage(1)}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 z-10 w-12 h-12 min-w-[44px] min-h-[44px] bg-black/60 hover:bg-black/80 border border-white/20 rounded-full flex items-center justify-center transition-all active:scale-95"
+                                    aria-label="Next page"
+                                >
+                                    <ArrowRight size={24} className="text-white" />
+                                </button>
+                            )}
+
+                            {/* Page Content */}
+                            <div
+                                className="flex-1 bg-[#0f1115] rounded-lg border border-white/5 shadow-xl overflow-hidden flex items-center justify-center"
+                                style={{ userSelect: "text" }}
+                                data-demo="page-canvas"
+                            >
+                                {renderPage(activePage, false)}
+                            </div>
+                        </>
+                    ) : (
+                        // SCROLL MODE: Vertical scroll container with all pages
+                        <div
+                            ref={scrollContainerRef}
+                            className="flex-1 bg-[#0f1115] rounded-lg border border-white/5 shadow-xl overflow-y-auto"
+                            style={{ userSelect: "text" }}
+                            data-demo="scroll-canvas"
+                        >
+                            <div className="w-full">
+                                {Array.from({ length: totalPages }, (_, i) => {
+                                    const pageNum = i + 1;
+                                    // Lazy rendering: only render visible pages + buffer
+                                    const shouldRender = true; // For now, render all (can optimize with IntersectionObserver later)
+                                    
+                                    return (
+                                        <div
+                                            key={pageNum}
+                                            ref={(el) => {
+                                                if (el) pageRefs.current[pageNum] = el;
+                                            }}
+                                            className="w-full flex items-center justify-center py-4 border-b border-white/5 last:border-b-0"
+                                            data-page={pageNum}
+                                        >
+                                            {shouldRender ? (
+                                                <div className="w-full max-w-4xl px-4">
+                                                    {renderPage(pageNum, true)}
+                                                </div>
+                                            ) : (
+                                                <div className="w-full h-[800px] flex items-center justify-center text-muted text-sm">
+                                                    Loading page {pageNum}...
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
