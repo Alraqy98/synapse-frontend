@@ -11,6 +11,7 @@ import AuthCallback from "./components/auth/AuthCallback";
 import OnboardingFlow from "./components/onboarding/OnboardingFlow";
 import { supabase } from "./lib/supabaseClient";
 import SettingsPage from "./modules/settings/SettingsPage";
+import ChangePasswordModal from "./components/ChangePasswordModal";
 
 // Icons
 import {
@@ -27,6 +28,7 @@ import {
   Hexagon,
   Bell,
   Home,
+  Lock,
 } from "lucide-react";
 
 import TutorPage from "./modules/Tutor/TutorPage";
@@ -180,6 +182,9 @@ const SynapseOS = () => {
   const [profile, setProfile] = useState(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const notificationsRef = useRef(null);
+  const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
+  const accountDropdownRef = useRef(null);
+  const [changePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
 
   // Notifications state - empty initial state, fetched from backend only
   const [notifications, setNotifications] = useState([]);
@@ -473,6 +478,26 @@ const SynapseOS = () => {
     };
   }, [notificationsOpen]);
 
+  // Close account dropdown when clicking outside
+  useEffect(() => {
+    if (!accountDropdownOpen) return;
+
+    const handleClickOutside = (event) => {
+      if (
+        accountDropdownRef.current &&
+        !accountDropdownRef.current.contains(event.target)
+      ) {
+        setAccountDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [accountDropdownOpen]);
+
   // /auth/callback
   if (window.location.pathname.startsWith("/auth/callback")) {
     return (
@@ -689,27 +714,89 @@ const SynapseOS = () => {
             </div>
 
             {profile && (
-              <>
-                <div className="text-right hidden md:block">
-                  <div className="text-xs font-bold">
-                    {profile.full_name || "User"}
+              <div className="relative" ref={accountDropdownRef}>
+                <button
+                  onClick={() => setAccountDropdownOpen(!accountDropdownOpen)}
+                  className="flex items-center gap-2 p-1 rounded-lg hover:bg-white/5 transition"
+                  aria-label="Account menu"
+                >
+                  <div className="text-right hidden md:block">
+                    <div className="text-xs font-bold">
+                      {profile.full_name || "User"}
+                    </div>
+                    <div className="text-[10px] text-muted">
+                      {profile.stage || "Student"}
+                    </div>
                   </div>
-                  <div className="text-[10px] text-muted">
-                    {profile.stage || "Student"}
-                  </div>
-                </div>
 
-                <img
-                  src={
-                    profile.avatar_url ||
-                    `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
-                      profile.full_name || "U"
-                    )}`
-                  }
-                  alt="avatar"
-                  className="w-8 h-8 rounded-full bg-teal/10"
-                />
-              </>
+                  <img
+                    src={
+                      profile.avatar_url ||
+                      `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
+                        profile.full_name || "U"
+                      )}`
+                    }
+                    alt="avatar"
+                    className="w-8 h-8 rounded-full bg-teal/10"
+                  />
+                </button>
+
+                {/* Account Dropdown */}
+                {accountDropdownOpen && (
+                  <div className="absolute right-0 top-12 z-50 w-64 rounded-xl bg-[#1a1d24] border border-white/10 shadow-xl overflow-hidden">
+                    {/* Account Info */}
+                    <div className="p-4 border-b border-white/5">
+                      <div className="text-sm font-semibold text-white">
+                        {profile.full_name || "User"}
+                      </div>
+                      <div className="text-xs text-muted mt-1">
+                        {profile.email}
+                      </div>
+                      {profile.stage && (
+                        <div className="text-xs text-muted mt-1">
+                          Stage: {profile.stage}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Divider */}
+                    <div className="h-px bg-white/5" />
+
+                    {/* Change Password */}
+                    <button
+                      onClick={() => {
+                        setAccountDropdownOpen(false);
+                        setChangePasswordModalOpen(true);
+                      }}
+                      className="w-full text-left px-4 py-3 text-sm text-white hover:bg-white/5 transition-colors flex items-center gap-3"
+                    >
+                      <Lock size={16} className="text-muted" />
+                      Change Password
+                    </button>
+
+                    {/* Divider */}
+                    <div className="h-px bg-white/5" />
+
+                    {/* Logout */}
+                    <button
+                      onClick={async () => {
+                        setAccountDropdownOpen(false);
+                        try {
+                          await supabase.auth.signOut();
+                        } catch (err) {
+                          console.error(err);
+                        } finally {
+                          localStorage.removeItem("access_token");
+                          setIsAuthenticated(false);
+                        }
+                      }}
+                      className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </header>
@@ -850,6 +937,12 @@ const SynapseOS = () => {
           )}
         </div>
       </main>
+
+      {/* Change Password Modal */}
+      <ChangePasswordModal
+        isOpen={changePasswordModalOpen}
+        onClose={() => setChangePasswordModalOpen(false)}
+      />
     </div>
   );
 }; // ✅ THIS WAS MISSING

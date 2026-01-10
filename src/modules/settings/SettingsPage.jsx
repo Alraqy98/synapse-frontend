@@ -1,68 +1,9 @@
-import React, { useState } from "react";
+import React from "react";
 import AnnouncementsPanel from "./AnnouncementsPanel";
 import FeedbackBox from "./FeedbackBox";
 import { supabase } from "../../lib/supabaseClient";
-import { Lock, Loader2 } from "lucide-react";
 
 const SettingsPage = ({ profile, onLogout }) => {
-    // Password change state
-    const [newPassword, setNewPassword] = useState("");
-    const [confirmPassword, setConfirmPassword] = useState("");
-    const [passwordLoading, setPasswordLoading] = useState(false);
-    const [passwordError, setPasswordError] = useState(null);
-    const [passwordSuccess, setPasswordSuccess] = useState(false);
-
-    const handlePasswordChange = async (e) => {
-        e.preventDefault();
-        setPasswordError(null);
-        setPasswordSuccess(false);
-
-        // Client-side validation
-        if (!newPassword.trim() || !confirmPassword.trim()) {
-            setPasswordError("Both fields are required.");
-            return;
-        }
-
-        if (newPassword !== confirmPassword) {
-            setPasswordError("Passwords do not match.");
-            return;
-        }
-
-        if (newPassword.length < 6) {
-            setPasswordError("Password must be at least 6 characters.");
-            return;
-        }
-
-        setPasswordLoading(true);
-
-        try {
-            const { error } = await supabase.auth.updateUser({
-                password: newPassword
-            });
-
-            if (error) {
-                throw error;
-            }
-
-            // Success
-            setPasswordSuccess(true);
-            setNewPassword("");
-            setConfirmPassword("");
-            
-            // Clear success message after 3 seconds
-            setTimeout(() => {
-                setPasswordSuccess(false);
-            }, 3000);
-        } catch (err) {
-            console.error("Password update error:", err);
-            // Show user-friendly error message
-            const errorMessage = err.message || "Failed to update password. Please try again.";
-            setPasswordError(errorMessage);
-        } finally {
-            setPasswordLoading(false);
-        }
-    };
-
     const handleLogout = async () => {
         try {
             await supabase.auth.signOut();
@@ -140,7 +81,8 @@ const SettingsPage = ({ profile, onLogout }) => {
                     </div>
 
                     {/* Account Security - Change Password */}
-                    <div className="panel p-6 space-y-4">
+                    {/* Moved to account dropdown in header - keeping commented for reference */}
+                    {/* <div className="panel p-6 space-y-4">
                         <div className="flex items-center gap-2">
                             <Lock size={18} className="text-teal" />
                             <h3 className="text-sm font-semibold text-white">Account Security</h3>
@@ -175,14 +117,12 @@ const SettingsPage = ({ profile, onLogout }) => {
                                 />
                             </div>
 
-                            {/* Error Message */}
                             {passwordError && (
                                 <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
                                     <p className="text-red-400 text-xs">{passwordError}</p>
                                 </div>
                             )}
 
-                            {/* Success Message */}
                             {passwordSuccess && (
                                 <div className="bg-teal/10 border border-teal/30 rounded-lg p-3">
                                     <p className="text-teal text-xs">Password updated successfully</p>
@@ -204,7 +144,7 @@ const SettingsPage = ({ profile, onLogout }) => {
                                 )}
                             </button>
                         </form>
-                    </div>
+                    </div> */}
                 </div>
             </div>
 
