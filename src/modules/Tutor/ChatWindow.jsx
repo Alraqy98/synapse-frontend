@@ -8,7 +8,7 @@ import {
     getSessionMessages,
 } from "./apiTutor";
 
-const ChatWindow = ({ activeSessionId }) => {
+const ChatWindow = ({ activeSessionId, onFocusInputRef }) => {
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState("");
     const [isTyping, setIsTyping] = useState(false);
@@ -22,6 +22,15 @@ const ChatWindow = ({ activeSessionId }) => {
     const messagesInitializedRef = useRef(null); // Track which sessionId was initialized (cold start only)
     const previousSessionIdRef = useRef(null); // Track previous sessionId to detect changes
     const messagesRef = useRef([]); // Track messages to avoid stale closure issues
+
+    // Expose focus function to parent via ref callback
+    useEffect(() => {
+        if (onFocusInputRef) {
+            onFocusInputRef.current = () => {
+                textareaRef.current?.focus();
+            };
+        }
+    }, [onFocusInputRef]);
 
     /* ------------------------------------------------
      * Auto–scroll logic (only when messages change)
@@ -423,7 +432,8 @@ const ChatWindow = ({ activeSessionId }) => {
     /* ------------------------------------------------
      * Rendering
      * ----------------------------------------------*/
-    const showEmptyState = !activeSessionId && !isLoadingHistory;
+    // Empty state is now handled by parent (TutorPage), so we don't show it here
+    const showEmptyState = false;
 
     return (
         <div className="flex flex-col flex-1 h-full overflow-hidden bg-[#0f1115] relative">
