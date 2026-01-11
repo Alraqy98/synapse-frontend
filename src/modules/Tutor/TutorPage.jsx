@@ -23,6 +23,8 @@ const TutorPage = () => {
     const [historyPanelPosition, setHistoryPanelPosition] = useState({ top: 0, left: 0 });
     const historyButtonRef = useRef(null);
     const chatWindowFocusRef = useRef(null);
+    // Track sessions that have been manually renamed (to prevent auto-rename)
+    const [manuallyRenamedSessions, setManuallyRenamedSessions] = useState(new Set());
 
     useEffect(() => {
         loadSessions();
@@ -137,14 +139,69 @@ const TutorPage = () => {
         }
     };
 
-    const handleRenameSession = async (sessionId, newTitle) => {
+    const handleRenameSession = async (sessionId, newTitle, isManual = true) => {
         try {
             const updated = await renameSession(sessionId, newTitle);
             setSessions((prev) =>
                 prev.map((s) => (s.id === sessionId ? updated : s))
             );
+            
+            // Track manual renames to prevent auto-rename
+            if (isManual) {
+                setManuallyRenamedSessions((prev) => new Set([...prev, sessionId]));
+            }
         } catch (err) {
             console.error("Failed to rename session:", err);
+        }
+    };
+
+    // Auto-rename session based on assistant message metadata
+    const handleAutoRenameSession = async (sessionId, messageMeta, messageContent) => {
+        // Check if session should be auto-renamed
+        const session = sessions.find((s) => s.id === sessionId);
+        if (!session) return;
+
+        // Only auto-rename if:
+        // 1. Title is "New Chat" or "New"
+        // 2. User hasn't manually renamed it
+        const isDefaultTitle = session.title === "New Chat" || session.title === "New";
+        const isManuallyRenamed = manuallyRenamedSessions.has(sessionId);
+        
+        if (!isDefaultTitle || isManuallyRenamed) {
+            return; // Don't auto-rename
+        }
+
+        // Generate title from metadata
+        let generatedTitle = null;
+
+        // Priority 1: topic_label
+        if (messageMeta?.topic_label) {
+            generatedTitle = messageMeta.topic_label;
+        }
+        // Priority 2: first value in detected_topics
+        else if (messageMeta?.detected_topics && Array.isArray(messageMeta.detected_topics) && messageMeta.detected_topics.length > 0) {
+            generatedTitle = messageMeta.detected_topics[0];
+        }
+        // Priority 3: inferred from content (extract first meaningful phrase)
+        else if (messageContent) {
+            // Try to extract a topic from the first sentence or heading
+            const firstLine = messageContent.split('\n')[0].trim();
+            // Remove markdown formatting
+            const cleanLine = firstLine.replace(/^#+\s*/, '').replace(/\*\*/g, '').trim();
+            // Take first 30 characters or first sentence
+            const topic = cleanLine.split('.')[0].trim();
+            if (topic && topic.length > 3 && topic.length < 50) {
+                generatedTitle = topic;
+            }
+        }
+
+        // Apply rename if we have a valid title
+        if (generatedTitle && generatedTitle.trim()) {
+            try {
+                await handleRenameSession(sessionId, generatedTitle.trim(), false); // false = not manual
+            } catch (err) {
+                console.error("Failed to auto-rename session:", err);
+            }
         }
     };
 
@@ -185,6 +242,8 @@ const TutorPage = () => {
                         <ChatWindow
                             activeSessionId={activeSessionId}
                             onFocusInputRef={chatWindowFocusRef}
+                            onAutoRenameSession={handleAutoRenameSession}
+                            sessions={sessions}
                         />
                     )}
                 </div>

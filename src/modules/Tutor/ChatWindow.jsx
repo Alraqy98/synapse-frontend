@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Send, Paperclip, Mic } from "lucide-react";
 import MessageBubble from "./MessageBubble";
+import FollowUpPrompt from "./FollowUpPrompt";
 import {
     sendStandaloneMessageToTutor,
     uploadFile,
@@ -9,7 +10,7 @@ import {
 } from "./apiTutor";
 import { supabase } from "../../lib/supabaseClient";
 
-const ChatWindow = ({ activeSessionId, onFocusInputRef }) => {
+const ChatWindow = ({ activeSessionId, onFocusInputRef, onAutoRenameSession, sessions }) => {
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState("");
     const [isTyping, setIsTyping] = useState(false);
@@ -151,12 +152,26 @@ const ChatWindow = ({ activeSessionId, onFocusInputRef }) => {
                             role: m.role,
                             content: m.content,
                             createdAt: m.createdAt,
+                            meta: m.meta || undefined,
                         }))
                         : null;
 
                     // If we have fetched messages, use them
                     if (fetchedMessages) {
                         console.log("[TUTOR_FRONTEND] Rehydrated messages from GET", { count: fetchedMessages.length });
+                        
+                        // Check if we need to auto-rename based on first assistant message
+                        const firstAssistantMsg = fetchedMessages.find((m) => m.role === "assistant");
+                        if (firstAssistantMsg && firstAssistantMsg.meta && onAutoRenameSession) {
+                            // Check if session title is still default
+                            const session = sessions?.find((s) => s.id === activeSessionId);
+                            if (session && (session.title === "New Chat" || session.title === "New")) {
+                                setTimeout(() => {
+                                    onAutoRenameSession(activeSessionId, firstAssistantMsg.meta, firstAssistantMsg.content);
+                                }, 0);
+                            }
+                        }
+                        
                         return fetchedMessages;
                     }
 
@@ -275,6 +290,20 @@ const ChatWindow = ({ activeSessionId, onFocusInputRef }) => {
         const now = new Date().toISOString();
         const text = input;
 
+        // Clear any existing follow-ups when user sends a message manually
+        setMessages((prev) =>
+            prev.map((m) => {
+                if (m.meta?.follow_up_generated) {
+                    const { follow_up_generated, follow_up_question, ...restMeta } = m.meta;
+                    return {
+                        ...m,
+                        meta: Object.keys(restMeta).length > 0 ? restMeta : undefined,
+                    };
+                }
+                return m;
+            })
+        );
+
         // Push user message locally
         const userMsg = {
             id: `usr_${Date.now()}`,
@@ -315,14 +344,70 @@ const ChatWindow = ({ activeSessionId, onFocusInputRef }) => {
             // Use response.text (not response.response)
             responseText = response.text || response.response || "";
             
+            // Extract follow-up question if present
+            const followUpQuestion = response.followUpQuestion || null;
+            
             if (!responseText || !responseText.trim()) {
                 // Empty response - check DB as fallback
                 responseText = await checkForResponseInDB(activeSessionId);
             }
 
             if (responseText && responseText.trim()) {
-                // Update assistant message with response
+                // Update assistant message with response and follow-up metadata
                 await typeAssistantMessage(responseText, botId);
+                
+                // Get the full response object to extract metadata
+                const responseMeta = response.raw || {};
+                
+                // Check if this is the first assistant message before updating messages
+                const currentMessages = messagesRef.current;
+                const assistantMessageCount = currentMessages.filter((m) => m.role === "assistant" && m.id !== botId).length;
+                const isFirstAssistantMessage = assistantMessageCount === 0;
+                
+                // Store follow-up question in message meta if present
+                if (followUpQuestion) {
+                    setMessages((prev) =>
+                        prev.map((m) =>
+                            m.id === botId
+                                ? {
+                                      ...m,
+                                      meta: {
+                                          ...m.meta,
+                                          follow_up_generated: true,
+                                          follow_up_question: followUpQuestion,
+                                          ...responseMeta, // Include all metadata from response
+                                      },
+                                  }
+                                : m
+                        )
+                    );
+                } else if (responseMeta && Object.keys(responseMeta).length > 0) {
+                    // Store metadata even if no follow-up question
+                    setMessages((prev) =>
+                        prev.map((m) =>
+                            m.id === botId
+                                ? {
+                                      ...m,
+                                      meta: {
+                                          ...m.meta,
+                                          ...responseMeta,
+                                      },
+                                  }
+                                : m
+                        )
+                    );
+                }
+                
+                // Auto-rename if this is the first assistant message
+                if (isFirstAssistantMessage && onAutoRenameSession) {
+                    // Extract metadata from response
+                    const messageMeta = responseMeta || {};
+                    // Use setTimeout to avoid state update during render
+                    setTimeout(() => {
+                        onAutoRenameSession(activeSessionId, messageMeta, responseText);
+                    }, 0);
+                }
+                
                 postFailedLocal = false; // POST succeeded
             } else {
                 // No response found - this is a real error
@@ -430,12 +515,19 @@ const ChatWindow = ({ activeSessionId, onFocusInputRef }) => {
 
             // Use response.text (not response.response)
             const responseText = response.text || response.response || "";
+            const followUpQuestion = response.followUpQuestion || null;
 
             const botMsg = {
                 id: `bot_${Date.now()}`,
                 role: "assistant",
                 content: responseText,
                 createdAt: new Date().toISOString(),
+                meta: followUpQuestion
+                    ? {
+                          follow_up_generated: true,
+                          follow_up_question: followUpQuestion,
+                      }
+                    : undefined,
             };
             setMessages((prev) => [...prev, botMsg]);
         } catch (error) {
@@ -446,6 +538,182 @@ const ChatWindow = ({ activeSessionId, onFocusInputRef }) => {
             setIsUploading(false);
             // reset file input so same file can be re-selected if needed
             if (fileInputRef.current) fileInputRef.current.value = "";
+        }
+    };
+
+    // Handle sending follow-up question
+    const handleSendFollowUp = async (followUpText) => {
+        if (!followUpText || !activeSessionId) return;
+        
+        // Clear any existing follow-ups by removing meta from all messages
+        setMessages((prev) =>
+            prev.map((m) => {
+                if (m.meta?.follow_up_generated) {
+                    const { follow_up_generated, follow_up_question, ...restMeta } = m.meta;
+                    return {
+                        ...m,
+                        meta: Object.keys(restMeta).length > 0 ? restMeta : undefined,
+                    };
+                }
+                return m;
+            })
+        );
+        
+        // Set input and trigger send
+        setInput(followUpText);
+        
+        // Wait for state update, then send
+        await new Promise(resolve => setTimeout(resolve, 0));
+        
+        // Create user message and send
+        const now = new Date().toISOString();
+        const userMsg = {
+            id: `usr_${Date.now()}`,
+            role: "user",
+            content: followUpText,
+            createdAt: now,
+        };
+        setMessages((prev) => [...prev, userMsg]);
+        setInput("");
+        setIsTyping(true);
+
+        // Create assistant message optimistically
+        const botId = `bot_${Date.now()}`;
+        const emptyBotMsg = {
+            id: botId,
+            role: "assistant",
+            content: "",
+            createdAt: new Date().toISOString(),
+        };
+        setMessages((prev) => [...prev, emptyBotMsg]);
+
+        let responseText = null;
+        let isRealError = false;
+        let postFailedLocal = false;
+
+        try {
+            const response = await sendStandaloneMessageToTutor({
+                sessionId: activeSessionId,
+                message: followUpText,
+                lastAIMessage: getLastAIMessage(),
+                lastUserMessage: getLastUserMessage(),
+            });
+
+            responseText = response.text || response.response || "";
+            const followUpQuestion = response.followUpQuestion || null;
+            
+            if (!responseText || !responseText.trim()) {
+                responseText = await checkForResponseInDB(activeSessionId);
+            }
+
+            if (responseText && responseText.trim()) {
+                await typeAssistantMessage(responseText, botId);
+                
+                const responseMeta = response.raw || {};
+                
+                // Check if this is the first assistant message before updating messages
+                const currentMessages = messagesRef.current;
+                const assistantMessageCount = currentMessages.filter((m) => m.role === "assistant" && m.id !== botId).length;
+                const isFirstAssistantMessage = assistantMessageCount === 0;
+                
+                if (followUpQuestion) {
+                    setMessages((prev) =>
+                        prev.map((m) =>
+                            m.id === botId
+                                ? {
+                                      ...m,
+                                      meta: {
+                                          ...m.meta,
+                                          follow_up_generated: true,
+                                          follow_up_question: followUpQuestion,
+                                          ...responseMeta,
+                                      },
+                                  }
+                                : m
+                        )
+                    );
+                } else if (responseMeta && Object.keys(responseMeta).length > 0) {
+                    setMessages((prev) =>
+                        prev.map((m) =>
+                            m.id === botId
+                                ? {
+                                      ...m,
+                                      meta: {
+                                          ...m.meta,
+                                          ...responseMeta,
+                                      },
+                                  }
+                                : m
+                        )
+                    );
+                }
+                
+                // Auto-rename if this is the first assistant message
+                if (isFirstAssistantMessage && onAutoRenameSession) {
+                    const messageMeta = responseMeta || {};
+                    setTimeout(() => {
+                        onAutoRenameSession(activeSessionId, messageMeta, responseText);
+                    }, 0);
+                }
+                
+                postFailedLocal = false;
+            } else {
+                isRealError = true;
+                postFailedLocal = true;
+            }
+        } catch (error) {
+            console.error("[TUTOR_FRONTEND] Error sending follow-up:", error);
+            
+            if (error.code === "PNG_NOT_READY") {
+                responseText = "Slides are still being prepared. Visual understanding will be available once preparation completes.";
+                isRealError = false;
+                postFailedLocal = false;
+                await typeAssistantMessage(responseText, botId);
+            } else {
+                const isNetworkError = error.message?.includes("fetch") || 
+                                      error.message?.includes("network") ||
+                                      error.message?.includes("timeout");
+                
+                if (isNetworkError) {
+                    responseText = await checkForResponseInDB(activeSessionId);
+                    
+                    if (responseText && responseText.trim()) {
+                        await typeAssistantMessage(responseText, botId);
+                        postFailedLocal = false;
+                    } else {
+                        isRealError = false;
+                        postFailedLocal = true;
+                    }
+                } else {
+                    isRealError = true;
+                    postFailedLocal = true;
+                }
+            }
+        } finally {
+            setIsTyping(false);
+            
+            if (postFailedLocal && isRealError && (!responseText || !responseText.trim())) {
+                const finalCheck = await checkForResponseInDB(activeSessionId);
+                
+                if (finalCheck && finalCheck.trim()) {
+                    await typeAssistantMessage(finalCheck, botId);
+                    setPostFailed(false);
+                } else {
+                    setPostFailed(true);
+                    setMessages((prev) => 
+                        prev.map((m) =>
+                            m.id === botId
+                                ? {
+                                      ...m,
+                                      content: "⚠️ Astra was unable to answer. Please try again.",
+                                  }
+                                : m
+                        )
+                    );
+                }
+            } else {
+                setPostFailed(false);
+            }
         }
     };
 
@@ -482,7 +750,26 @@ const ChatWindow = ({ activeSessionId, onFocusInputRef }) => {
                 )}
 
                 {!showEmptyState &&
-                    messages.map((msg) => <MessageBubble key={msg.id} message={msg} />)}
+                    messages.map((msg, index) => {
+                        // Check if this is the last assistant message with follow-up
+                        const isLastAssistant = msg.role === "assistant" && 
+                            msg.meta?.follow_up_generated === true &&
+                            !messages.slice(index + 1).some(m => m.role === "assistant");
+                        
+                        return (
+                            <React.Fragment key={msg.id}>
+                                <MessageBubble message={msg} />
+                                {isLastAssistant && msg.meta?.follow_up_question && (
+                                    <div className="ml-11">
+                                        <FollowUpPrompt
+                                            followUpQuestion={msg.meta.follow_up_question}
+                                            onSendFollowUp={handleSendFollowUp}
+                                        />
+                                    </div>
+                                )}
+                            </React.Fragment>
+                        );
+                    })}
 
                 {isTyping && (
                     <div className="flex justify-start w-full group relative">
@@ -507,7 +794,24 @@ const ChatWindow = ({ activeSessionId, onFocusInputRef }) => {
                         <textarea
                             ref={textareaRef}
                             value={input}
-                            onChange={(e) => setInput(e.target.value)}
+                            onChange={(e) => {
+                                setInput(e.target.value);
+                                // Clear follow-ups when user types manually
+                                if (e.target.value.trim()) {
+                                    setMessages((prev) =>
+                                        prev.map((m) => {
+                                            if (m.meta?.follow_up_generated) {
+                                                const { follow_up_generated, follow_up_question, ...restMeta } = m.meta;
+                                                return {
+                                                    ...m,
+                                                    meta: Object.keys(restMeta).length > 0 ? restMeta : undefined,
+                                                };
+                                            }
+                                            return m;
+                                        })
+                                    );
+                                }
+                            }}
                             onKeyDown={(e) => {
                                 if (e.key === "Enter" && !e.shiftKey) {
                                     e.preventDefault();

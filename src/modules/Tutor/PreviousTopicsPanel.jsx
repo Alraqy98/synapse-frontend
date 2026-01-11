@@ -73,7 +73,8 @@ const PreviousTopicsPanel = ({
     const submitRename = async () => {
         if (!renameValue.trim() || !renameTarget) return;
         try {
-            await onRenameSession(renameTarget, renameValue.trim());
+            // Pass true to indicate this is a manual rename
+            await onRenameSession(renameTarget, renameValue.trim(), true);
             // Only close modal after successful rename
             setRenameTarget(null);
             setRenameValue("");

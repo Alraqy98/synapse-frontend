@@ -386,6 +386,7 @@ export const sendStandaloneMessageToTutor = async ({
     return {
         text: data.answer?.answer || data.answer || "",
         raw: data.answer,
+        followUpQuestion: data.answer?.follow_up_question || null,
     };
 };
 
