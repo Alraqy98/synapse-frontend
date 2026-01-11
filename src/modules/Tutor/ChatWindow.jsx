@@ -11,7 +11,15 @@ import {
 import { supabase } from "../../lib/supabaseClient";
 
 // activeSessionId comes from URL (useParams) - URL is authoritative
-const ChatWindow = ({ activeSessionId, onFocusInputRef, onAutoRenameSession, sessions }) => {
+const ChatWindow = ({ 
+    activeSessionId, 
+    onFocusInputRef, 
+    onSetInputRef,
+    onAutoRenameSession, 
+    sessions,
+    quickActionState,
+    onQuickActionConsumed,
+}) => {
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState("");
     const [isTyping, setIsTyping] = useState(false);
@@ -35,6 +43,30 @@ const ChatWindow = ({ activeSessionId, onFocusInputRef, onAutoRenameSession, ses
             };
         }
     }, [onFocusInputRef]);
+
+    // Expose setInput function to parent via ref callback
+    useEffect(() => {
+        if (onSetInputRef) {
+            onSetInputRef.current = (value) => {
+                setInput(value);
+                textareaRef.current?.focus();
+            };
+        }
+    }, [onSetInputRef]);
+
+    // Handle quick action state - set input and mode when provided
+    // Only apply if session is empty (no messages) to prevent overwriting user input
+    useEffect(() => {
+        if (quickActionState && messages.length === 0 && !isLoadingHistory) {
+            // Only apply quick action if session is empty (no messages) and not loading
+            setInput(quickActionState.seed);
+            // Focus input
+            setTimeout(() => {
+                textareaRef.current?.focus();
+            }, 50);
+            // Don't consume here - let it persist until first message is sent
+        }
+    }, [quickActionState, messages.length, isLoadingHistory]);
 
     // Fetch user's name for personalized greeting
     useEffect(() => {
@@ -294,12 +326,21 @@ const ChatWindow = ({ activeSessionId, onFocusInputRef, onAutoRenameSession, ses
         console.log("[TUTOR_FRONTEND] POST sessionId:", activeSessionId);
 
         try {
+            // Use mode from quick action state if available (only for first message), otherwise default to "auto"
+            const mode = quickActionState?.mode || "auto";
+            
             const response = await sendStandaloneMessageToTutor({
                 sessionId: activeSessionId,
                 message: text,
+                mode: mode,
                 lastAIMessage: getLastAIMessage(),
                 lastUserMessage: getLastUserMessage(),
             });
+
+            // Clear quick action state after first message is sent
+            if (quickActionState && onQuickActionConsumed) {
+                onQuickActionConsumed();
+            }
 
             // Use response.text (not response.response)
             responseText = response.text || response.response || "";
@@ -552,9 +593,13 @@ const ChatWindow = ({ activeSessionId, onFocusInputRef, onAutoRenameSession, ses
         let postFailedLocal = false;
 
         try {
+            // Use mode from quick action state if available, otherwise default to "auto"
+            const mode = quickActionState?.mode || "auto";
+            
             const response = await sendStandaloneMessageToTutor({
                 sessionId: activeSessionId,
                 message: followUpText,
+                mode: mode,
                 lastAIMessage: getLastAIMessage(),
                 lastUserMessage: getLastUserMessage(),
             });

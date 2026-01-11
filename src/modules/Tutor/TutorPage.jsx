@@ -14,6 +14,7 @@ import {
     deleteSession,
     renameSession,
 } from "./apiTutor";
+import { TUTOR_QUICK_ACTIONS } from "./tutorQuickActions";
 
 const TutorPage = () => {
     // URL is the single source of truth for sessionId
@@ -29,6 +30,9 @@ const TutorPage = () => {
     const chatWindowFocusRef = useRef(null);
     // Track sessions that have been manually renamed (to prevent auto-rename)
     const [manuallyRenamedSessions, setManuallyRenamedSessions] = useState(new Set());
+    // Quick action state - mode and seed text to pre-fill input
+    const [quickActionState, setQuickActionState] = useState(null);
+    const chatWindowSetInputRef = useRef(null);
 
     useEffect(() => {
         loadSessions();
@@ -214,6 +218,61 @@ const TutorPage = () => {
         }
     };
 
+    // Handle quick action from EmptyStatePanel
+    const handleQuickAction = async (actionKey) => {
+        const action = TUTOR_QUICK_ACTIONS[actionKey];
+        if (!action) {
+            console.warn("Unknown quick action:", actionKey);
+            return;
+        }
+
+        // Determine target session - reuse empty session if available
+        let targetSessionId = null;
+        
+        if (urlSessionId) {
+            // Current session exists - ChatWindow will check if it's empty
+            targetSessionId = urlSessionId;
+        } else {
+            // No current session - create or reuse an empty one
+            if (sessions.length === 0) {
+                // No sessions exist, create one
+                try {
+                    const newSession = await createNewSession("New Chat");
+                    setSessions((prev) => [newSession, ...prev]);
+                    setOpenTabIds((prev) => new Set([...prev, newSession.id]));
+                    targetSessionId = newSession.id;
+                    navigate(`/tutor/${newSession.id}`, { replace: false });
+                } catch (err) {
+                    console.error("Failed to create session:", err);
+                    return;
+                }
+            } else {
+                // Reuse the most recent session (first in list)
+                // ChatWindow will check if it's empty and apply the quick action
+                targetSessionId = sessions[0].id;
+                navigate(`/tutor/${targetSessionId}`, { replace: false });
+            }
+        }
+
+        // Set quick action state (mode and seed)
+        // ChatWindow will apply this only if session is empty (no messages)
+        setQuickActionState({
+            mode: action.mode,
+            seed: action.seed,
+        });
+
+        // Focus input after navigation
+        setTimeout(() => {
+            if (chatWindowFocusRef.current) {
+                chatWindowFocusRef.current();
+            }
+            // Set input value via ref (ChatWindow will also set it if session is empty)
+            if (chatWindowSetInputRef.current) {
+                chatWindowSetInputRef.current(action.seed);
+            }
+        }, 100);
+    };
+
     return (
         <div className="flex flex-col flex-1 h-full overflow-hidden">
             {/* Topic Tabs Bar */}
@@ -236,15 +295,17 @@ const TutorPage = () => {
                 <div className="flex flex-col flex-1 h-full min-h-0 overflow-hidden">
                     {!urlSessionId ? (
                         <EmptyStatePanel
-                            onCreateSession={handleCreateSession}
-                            onFocusInput={handleFocusInput}
+                            onQuickAction={handleQuickAction}
                         />
                     ) : (
                         <ChatWindow
                             activeSessionId={urlSessionId}
                             onFocusInputRef={chatWindowFocusRef}
+                            onSetInputRef={chatWindowSetInputRef}
                             onAutoRenameSession={handleAutoRenameSession}
                             sessions={sessions}
+                            quickActionState={quickActionState}
+                            onQuickActionConsumed={() => setQuickActionState(null)}
                         />
                     )}
                 </div>

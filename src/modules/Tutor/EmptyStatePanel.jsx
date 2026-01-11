@@ -1,42 +1,39 @@
 // src/modules/Tutor/EmptyStatePanel.jsx
 import React from "react";
 import { Lightbulb, BookOpen, FileText, HelpCircle } from "lucide-react";
+import { TUTOR_QUICK_ACTIONS } from "./tutorQuickActions";
 
-const EmptyStatePanel = ({ onCreateSession, onFocusInput }) => {
-    const handleQuickAction = (actionType) => {
-        // Create new session first
-        onCreateSession();
-        
-        // Small delay to ensure input is ready, then focus
-        setTimeout(() => {
-            if (onFocusInput) onFocusInput();
-        }, 100);
+const EmptyStatePanel = ({ onQuickAction }) => {
+    const handleQuickAction = (actionKey) => {
+        if (onQuickAction) {
+            onQuickAction(actionKey);
+        }
     };
 
     const quickActions = [
         {
+            key: "explain",
             icon: Lightbulb,
             label: "Explain a concept",
             description: "Get a clear explanation",
-            placeholder: "Explain how the cardiovascular system works",
         },
         {
+            key: "exam",
             icon: BookOpen,
             label: "Exam-focused review",
             description: "Study for your exam",
-            placeholder: "Help me review for my cardiology exam",
         },
         {
+            key: "file",
             icon: FileText,
             label: "Use a file",
             description: "Ask about your files",
-            placeholder: "I want to discuss my uploaded lecture notes",
         },
         {
+            key: "confused",
             icon: HelpCircle,
             label: "I'm confused — help me",
             description: "Get guidance",
-            placeholder: "I'm struggling with this topic, can you help?",
         },
     ];
 
@@ -53,10 +50,10 @@ const EmptyStatePanel = ({ onCreateSession, onFocusInput }) => {
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                    {quickActions.map((action, idx) => (
+                    {quickActions.map((action) => (
                         <button
-                            key={idx}
-                            onClick={() => handleQuickAction(action.label)}
+                            key={action.key}
+                            onClick={() => handleQuickAction(action.key)}
                             className="p-4 bg-[#1a1d24] border border-white/10 rounded-xl hover:border-teal/50 hover:bg-white/5 transition-all text-left group"
                         >
                             <div className="flex items-start gap-3">

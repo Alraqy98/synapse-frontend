@@ -1,6 +1,7 @@
 import React from "react";
 import AnnouncementsPanel from "./AnnouncementsPanel";
 import FeedbackBox from "./FeedbackBox";
+import AstraPreferencesPanel from "./AstraPreferencesPanel";
 
 const SettingsPage = ({ profile }) => {
 
@@ -38,6 +39,9 @@ const SettingsPage = ({ profile }) => {
                     Limits may change as Synapse evolves during beta.
                 </p>
             </div>
+
+            {/* ASTRA PREFERENCES */}
+            <AstraPreferencesPanel />
 
             {/* MAIN CONTENT */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
