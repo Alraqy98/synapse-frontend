@@ -71,10 +71,16 @@ const PreviousTopicsPanel = ({
     };
 
     const submitRename = async () => {
-        if (!renameValue.trim()) return;
-        await onRenameSession(renameTarget, renameValue.trim());
-        setRenameTarget(null);
-        setRenameValue("");
+        if (!renameValue.trim() || !renameTarget) return;
+        try {
+            await onRenameSession(renameTarget, renameValue.trim());
+            // Only close modal after successful rename
+            setRenameTarget(null);
+            setRenameValue("");
+        } catch (err) {
+            console.error("Failed to rename session:", err);
+            // Keep modal open on error so user can retry
+        }
     };
 
     const cancelRename = () => {

@@ -71,8 +71,15 @@ const TutorPage = () => {
 
     const handleSelectSession = (sessionId) => {
         setActiveSessionId(sessionId);
-        // Ensure it's in open tabs
-        setOpenTabIds((prev) => new Set([...prev, sessionId]));
+        // Ensure it's in open tabs, but DON'T reorder - just add if missing
+        setOpenTabIds((prev) => {
+            if (prev.has(sessionId)) {
+                // Already in open tabs - don't change order
+                return prev;
+            }
+            // Not in open tabs - add to end (preserve order)
+            return new Set([...prev, sessionId]);
+        });
     };
 
     const handleCloseTab = (sessionId) => {

@@ -13,31 +13,35 @@ const TopicTabsBar = ({
     maxVisibleTabs = 5,
     historyButtonRef,
 }) => {
-    // Filter to only show open tabs
-    const openSessions = sessions.filter((s) => openTabIds.includes(s.id));
+    // Filter to only show open tabs, preserving order from openTabIds
+    // Create a map for quick lookup
+    const sessionMap = new Map(sessions.map(s => [s.id, s]));
     
-    // Ensure active session is always visible
+    // Build visibleSessions in the order they appear in openTabIds (NO reordering)
     const visibleSessions = [];
     const overflowSessions = [];
     
-    // Always include active session first if it exists and is open
-    if (activeSessionId) {
-        const activeSession = openSessions.find((s) => s.id === activeSessionId);
+    // Add all open sessions in their original order from openTabIds
+    const orderedOpenSessions = [];
+    openTabIds.forEach(tabId => {
+        const session = sessionMap.get(tabId);
+        if (session) {
+            orderedOpenSessions.push(session);
+        }
+    });
+    
+    // If active session is not in openTabIds, add it at the end (but don't reorder existing tabs)
+    if (activeSessionId && !openTabIds.includes(activeSessionId)) {
+        const activeSession = sessionMap.get(activeSessionId);
         if (activeSession) {
-            visibleSessions.push(activeSession);
-        } else {
-            // Active session not in open tabs - add it from all sessions
-            const activeSession = sessions.find((s) => s.id === activeSessionId);
-            if (activeSession) {
-                visibleSessions.push(activeSession);
-            }
+            orderedOpenSessions.push(activeSession);
         }
     }
     
-    // Add other open sessions up to maxVisibleTabs
-    openSessions.forEach((session) => {
-        if (session.id === activeSessionId) return; // Already added
-        if (visibleSessions.length < maxVisibleTabs) {
+    // Split into visible and overflow based on maxVisibleTabs
+    // Preserve order - active tab will be visible if it's within the first maxVisibleTabs
+    orderedOpenSessions.forEach((session, index) => {
+        if (index < maxVisibleTabs) {
             visibleSessions.push(session);
         } else {
             overflowSessions.push(session);
