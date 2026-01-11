@@ -1,10 +1,10 @@
 // src/modules/Tutor/TopicTabsBar.jsx
 import React, { useRef } from "react";
+import { useParams } from "react-router-dom";
 import { X, Plus, Clock } from "lucide-react";
 
 const TopicTabsBar = ({
     sessions,
-    activeSessionId,
     openTabIds,
     onSelectSession,
     onCreateSession,
@@ -13,6 +13,8 @@ const TopicTabsBar = ({
     maxVisibleTabs = 5,
     historyButtonRef,
 }) => {
+    // Derive activeSessionId from URL - URL is authoritative
+    const { sessionId: activeSessionId } = useParams();
     // Filter to only show open tabs, preserving order from openTabIds
     // Create a map for quick lookup
     const sessionMap = new Map(sessions.map(s => [s.id, s]));

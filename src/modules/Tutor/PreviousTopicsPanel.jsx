@@ -1,5 +1,6 @@
 // src/modules/Tutor/PreviousTopicsPanel.jsx
 import React, { useState, useRef, useEffect } from "react";
+import { useParams } from "react-router-dom";
 import { X, Edit2, Trash2, MessageSquare } from "lucide-react";
 
 const PreviousTopicsPanel = ({
@@ -7,13 +8,14 @@ const PreviousTopicsPanel = ({
     onClose,
     sessions,
     openTabIds,
-    activeSessionId,
     onSelectSession,
     onOpenTab,
     onDeleteSession,
     onRenameSession,
     position = { top: 0, left: 0 },
 }) => {
+    // Derive activeSessionId from URL - URL is authoritative
+    const { sessionId: activeSessionId } = useParams();
     const [renameTarget, setRenameTarget] = useState(null);
     const [renameValue, setRenameValue] = useState("");
     const [activeMenuId, setActiveMenuId] = useState(null);

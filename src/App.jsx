@@ -836,8 +836,9 @@ const SynapseOS = () => {
             <Route path="/library/:fileId" element={<LibraryPage />} />
             <Route path="/library/:fileId/page/:pageNumber" element={<LibraryPage />} />
             
-            {/* Other module routes */}
+            {/* Tutor routes */}
             <Route path="/tutor" element={<TutorPage />} />
+            <Route path="/tutor/:sessionId" element={<TutorPage />} />
             <Route path="/flashcards" element={
               <div className="flex-1 overflow-y-auto p-6">
                 <FlashcardsModule />

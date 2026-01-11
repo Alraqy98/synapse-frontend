@@ -1,5 +1,6 @@
 // src/modules/tutor/TutorPage.jsx
 import React, { useState, useEffect, useRef } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 // ChatSidebar kept for potential reuse, but visually hidden
 // import ChatSidebar from "./ChatSidebar";
 import ChatWindow from "./ChatWindow";
@@ -15,8 +16,11 @@ import {
 } from "./apiTutor";
 
 const TutorPage = () => {
+    // URL is the single source of truth for sessionId
+    const { sessionId: urlSessionId } = useParams();
+    const navigate = useNavigate();
+    
     const [sessions, setSessions] = useState([]);
-    const [activeSessionId, setActiveSessionId] = useState(null);
     const [isLoadingSessions, setIsLoadingSessions] = useState(true);
     const [openTabIds, setOpenTabIds] = useState(new Set());
     const [isHistoryPanelOpen, setIsHistoryPanelOpen] = useState(false);
@@ -30,12 +34,12 @@ const TutorPage = () => {
         loadSessions();
     }, []);
 
-    // When activeSessionId changes, ensure it's in openTabIds
+    // When URL sessionId changes, ensure it's in openTabIds
     useEffect(() => {
-        if (activeSessionId && !openTabIds.has(activeSessionId)) {
-            setOpenTabIds((prev) => new Set([...prev, activeSessionId]));
+        if (urlSessionId && !openTabIds.has(urlSessionId)) {
+            setOpenTabIds((prev) => new Set([...prev, urlSessionId]));
         }
-    }, [activeSessionId, openTabIds]);
+    }, [urlSessionId, openTabIds]);
 
     const loadSessions = async () => {
         setIsLoadingSessions(true);
@@ -44,14 +48,8 @@ const TutorPage = () => {
             const list = await getSessions();
 
             // ❗ DO NOT auto-select any session
-            // ❗ DO NOT override activeSessionId
+            // ❗ URL is authoritative - do NOT override URL sessionId
             setSessions(list || []);
-
-            // If user already had an active session, keep it. Otherwise leave null.
-            setActiveSessionId((prev) => {
-                if (prev && list.some((s) => s.id === prev)) return prev;
-                return null; // tabs start with NO selected chat
-            });
         } catch (err) {
             console.error("Failed to load sessions:", err);
         } finally {
@@ -63,16 +61,19 @@ const TutorPage = () => {
         try {
             const newSession = await createNewSession(title);
             setSessions((prev) => [newSession, ...prev]);
-            setActiveSessionId(newSession.id);
             // Add to open tabs
             setOpenTabIds((prev) => new Set([...prev, newSession.id]));
+            // Navigate to new session - URL becomes authoritative
+            navigate(`/tutor/${newSession.id}`, { replace: false });
         } catch (err) {
             console.error("Failed to create session:", err);
         }
     };
 
     const handleSelectSession = (sessionId) => {
-        setActiveSessionId(sessionId);
+        // Navigate to session - URL becomes authoritative
+        // Do NOT manually set messages before navigation
+        navigate(`/tutor/${sessionId}`, { replace: false });
         // Ensure it's in open tabs, but DON'T reorder - just add if missing
         setOpenTabIds((prev) => {
             if (prev.has(sessionId)) {
@@ -92,16 +93,16 @@ const TutorPage = () => {
             return next;
         });
 
-        // If closing the active tab, clear activeSessionId
-        if (activeSessionId === sessionId) {
-            setActiveSessionId(null);
+        // If closing the active tab, navigate to /tutor (empty state)
+        if (urlSessionId === sessionId) {
+            navigate("/tutor", { replace: false });
         }
     };
 
     const handleOpenTab = (sessionId) => {
-        // Add back to open tabs and make it active
+        // Add back to open tabs and navigate to it
         setOpenTabIds((prev) => new Set([...prev, sessionId]));
-        setActiveSessionId(sessionId);
+        navigate(`/tutor/${sessionId}`, { replace: false });
         setIsHistoryPanelOpen(false);
     };
 
@@ -131,8 +132,9 @@ const TutorPage = () => {
                 return next;
             });
 
-            if (activeSessionId === sessionId) {
-                setActiveSessionId(null); // ✨ do not auto-select next session
+            // If deleting the active session, navigate to /tutor (empty state)
+            if (urlSessionId === sessionId) {
+                navigate("/tutor", { replace: false });
             }
         } catch (err) {
             console.error("Failed to delete session:", err);
@@ -217,7 +219,6 @@ const TutorPage = () => {
             {/* Topic Tabs Bar */}
             <TopicTabsBar
                 sessions={sessions}
-                activeSessionId={activeSessionId}
                 openTabIds={Array.from(openTabIds)}
                 onSelectSession={handleSelectSession}
                 onCreateSession={handleCreateSession}
@@ -233,14 +234,14 @@ const TutorPage = () => {
 
                 {/* Chat Window */}
                 <div className="flex flex-col flex-1 h-full">
-                    {!activeSessionId ? (
+                    {!urlSessionId ? (
                         <EmptyStatePanel
                             onCreateSession={handleCreateSession}
                             onFocusInput={handleFocusInput}
                         />
                     ) : (
                         <ChatWindow
-                            activeSessionId={activeSessionId}
+                            activeSessionId={urlSessionId}
                             onFocusInputRef={chatWindowFocusRef}
                             onAutoRenameSession={handleAutoRenameSession}
                             sessions={sessions}
@@ -255,7 +256,6 @@ const TutorPage = () => {
                 onClose={() => setIsHistoryPanelOpen(false)}
                 sessions={sessions}
                 openTabIds={Array.from(openTabIds)}
-                activeSessionId={activeSessionId}
                 onSelectSession={handleSelectSession}
                 onOpenTab={handleOpenTab}
                 onDeleteSession={handleDeleteSession}

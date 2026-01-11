@@ -1,5 +1,6 @@
 // src/modules/tutor/ChatSidebar.jsx
 import React, { useState, useRef, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import {
     Plus,
     MessageSquare,
@@ -12,13 +13,14 @@ import { HiChevronLeft, HiChevronRight } from 'react-icons/hi';
 
 const ChatSidebar = ({
     sessions,
-    activeSessionId,
     onSelectSession,
     onCreateSession,
     onDeleteSession,
     onRenameSession,
     isLoading = false,
 }) => {
+    // Derive activeSessionId from URL - URL is authoritative
+    const { sessionId: activeSessionId } = useParams();
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [activeMenuId, setActiveMenuId] = useState(null);
 

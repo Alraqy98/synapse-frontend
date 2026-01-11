@@ -10,6 +10,7 @@ import {
 } from "./apiTutor";
 import { supabase } from "../../lib/supabaseClient";
 
+// activeSessionId comes from URL (useParams) - URL is authoritative
 const ChatWindow = ({ activeSessionId, onFocusInputRef, onAutoRenameSession, sessions }) => {
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState("");
@@ -84,16 +85,21 @@ const ChatWindow = ({ activeSessionId, onFocusInputRef, onAutoRenameSession, ses
     }, [input]);
 
     /* ------------------------------------------------
-     * Load session history when activeSessionId changes
-     * CRITICAL: Only run GET on cold start (first mount, empty messages)
-     * Do NOT run during active chat, tab switches, or remounts
+     * Load session history - STRICTLY sessionId-driven
+     * Rules:
+     * - If sessionId is undefined → do nothing (clear messages)
+     * - If sessionId changes → ALWAYS fetch messages
+     * - Never reuse previous messages for a new sessionId
      * ----------------------------------------------*/
     useEffect(() => {
         const loadMessages = async () => {
+            // Rule 1: If sessionId is undefined → do nothing
             if (!activeSessionId) {
+                console.log("[CHATWINDOW] sessionId is undefined - clearing messages");
                 setMessages([]);
-                messagesInitializedRef.current = null; // Reset when session cleared
+                messagesInitializedRef.current = null;
                 previousSessionIdRef.current = null;
+                setIsLoadingHistory(false);
                 return;
             }
 
@@ -102,47 +108,21 @@ const ChatWindow = ({ activeSessionId, onFocusInputRef, onAutoRenameSession, ses
             const sessionChanged = previousSessionId !== null && previousSessionId !== activeSessionId;
             previousSessionIdRef.current = activeSessionId;
 
-            // HARD RULE: GET must not run if this sessionId was already initialized
-            // This prevents GET from firing during active chat, tab switches, or remounts
-            if (messagesInitializedRef.current === activeSessionId) {
-                console.log("[TUTOR_GET_BLOCKED] Skipping GET - session already initialized", { 
-                    sessionId: activeSessionId 
-                });
-                return;
-            }
-
-            // HARD RULE: GET must not run if live messages exist (POST already produced messages)
-            // Use ref to get current messages (avoids stale closure from dependency array)
-            // This prevents GET from firing during active chat, tab switches, or remounts
-            const currentMessages = messagesRef.current;
-            if (currentMessages && currentMessages.length > 0) {
-                console.log("[TUTOR_GET_BLOCKED] Skipping GET - live messages exist", { 
-                    messageCount: currentMessages.length,
-                    sessionId: activeSessionId 
-                });
-                messagesInitializedRef.current = activeSessionId; // Mark this session as initialized
-                return;
-            }
-
-            // Trace: Identify what triggered this GET (should only be cold start)
-            console.trace("[TUTOR_GET_TRIGGERED] Cold start only - no live messages, session not initialized");
-
-            // Diagnostic log: Confirm sessionId for GET request
-            console.log("[TUTOR_FRONTEND] GET sessionId:", activeSessionId);
-
-            // CRITICAL: Only clear messages RIGHT BEFORE fetch (not on session change detection)
-            // This ensures we don't clear messages if fetch is blocked
+            // Rule 2: If sessionId changes → ALWAYS clear and fetch
+            // Never reuse previous messages for a new sessionId
             if (sessionChanged) {
-                console.log("[TUTOR_SESSION_CHANGED] Clearing messages for new session before fetch", {
+                console.log("[CHATWINDOW] sessionId changed - clearing previous messages", {
                     previousSessionId: previousSessionId,
                     newSessionId: activeSessionId
                 });
-                setMessages([]);
-                messagesInitializedRef.current = null; // Reset initialization for new session
+                setMessages([]); // Clear immediately - never reuse
+                messagesInitializedRef.current = null; // Reset initialization state
             }
 
+            // Log sessionId on fetch start
+            console.log("[CHATWINDOW] Fetching messages for sessionId:", activeSessionId);
+
             setIsLoadingHistory(true);
-            messagesInitializedRef.current = activeSessionId; // Mark this session as initialized before fetch
 
             try {
                 const apiMessages = await getSessionMessages(activeSessionId);
@@ -157,70 +137,42 @@ const ChatWindow = ({ activeSessionId, onFocusInputRef, onAutoRenameSession, ses
                     createdAt: m.createdAt || m.created_at,
                 }));
 
-                // Non-destructive rehydration: Only update if we have valid messages
-                // This prevents empty GET responses from wiping valid messages
-                setMessages(prev => {
-                    const fetchedMessages = normalizedMessages && normalizedMessages.length > 0
-                        ? normalizedMessages
-                        : null;
+                // Log message count on fetch success
+                console.log("[CHATWINDOW] Fetch success - message count:", normalizedMessages.length, {
+                    sessionId: activeSessionId
+                });
 
-                    // If we have fetched messages, use them
-                    if (fetchedMessages) {
-                        console.log("[TUTOR_FRONTEND] Rehydrated messages from GET", { count: fetchedMessages.length });
-                        
-                        // Check if we need to auto-rename based on first assistant message
-                        const firstAssistantMsg = fetchedMessages.find((m) => m.role === "assistant");
-                        if (firstAssistantMsg && firstAssistantMsg.meta && onAutoRenameSession) {
-                            // Check if session title is still default
-                            const session = sessions?.find((s) => s.id === activeSessionId);
-                            if (session && (session.title === "New Chat" || session.title === "New")) {
-                                setTimeout(() => {
-                                    onAutoRenameSession(activeSessionId, firstAssistantMsg.meta, firstAssistantMsg.content);
-                                }, 0);
-                            }
+                // Always use fetched messages (never preserve previous)
+                setMessages(normalizedMessages);
+
+                // Mark this session as initialized
+                messagesInitializedRef.current = activeSessionId;
+
+                // Check if we need to auto-rename based on first assistant message
+                if (normalizedMessages.length > 0) {
+                    const firstAssistantMsg = normalizedMessages.find((m) => m.role === "assistant");
+                    if (firstAssistantMsg && firstAssistantMsg.meta && onAutoRenameSession) {
+                        // Check if session title is still default
+                        const session = sessions?.find((s) => s.id === activeSessionId);
+                        if (session && (session.title === "New Chat" || session.title === "New")) {
+                            setTimeout(() => {
+                                onAutoRenameSession(activeSessionId, firstAssistantMsg.meta, firstAssistantMsg.content);
+                            }, 0);
                         }
-                        
-                        return fetchedMessages;
                     }
-
-                    // If no fetched messages but we have existing messages, keep them
-                    if (prev && prev.length > 0) {
-                        console.log("[TUTOR_FRONTEND] Empty GET response - preserving existing messages", { count: prev.length });
-                        return prev;
-                    }
-
-                    // Only show welcome message if we have no existing messages AND no fetched messages
-                    // This is a truly fresh session
-                    console.log("[TUTOR_FRONTEND] Fresh session - showing welcome message");
-                    // Use userName from state (will be null initially, but that's okay - will use "there" as fallback)
-                    const greetingName = userName || "there";
-                    return [
-                        {
-                            id: "welcome",
-                            role: "assistant",
-                            content:
-                                `Hi ${greetingName}! This is a new topic. What would you like to focus on today?`,
-                            createdAt: new Date().toISOString(),
-                        },
-                    ];
-                });
+                }
             } catch (err) {
-                console.error("[TUTOR_FRONTEND] Failed to load session messages:", err);
-                // On error, preserve existing messages if they exist
-                setMessages(prev => {
-                    if (prev && prev.length > 0) {
-                        console.log("[TUTOR_FRONTEND] GET error - preserving existing messages", { count: prev.length });
-                        return prev;
-                    }
-                    return prev || [];
-                });
+                console.error("[CHATWINDOW] Fetch failed for sessionId:", activeSessionId, err);
+                // On error, clear messages (never preserve previous for new sessionId)
+                setMessages([]);
             } finally {
                 setIsLoadingHistory(false);
             }
         };
 
         loadMessages();
-    }, [activeSessionId, userName]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeSessionId]); // Strictly sessionId-driven - only fetch when sessionId changes
 
     /* ------------------------------------------------
      * Helpers: last AI / last user messages
