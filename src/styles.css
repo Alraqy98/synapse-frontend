@@ -47,15 +47,19 @@
         transform 0.20s ease;
 }
 
+html {
+    height: 100%;
+    overflow: hidden;
+}
+
 body {
+    height: 100%;
     background: var(--bg-void);
     background-image: var(--landing-gradient);
     color: var(--text-main);
     font-family: var(--font-sans);
-    overflow-x: hidden;
-    /* Prevents sideways scroll */
-    overflow-y: auto;
-    /* Allows the page to scroll normally */
+    overflow: hidden;
+    /* No scrolling at body level - only specific containers scroll */
 }
 
 

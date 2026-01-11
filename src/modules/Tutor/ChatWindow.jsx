@@ -686,7 +686,7 @@ const ChatWindow = ({ activeSessionId, onFocusInputRef, onAutoRenameSession, ses
     return (
         <div className="flex flex-col flex-1 h-full overflow-hidden bg-[#1a1d24] relative">
             {/* Tutor State Bar */}
-            <div className="h-8 border-b border-white/5 bg-[#1a1d24] px-8 flex items-center text-xs text-muted">
+            <div className="h-8 flex-shrink-0 border-b border-white/5 bg-[#1a1d24] px-8 flex items-center text-xs text-muted">
                 <span className="flex items-center gap-2">
                     <span className="text-teal font-medium">Astra</span>
                     <span>•</span>
@@ -698,10 +698,11 @@ const ChatWindow = ({ activeSessionId, onFocusInputRef, onAutoRenameSession, ses
                 </span>
             </div>
 
-            {/* Messages area */}
+            {/* Messages area - ONLY SCROLLER */}
             <div
                 ref={chatRef}
-                className="flex-1 overflow-y-auto px-8 py-6 flex flex-col space-y-6 w-full relative scroll-smooth"
+                className="flex-1 overflow-y-auto overscroll-contain px-8 py-6 flex flex-col space-y-6 w-full relative scroll-smooth min-h-0"
+                style={{ overscrollBehavior: 'contain' }}
             >
                 {showEmptyState && (
                     <div className="flex flex-1 items-center justify-center text-muted text-sm">
@@ -756,7 +757,7 @@ const ChatWindow = ({ activeSessionId, onFocusInputRef, onAutoRenameSession, ses
             </div>
 
             {/* Input row */}
-            <div className="border-t border-[#1f2127] p-6 bg-[#0f1115]/95 backdrop-blur">
+            <div className="flex-shrink-0 border-t border-[#1f2127] p-6 bg-[#0f1115]/95 backdrop-blur">
                 <div className="w-full relative">
                     <div className="w-full bg-[#0f1116]/90 backdrop-blur-md border border-white/5 rounded-full px-6 py-3 shadow-inner flex items-center space-x-4 focus-within:border-teal/50 focus-within:ring-1 focus-within:ring-teal/50 transition-all">
                         <textarea

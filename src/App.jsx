@@ -630,7 +630,7 @@ const SynapseOS = () => {
 
       <main className="flex-1 ml-20 flex flex-col h-full overflow-hidden relative">
         {/* HEADER */}
-        <header className="h-16 border-b border-white/5 flex justify-between items-center px-6 bg-void/90 backdrop-blur z-10">
+        <header className="h-16 flex-shrink-0 border-b border-white/5 flex justify-between items-center px-6 bg-void/90 backdrop-blur z-10">
 
           {/* LEFT: Logo + Title */}
           <div className="text-xs uppercase tracking-wide text-muted">

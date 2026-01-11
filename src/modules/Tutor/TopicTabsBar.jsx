@@ -54,7 +54,7 @@ const TopicTabsBar = ({
     const hasClosedSessions = sessions.some((s) => !openTabIds.includes(s.id));
 
     return (
-        <div className="h-14 border-b border-white/10 bg-[#0f1115] flex items-end gap-1 px-4 overflow-x-auto relative">
+        <div className="h-14 flex-shrink-0 border-b border-white/10 bg-[#0f1115] flex items-end gap-1 px-4 overflow-x-auto relative">
             {/* Baseline divider - spans full width */}
             <div className="absolute bottom-0 left-0 right-0 h-px bg-white/10" />
             

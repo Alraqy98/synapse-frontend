@@ -233,7 +233,7 @@ const TutorPage = () => {
                 {/* <ChatSidebar ... /> */}
 
                 {/* Chat Window */}
-                <div className="flex flex-col flex-1 h-full">
+                <div className="flex flex-col flex-1 h-full min-h-0 overflow-hidden">
                     {!urlSessionId ? (
                         <EmptyStatePanel
                             onCreateSession={handleCreateSession}
