@@ -55,16 +55,21 @@ const TopicTabsBar = ({
                     key={session.id}
                     onClick={() => onSelectSession(session.id)}
                     className={`
-                        flex items-center gap-2 px-4 py-2 rounded-t-lg cursor-pointer transition-all
-                        min-w-[120px] max-w-[200px] group
+                        flex items-center gap-2 px-4 py-2.5 rounded-t-lg cursor-pointer transition-all
+                        min-w-[120px] max-w-[200px] group relative
                         ${
                             activeSessionId === session.id
-                                ? "bg-[#1a1d24] border-t border-x border-white/10 text-white"
+                                ? "bg-[#1a1d24] border-t-2 border-x border-white/10 text-white shadow-sm"
                                 : "bg-transparent hover:bg-white/5 text-muted hover:text-white"
                         }
                     `}
                 >
-                    <span className="text-sm font-medium truncate flex-1">
+                    {activeSessionId === session.id && (
+                        <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-teal rounded-r" />
+                    )}
+                    <span className={`text-sm truncate flex-1 ${
+                        activeSessionId === session.id ? "font-semibold" : "font-medium"
+                    }`}>
                         {session.title}
                     </span>
                     <button

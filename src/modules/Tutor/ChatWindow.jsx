@@ -7,6 +7,7 @@ import {
     uploadFile,
     getSessionMessages,
 } from "./apiTutor";
+import { supabase } from "../../lib/supabaseClient";
 
 const ChatWindow = ({ activeSessionId, onFocusInputRef }) => {
     const [messages, setMessages] = useState([]);
@@ -22,6 +23,7 @@ const ChatWindow = ({ activeSessionId, onFocusInputRef }) => {
     const messagesInitializedRef = useRef(null); // Track which sessionId was initialized (cold start only)
     const previousSessionIdRef = useRef(null); // Track previous sessionId to detect changes
     const messagesRef = useRef([]); // Track messages to avoid stale closure issues
+    const [userName, setUserName] = useState(null);
 
     // Expose focus function to parent via ref callback
     useEffect(() => {
@@ -31,6 +33,22 @@ const ChatWindow = ({ activeSessionId, onFocusInputRef }) => {
             };
         }
     }, [onFocusInputRef]);
+
+    // Fetch user's name for personalized greeting
+    useEffect(() => {
+        const fetchUserName = async () => {
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                const name = user?.user_metadata?.full_name || 
+                           user?.user_metadata?.name || 
+                           null;
+                setUserName(name);
+            } catch (err) {
+                console.warn("Could not fetch user name:", err);
+            }
+        };
+        fetchUserName();
+    }, []);
 
     /* ------------------------------------------------
      * Auto–scroll logic (only when messages change)
@@ -151,15 +169,35 @@ const ChatWindow = ({ activeSessionId, onFocusInputRef }) => {
                     // Only show welcome message if we have no existing messages AND no fetched messages
                     // This is a truly fresh session
                     console.log("[TUTOR_FRONTEND] Fresh session - showing welcome message");
+                    // Use userName from state (will be null initially, but that's okay - will use "there" as fallback)
+                    const greetingName = userName || "there";
                     return [
                         {
                             id: "welcome",
                             role: "assistant",
                             content:
-                                "Hello! I am Astra — your dedicated AI medical tutor. How can I help you today?",
+                                `Hi ${greetingName}! This is a new topic. What would you like to focus on today?`,
                             createdAt: new Date().toISOString(),
                         },
                     ];
+                });
+            } catch (err) {
+                console.error("[TUTOR_FRONTEND] Failed to load session messages:", err);
+                // On error, preserve existing messages if they exist
+                setMessages(prev => {
+                    if (prev && prev.length > 0) {
+                        console.log("[TUTOR_FRONTEND] GET error - preserving existing messages", { count: prev.length });
+                        return prev;
+                    }
+                    return prev || [];
+                });
+            } finally {
+                setIsLoadingHistory(false);
+            }
+        };
+
+        loadMessages();
+    }, [activeSessionId, userName]); // Add userName to dependencies
                 });
             } catch (err) {
                 console.error("[TUTOR_FRONTEND] Failed to load session messages:", err);
@@ -437,6 +475,19 @@ const ChatWindow = ({ activeSessionId, onFocusInputRef }) => {
 
     return (
         <div className="flex flex-col flex-1 h-full overflow-hidden bg-[#0f1115] relative">
+            {/* Tutor State Bar */}
+            <div className="h-8 border-b border-white/5 bg-[#0f1115] px-8 flex items-center text-xs text-muted">
+                <span className="flex items-center gap-2">
+                    <span className="text-teal font-medium">Astra</span>
+                    <span>•</span>
+                    <span>Early Clinical</span>
+                    <span>•</span>
+                    <span>Medicine</span>
+                    <span>•</span>
+                    <span>Tutor Mode</span>
+                </span>
+            </div>
+
             {/* Messages area */}
             <div
                 ref={chatRef}
@@ -481,7 +532,7 @@ const ChatWindow = ({ activeSessionId, onFocusInputRef }) => {
                                     handleSend();
                                 }
                             }}
-                            placeholder="Ask anything..."
+                            placeholder="Ask a question or describe what you're studying..."
                             className="flex-1 bg-transparent border-none text-white placeholder-gray-500 outline-none resize-none max-h-[200px] py-1"
                             rows={1}
                             style={{ minHeight: "24px" }}

@@ -73,7 +73,7 @@ const MessageBubble = ({ message, onBookmark, onPlayAudio }) => {
                         max-w-full w-full whitespace-pre-wrap break-words overflow-hidden
                         ${isUser
                             ? "bg-[#00e4d7]/10 border border-[#00e4d7]/40 text-[#00f7e9] rounded-br-sm"
-                            : "bg-[#1c1f26] border border-[#2a2f39] text-white rounded-bl-sm"}
+                            : "bg-[#1c1f26] border border-[#2a2f39] text-white rounded-bl-sm border-l-2 border-l-teal/50"}
                     `}
                     style={{
                         whiteSpace: "pre-wrap",
@@ -88,6 +88,18 @@ const MessageBubble = ({ message, onBookmark, onPlayAudio }) => {
                             remarkPlugins={[remarkMath]}
                             rehypePlugins={[rehypeKatex]}
                             components={{
+                                p: ({ children, node, ...props }) => {
+                                    // Emphasize first paragraph
+                                    const isFirst = node?.position?.start?.line === 1;
+                                    return (
+                                        <p
+                                            className={`${isFirst ? "text-base font-semibold text-white mb-2" : "text-sm text-gray-300"} leading-relaxed`}
+                                            {...props}
+                                        >
+                                            {children}
+                                        </p>
+                                    );
+                                },
                                 h1: ({ children }) => (
                                     <h1 className="text-lg font-bold text-teal mb-2">{children}</h1>
                                 ),
@@ -118,10 +130,10 @@ const MessageBubble = ({ message, onBookmark, onPlayAudio }) => {
                                     </a>
                                 ),
                                 ul: ({ children }) => (
-                                    <ul className="list-disc ml-5 space-y-1">{children}</ul>
+                                    <ul className="list-disc ml-5 space-y-1 my-2">{children}</ul>
                                 ),
                                 ol: ({ children }) => (
-                                    <ol className="list-decimal ml-5 space-y-1">{children}</ol>
+                                    <ol className="list-decimal ml-5 space-y-1 my-2">{children}</ol>
                                 ),
                                 li: ({ children }) => <li className="leading-snug">{children}</li>,
                                 table: ({ children }) => (

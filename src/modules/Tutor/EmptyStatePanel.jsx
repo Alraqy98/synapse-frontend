@@ -42,10 +42,10 @@ const EmptyStatePanel = ({ onCreateSession, onFocusInput }) => {
 
     return (
         <div className="flex flex-1 items-center justify-center p-8">
-            <div className="max-w-2xl w-full space-y-8">
-                <div className="text-center space-y-2">
-                    <h2 className="text-2xl font-bold text-white">
-                        Start a new topic with Astra
+            <div className="max-w-2xl w-full space-y-10">
+                <div className="text-center space-y-3">
+                    <h2 className="text-3xl font-bold text-white">
+                        What do you want to study now?
                     </h2>
                     <p className="text-muted text-sm">
                         Choose a quick action or type your question below
