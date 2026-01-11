@@ -197,25 +197,7 @@ const ChatWindow = ({ activeSessionId, onFocusInputRef }) => {
         };
 
         loadMessages();
-    }, [activeSessionId, userName]); // Add userName to dependencies
-                });
-            } catch (err) {
-                console.error("[TUTOR_FRONTEND] Failed to load session messages:", err);
-                // On error, preserve existing messages if they exist
-                setMessages(prev => {
-                    if (prev && prev.length > 0) {
-                        console.log("[TUTOR_FRONTEND] GET error - preserving existing messages", { count: prev.length });
-                        return prev;
-                    }
-                    return prev || [];
-                });
-            } finally {
-                setIsLoadingHistory(false);
-            }
-        };
-
-        loadMessages();
-    }, [activeSessionId]);
+    }, [activeSessionId, userName]);
 
     /* ------------------------------------------------
      * Helpers: last AI / last user messages
