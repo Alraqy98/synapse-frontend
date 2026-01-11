@@ -48,27 +48,31 @@ const TopicTabsBar = ({
     const hasClosedSessions = sessions.some((s) => !openTabIds.includes(s.id));
 
     return (
-        <div className="h-14 border-b border-white/5 bg-[#0f1115] flex items-center gap-1 px-4 overflow-x-auto">
+        <div className="h-14 border-b border-white/10 bg-[#0f1115] flex items-end gap-1 px-4 overflow-x-auto relative">
+            {/* Baseline divider - spans full width */}
+            <div className="absolute bottom-0 left-0 right-0 h-px bg-white/10" />
+            
             {/* Visible Tabs */}
             {visibleSessions.map((session) => (
                 <div
                     key={session.id}
                     onClick={() => onSelectSession(session.id)}
                     className={`
-                        flex items-center gap-2 px-4 py-2.5 rounded-t-lg cursor-pointer transition-all
+                        flex items-center gap-2 px-4 py-2.5 cursor-pointer transition-all
                         min-w-[120px] max-w-[200px] group relative
                         ${
                             activeSessionId === session.id
-                                ? "bg-[#1a1d24] border-t-2 border-x border-white/10 text-white shadow-sm"
-                                : "bg-transparent hover:bg-white/5 text-muted hover:text-white"
+                                ? "bg-[#1a1d24] border-t-2 border-l border-r border-white/10 border-b-0 text-white rounded-t-lg z-10 mb-[-1px]"
+                                : "bg-transparent text-muted hover:text-white hover:bg-white/5 rounded-t-lg"
                         }
                     `}
                 >
+                    {/* Active tab top accent line */}
                     {activeSessionId === session.id && (
-                        <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-teal rounded-r" />
+                        <div className="absolute top-0 left-0 right-0 h-0.5 bg-teal rounded-t-lg" />
                     )}
                     <span className={`text-sm truncate flex-1 ${
-                        activeSessionId === session.id ? "font-semibold" : "font-medium"
+                        activeSessionId === session.id ? "font-semibold text-white" : "font-medium"
                     }`}>
                         {session.title}
                     </span>
@@ -77,7 +81,9 @@ const TopicTabsBar = ({
                             e.stopPropagation();
                             onCloseTab(session.id);
                         }}
-                        className="opacity-0 group-hover:opacity-100 hover:bg-white/10 rounded p-0.5 transition-opacity"
+                        className={`opacity-0 group-hover:opacity-100 hover:bg-white/10 rounded p-0.5 transition-opacity ${
+                            activeSessionId === session.id ? "text-white/60 hover:text-white" : "text-muted hover:text-white"
+                        }`}
                         title="Close tab"
                     >
                         <X size={14} />

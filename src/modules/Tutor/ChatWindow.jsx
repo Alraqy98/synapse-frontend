@@ -456,9 +456,9 @@ const ChatWindow = ({ activeSessionId, onFocusInputRef }) => {
     const showEmptyState = false;
 
     return (
-        <div className="flex flex-col flex-1 h-full overflow-hidden bg-[#0f1115] relative">
+        <div className="flex flex-col flex-1 h-full overflow-hidden bg-[#1a1d24] relative">
             {/* Tutor State Bar */}
-            <div className="h-8 border-b border-white/5 bg-[#0f1115] px-8 flex items-center text-xs text-muted">
+            <div className="h-8 border-b border-white/5 bg-[#1a1d24] px-8 flex items-center text-xs text-muted">
                 <span className="flex items-center gap-2">
                     <span className="text-teal font-medium">Astra</span>
                     <span>•</span>
