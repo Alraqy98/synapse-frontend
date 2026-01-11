@@ -82,10 +82,12 @@ export const getSessionMessages = async (sessionId) => {
         throw new Error(data.error || "Failed to load messages");
     }
 
+    // Normalize message shape immediately after fetch
     return (data.messages || []).map((m) => ({
         id: m.id,
         role: m.role,
-        content: m.content,
+        content: m.content ?? "",
+        meta: m.meta ?? null,
         createdAt: m.created_at,
     }));
 };

@@ -97,16 +97,9 @@ const ChatWindow = ({ activeSessionId, onFocusInputRef, onAutoRenameSession, ses
                 return;
             }
 
-            // Clear messages when sessionId changes to a different session
-            // This ensures we don't show messages from a previous session
-            if (previousSessionIdRef.current !== null && previousSessionIdRef.current !== activeSessionId) {
-                console.log("[TUTOR_SESSION_CHANGED] Clearing messages for new session", {
-                    previousSessionId: previousSessionIdRef.current,
-                    newSessionId: activeSessionId
-                });
-                setMessages([]);
-                messagesInitializedRef.current = null; // Reset initialization for new session
-            }
+            // Detect session change (store previous value before updating)
+            const previousSessionId = previousSessionIdRef.current;
+            const sessionChanged = previousSessionId !== null && previousSessionId !== activeSessionId;
             previousSessionIdRef.current = activeSessionId;
 
             // HARD RULE: GET must not run if this sessionId was already initialized
@@ -137,23 +130,38 @@ const ChatWindow = ({ activeSessionId, onFocusInputRef, onAutoRenameSession, ses
             // Diagnostic log: Confirm sessionId for GET request
             console.log("[TUTOR_FRONTEND] GET sessionId:", activeSessionId);
 
+            // CRITICAL: Only clear messages RIGHT BEFORE fetch (not on session change detection)
+            // This ensures we don't clear messages if fetch is blocked
+            if (sessionChanged) {
+                console.log("[TUTOR_SESSION_CHANGED] Clearing messages for new session before fetch", {
+                    previousSessionId: previousSessionId,
+                    newSessionId: activeSessionId
+                });
+                setMessages([]);
+                messagesInitializedRef.current = null; // Reset initialization for new session
+            }
+
             setIsLoadingHistory(true);
             messagesInitializedRef.current = activeSessionId; // Mark this session as initialized before fetch
 
             try {
-                const data = await getSessionMessages(activeSessionId);
+                const apiMessages = await getSessionMessages(activeSessionId);
+
+                // Normalize message shape IMMEDIATELY after fetch
+                // CRITICAL: Ensure all messages have consistent shape with content, meta, and createdAt
+                const normalizedMessages = (apiMessages || []).map((m) => ({
+                    id: m.id,
+                    role: m.role,
+                    content: m.content ?? "",
+                    meta: m.meta ?? null,
+                    createdAt: m.createdAt || m.created_at,
+                }));
 
                 // Non-destructive rehydration: Only update if we have valid messages
                 // This prevents empty GET responses from wiping valid messages
                 setMessages(prev => {
-                    const fetchedMessages = data && Array.isArray(data) && data.length > 0
-                        ? data.map((m) => ({
-                            id: m.id,
-                            role: m.role,
-                            content: m.content,
-                            createdAt: m.createdAt,
-                            meta: m.meta || undefined,
-                        }))
+                    const fetchedMessages = normalizedMessages && normalizedMessages.length > 0
+                        ? normalizedMessages
                         : null;
 
                     // If we have fetched messages, use them
@@ -720,8 +728,8 @@ const ChatWindow = ({ activeSessionId, onFocusInputRef, onAutoRenameSession, ses
     /* ------------------------------------------------
      * Rendering
      * ----------------------------------------------*/
-    // Empty state is now handled by parent (TutorPage), so we don't show it here
-    const showEmptyState = false;
+    // Empty state must depend on RAW messages length (not filtered)
+    const showEmptyState = messages.length === 0;
 
     return (
         <div className="flex flex-col flex-1 h-full overflow-hidden bg-[#1a1d24] relative">
@@ -750,26 +758,34 @@ const ChatWindow = ({ activeSessionId, onFocusInputRef, onAutoRenameSession, ses
                 )}
 
                 {!showEmptyState &&
-                    messages.map((msg, index) => {
-                        // Check if this is the last assistant message with follow-up
-                        const isLastAssistant = msg.role === "assistant" && 
-                            msg.meta?.follow_up_generated === true &&
-                            !messages.slice(index + 1).some(m => m.role === "assistant");
+                    (() => {
+                        // Filter messages by role (ONLY render condition)
+                        // Messages with meta === null must still render
+                        const validMessages = messages.filter((msg) => {
+                            return msg.role === "user" || msg.role === "assistant";
+                        });
                         
-                        return (
-                            <React.Fragment key={msg.id}>
-                                <MessageBubble message={msg} />
-                                {isLastAssistant && msg.meta?.follow_up_question && (
-                                    <div className="ml-11">
-                                        <FollowUpPrompt
-                                            followUpQuestion={msg.meta.follow_up_question}
-                                            onSendFollowUp={handleSendFollowUp}
-                                        />
-                                    </div>
-                                )}
-                            </React.Fragment>
-                        );
-                    })}
+                        return validMessages.map((msg, index) => {
+                            // Check if this is the last assistant message with follow-up
+                            const isLastAssistant = msg.role === "assistant" && 
+                                msg.meta?.follow_up_generated === true &&
+                                !validMessages.slice(index + 1).some(m => m.role === "assistant");
+                            
+                            return (
+                                <React.Fragment key={msg.id}>
+                                    <MessageBubble message={msg} />
+                                    {isLastAssistant && msg.meta?.follow_up_question && (
+                                        <div className="ml-11">
+                                            <FollowUpPrompt
+                                                followUpQuestion={msg.meta.follow_up_question}
+                                                onSendFollowUp={handleSendFollowUp}
+                                            />
+                                        </div>
+                                    )}
+                                </React.Fragment>
+                            );
+                        });
+                    })()}
 
                 {isTyping && (
                     <div className="flex justify-start w-full group relative">
