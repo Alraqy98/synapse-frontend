@@ -380,23 +380,26 @@ const SynapseOS = () => {
     }
   };
 
-  // Clear all notifications handler - marks non-admin notifications as read, protects admin notifications
+  // Clear all notifications handler - marks ALL notifications (including admin) as read
   const handleClearAll = async () => {
+    // Capture unread notifications before any state updates
+    const unreadNotifications = notifications.filter((n) => !n.read);
+    
     try {
       const { data: userData } = await supabase.auth.getUser();
       const user = userData?.user;
 
       if (!user) return;
 
-      // Filter out admin/system notifications (they persist until acknowledged)
-      const nonAdminNotifications = notifications.filter(
-        (n) => !isAdminNotification(n.type)
-      );
-
-      if (nonAdminNotifications.length === 0) {
-        // Only admin notifications remain, don't clear anything
+      if (unreadNotifications.length === 0) {
+        // No unread notifications to clear
         return;
       }
+
+      // Optimistically mark all notifications as read in UI
+      setNotifications((prev) =>
+        prev.map((n) => ({ ...n, read: true }))
+      );
 
       // Demo Mode interception
       const demoRes = demoApiIntercept({
@@ -404,34 +407,41 @@ const SynapseOS = () => {
         url: "/notifications/clear-all",
       });
       if (demoRes.handled) {
-        // Optimistically remove non-admin notifications from UI
-        setNotifications((prev) =>
-          prev.filter((n) => isAdminNotification(n.type))
-        );
+        // Demo mode handled, optimistic update already applied
         return;
       }
 
-      // Mark all non-admin notifications as read in Supabase
-      const nonAdminIds = nonAdminNotifications.map((n) => n.id);
+      // Mark all unread notifications as read in Supabase (including admin notifications)
+      const unreadIds = unreadNotifications.map((n) => n.id);
       
       const { error } = await supabase
         .from("notifications")
         .update({ read: true })
         .eq("user_id", user.id)
-        .in("id", nonAdminIds);
+        .in("id", unreadIds);
 
       if (error) {
         console.error("Error clearing notifications:", error);
+        // Revert optimistic update on error
+        setNotifications((prev) =>
+          prev.map((n) => {
+            const original = unreadNotifications.find((un) => un.id === n.id);
+            return original ? { ...n, read: false } : n;
+          })
+        );
         return;
       }
 
-      // Optimistically remove non-admin notifications from UI
-      // Admin notifications remain visible until acknowledged
-      setNotifications((prev) =>
-        prev.filter((n) => isAdminNotification(n.type))
-      );
+      // Optimistic update already applied, no additional action needed
     } catch (err) {
       console.error("Error clearing notifications:", err);
+      // Revert optimistic update on error
+      setNotifications((prev) =>
+        prev.map((n) => {
+          const original = unreadNotifications.find((un) => un.id === n.id);
+          return original ? { ...n, read: false } : n;
+        })
+      );
     }
   };
 
