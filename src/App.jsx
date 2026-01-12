@@ -12,6 +12,7 @@ import ForgotPassword from "./components/auth/ForgotPassword";
 import ResetPassword from "./components/auth/ResetPassword";
 import OnboardingFlow from "./components/onboarding/OnboardingFlow";
 import { supabase } from "./lib/supabaseClient";
+import api from "./lib/api";
 import SettingsPage from "./modules/settings/SettingsPage";
 import ChangePasswordModal from "./components/ChangePasswordModal";
 import NotificationDetailModal from "./components/NotificationDetailModal";
@@ -352,31 +353,8 @@ const SynapseOS = () => {
         return;
       }
 
-      const { data: userData } = await supabase.auth.getUser();
-      const user = userData?.user;
-
-      if (!user) {
-        // Revert optimistic update if no user
-        if (notificationToRevert) {
-          setNotifications((prev) => [...prev, notificationToRevert]);
-        }
-        return;
-      }
-
-      // Update in Supabase
-      const { error } = await supabase
-        .from("notifications")
-        .update({ read: true })
-        .eq("id", notificationId)
-        .eq("user_id", user.id);
-
-      if (error) {
-        console.error("Error marking notification as read:", error);
-        // Revert optimistic update on error
-        if (notificationToRevert) {
-          setNotifications((prev) => [...prev, notificationToRevert]);
-        }
-      }
+      // Update via API with explicit body
+      await api.patch(`/api/notifications/${notificationId}/read`, { read: true });
     } catch (err) {
       console.error("Error marking notification as read:", err);
       // Revert optimistic update on error
@@ -392,11 +370,6 @@ const SynapseOS = () => {
     const unreadNotifications = [...notifications];
     
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      const user = userData?.user;
-
-      if (!user) return;
-
       if (unreadNotifications.length === 0) {
         // No unread notifications to clear
         return;
@@ -415,23 +388,23 @@ const SynapseOS = () => {
         return;
       }
 
-      // Mark all unread notifications as read in Supabase (including admin notifications)
-      const unreadIds = unreadNotifications.map((n) => n.id);
-      
-      const { error } = await supabase
-        .from("notifications")
-        .update({ read: true })
-        .eq("user_id", user.id)
-        .in("id", unreadIds);
-
-      if (error) {
-        console.error("Error clearing notifications:", error);
-        // Revert optimistic update on error
-        setNotifications(unreadNotifications);
-        return;
+      // Mark all unread notifications as read via API with explicit body
+      // Use clear-all endpoint if available, otherwise mark individually
+      try {
+        await api.patch(`/api/notifications/clear-all`, { read: true });
+      } catch (clearAllError) {
+        // Fallback: if clear-all endpoint doesn't exist, mark each notification individually
+        if (clearAllError.response?.status === 404) {
+          const unreadIds = unreadNotifications.map((n) => n.id);
+          await Promise.all(
+            unreadIds.map((id) =>
+              api.patch(`/api/notifications/${id}/read`, { read: true })
+            )
+          );
+        } else {
+          throw clearAllError;
+        }
       }
-
-      // Optimistic update already applied, no additional action needed
     } catch (err) {
       console.error("Error clearing notifications:", err);
       // Revert optimistic update on error
