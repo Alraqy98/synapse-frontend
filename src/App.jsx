@@ -15,6 +15,7 @@ import { supabase } from "./lib/supabaseClient";
 import SettingsPage from "./modules/settings/SettingsPage";
 import ChangePasswordModal from "./components/ChangePasswordModal";
 import NotificationDetailModal from "./components/NotificationDetailModal";
+import AdminPanel from "./modules/admin/AdminPanel";
 
 // Icons
 import {
@@ -1012,6 +1013,17 @@ const SynapseOS = () => {
                     onLogout={() => setIsAuthenticated(false)}
                   />
               </div>
+            } />
+            
+            {/* Admin Panel - Only accessible if is_admin === true */}
+            <Route path="/admin" element={
+              profile?.is_admin ? (
+                <div className="flex-1 overflow-y-auto p-6">
+                  <AdminPanel profile={profile} />
+                </div>
+              ) : (
+                <Navigate to="/dashboard" replace />
+              )
             } />
             
             {/* Catch-all redirect */}
