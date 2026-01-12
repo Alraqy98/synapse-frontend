@@ -204,7 +204,9 @@ const SynapseOS = () => {
   const [notifications, setNotifications] = useState([]);
   const [selectedNotification, setSelectedNotification] = useState(null);
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  // Filter to only unread notifications for UI display
+  const unreadNotifications = notifications.filter((n) => !n.read);
+  const unreadCount = unreadNotifications.length;
 
   // Notification type handler map
   const notificationTypeHandlers = {
@@ -931,7 +933,7 @@ const SynapseOS = () => {
                       Notifications
                     </span>
 
-                    {notifications.length > 0 && (
+                    {unreadCount > 0 && (
                       <button
                         onClick={handleClearAll}
                         className="text-xs text-muted hover:text-red-400 transition"
@@ -942,12 +944,12 @@ const SynapseOS = () => {
                   </div>
 
                   <div className="max-h-80 overflow-y-auto">
-                    {notifications.length === 0 ? (
+                    {unreadNotifications.length === 0 ? (
                       <div className="p-4 text-sm text-muted text-center">
                         No notifications yet
                       </div>
                     ) : (
-                      notifications.map((n) => {
+                      unreadNotifications.map((n) => {
                         // Determine if notification is clickable using type handler
                         const behavior = getNotificationBehavior(n.type);
                         const isClickable = behavior === "modal" || behavior === "navigate";
