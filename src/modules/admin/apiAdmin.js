@@ -136,7 +136,7 @@ export const getAdminContentMetrics = async () => {
  */
 export const sendAdminNotification = async (payload) => {
   try {
-    const res = await api.post("/admin/notifications", payload);
+    const res = await api.post("/api/admin/notifications", payload);
     return res.data;
   } catch (err) {
     if (err.response?.status === 403) {
