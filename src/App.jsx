@@ -33,6 +33,8 @@ import {
   Bell,
   Home,
   Lock,
+  Users,
+  FileText,
 } from "lucide-react";
 
 import TutorPage from "./modules/Tutor/TutorPage";
@@ -731,6 +733,30 @@ const SynapseOS = () => {
     }
   }, [isAdminRoute, isAuthenticated, profile]);
 
+  // Navigation safety: redirect user routes to /admin when in admin context
+  useEffect(() => {
+    if (isAdminRoute && isAuthenticated && profile?.is_admin === true) {
+      // If in admin context and trying to access a user route, redirect to /admin
+      const userRoutes = [
+        "/dashboard",
+        "/library",
+        "/tutor",
+        "/flashcards",
+        "/mcq",
+        "/summaries",
+        "/osce",
+        "/oral",
+        "/planner",
+        "/analytics",
+        "/settings",
+      ];
+      
+      if (userRoutes.some(route => location.pathname === route || location.pathname.startsWith(route + "/"))) {
+        navigate("/admin", { replace: true });
+      }
+    }
+  }, [isAdminRoute, isAuthenticated, profile, location.pathname, navigate]);
+
   // Not authenticated
   if (!isAuthenticated) {
     // Admin route: always show login screen directly (no landing page)
@@ -779,8 +805,34 @@ const SynapseOS = () => {
     }
   }
 
+  // Admin sidebar navigation config
+  const adminSidebarItems = [
+    { icon: Home, label: "Home", to: "/admin", showAccent: location.pathname === "/admin" },
+    { icon: Users, label: "Users", to: "/admin/users" },
+    { icon: FileText, label: "Content", to: "/admin/content" },
+    { icon: Folder, label: "Files", to: "/admin/files" },
+    { icon: Bell, label: "Notifications", to: "/admin/notifications" },
+  ];
+
+  // User sidebar navigation config (existing items)
+  const userSidebarItems = [
+    { icon: Home, label: "Dashboard", to: "/dashboard", showAccent: location.pathname === "/dashboard" },
+    { icon: Folder, label: "Library", to: "/library", dataDemo: "nav-library" },
+    { icon: Brain, label: "Tutor", to: "/tutor" },
+    { icon: Zap, label: "Flashcards", to: "/flashcards" },
+    { icon: CheckSquare, label: "MCQ", to: "/mcq", dataDemo: "nav-mcqs" },
+    { icon: BookOpen, label: "Summaries", to: "/summaries" },
+    { icon: Activity, label: "OSCE", to: "/osce" },
+    { icon: Mic, label: "Oral Exam", to: "/oral" },
+    { icon: Calendar, label: "Planner", to: "/planner" },
+    { icon: BarChart2, label: "Analytics", to: "/analytics" },
+  ];
+
   // Sidebar
   const Sidebar = () => {
+    // Determine which sidebar items to show based on context
+    const sidebarItems = isAdminRoute ? adminSidebarItems : userSidebarItems;
+
     return (
     <aside className="w-20 bg-void border-r border-white/5 flex flex-col items-center py-6 z-40 h-full fixed left-0 top-0">
       <div className="mb-8 flex items-center justify-center">
@@ -792,43 +844,16 @@ const SynapseOS = () => {
       </div>
 
       <nav className="flex flex-col gap-4 w-full px-2">
-          <SidebarItem 
-            icon={Home} 
-            label="Dashboard" 
-            to="/dashboard" 
-            showAccent={location.pathname === "/dashboard"} 
+        {sidebarItems.map((item, idx) => (
+          <SidebarItem
+            key={idx}
+            icon={item.icon}
+            label={item.label}
+            to={item.to}
+            showAccent={item.showAccent}
+            dataDemo={item.dataDemo}
           />
-          <SidebarItem 
-            icon={Folder} 
-            label="Library" 
-            to="/library" 
-            dataDemo="nav-library"
-          />
-          <SidebarItem 
-            icon={Brain} 
-            label="Tutor" 
-            to="/tutor" 
-          />
-          <SidebarItem 
-            icon={Zap} 
-            label="Flashcards" 
-            to="/flashcards" 
-          />
-          <SidebarItem 
-            icon={CheckSquare} 
-            label="MCQ" 
-            to="/mcq" 
-            dataDemo="nav-mcqs"
-          />
-          <SidebarItem 
-            icon={BookOpen} 
-            label="Summaries" 
-            to="/summaries" 
-          />
-          <SidebarItem icon={Activity} label="OSCE" to="/osce" />
-          <SidebarItem icon={Mic} label="Oral Exam" to="/oral" />
-          <SidebarItem icon={Calendar} label="Planner" to="/planner" />
-          <SidebarItem icon={BarChart2} label="Analytics" to="/analytics" />
+        ))}
       </nav>
 
         <div className="mt-auto">
@@ -1028,7 +1053,11 @@ const SynapseOS = () => {
         <div className="flex-1 flex flex-col overflow-hidden relative">
           <ErrorBoundary>
             <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/" element={
+              isAdminRoute && isAuthenticated && profile?.is_admin === true
+                ? <Navigate to="/admin" replace />
+                : <Navigate to="/dashboard" replace />
+            } />
             
             {/* Dashboard */}
             <Route path="/dashboard" element={
@@ -1122,7 +1151,11 @@ const SynapseOS = () => {
             } />
             
             {/* Catch-all redirect */}
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            <Route path="*" element={
+              isAdminRoute && isAuthenticated && profile?.is_admin === true 
+                ? <Navigate to="/admin" replace />
+                : <Navigate to="/dashboard" replace />
+            } />
             </Routes>
           </ErrorBoundary>
 
