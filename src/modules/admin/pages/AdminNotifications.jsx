@@ -38,6 +38,7 @@ const AdminNotifications = () => {
         type: "admin",
         title: trimmedTitle,
         description: trimmedMessage,
+        userIds: "all",
       });
 
       // Success: show message and clear form
