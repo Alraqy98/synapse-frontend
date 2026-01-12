@@ -262,7 +262,7 @@ const SynapseOS = () => {
     return date.toLocaleDateString();
   };
 
-  // Fetch notifications from Supabase
+  // Fetch notifications from Supabase - only store unread notifications in state
   const fetchNotifications = async () => {
     try {
       // Demo Mode interception: notifications → demo data
@@ -271,8 +271,9 @@ const SynapseOS = () => {
         url: "/notifications",
       });
       if (demoRes.handled) {
-        // Demo data is already normalized, use directly
-        setNotifications(demoRes.data || []);
+        // Demo data is already normalized, filter to only unread
+        const unreadDemoNotifications = (demoRes.data || []).filter((n) => !n.read);
+        setNotifications(unreadDemoNotifications);
         return;
       }
 
@@ -323,7 +324,9 @@ const SynapseOS = () => {
         };
       });
       
-      setNotifications(normalizedNotifications);
+      // Only store unread notifications in state (filter out read notifications)
+      const unreadNotifications = normalizedNotifications.filter((n) => !n.read);
+      setNotifications(unreadNotifications);
     } catch (err) {
       console.error("Error fetching notifications:", err);
       setNotifications([]);
@@ -332,10 +335,11 @@ const SynapseOS = () => {
 
   // Mark notification as read (acknowledged)
   const markNotificationAsRead = async (notificationId) => {
-    // Optimistic UI update
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
-    );
+    // Capture the notification before removing it (for error revert)
+    const notificationToRevert = notifications.find((n) => n.id === notificationId);
+    
+    // Optimistic UI update: remove from state (since we only store unread notifications)
+    setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
 
     try {
       // Demo Mode interception
@@ -353,9 +357,9 @@ const SynapseOS = () => {
 
       if (!user) {
         // Revert optimistic update if no user
-        setNotifications((prev) =>
-          prev.map((n) => (n.id === notificationId ? { ...n, read: false } : n))
-        );
+        if (notificationToRevert) {
+          setNotifications((prev) => [...prev, notificationToRevert]);
+        }
         return;
       }
 
@@ -369,23 +373,23 @@ const SynapseOS = () => {
       if (error) {
         console.error("Error marking notification as read:", error);
         // Revert optimistic update on error
-        setNotifications((prev) =>
-          prev.map((n) => (n.id === notificationId ? { ...n, read: false } : n))
-        );
+        if (notificationToRevert) {
+          setNotifications((prev) => [...prev, notificationToRevert]);
+        }
       }
     } catch (err) {
       console.error("Error marking notification as read:", err);
       // Revert optimistic update on error
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === notificationId ? { ...n, read: false } : n))
-      );
+      if (notificationToRevert) {
+        setNotifications((prev) => [...prev, notificationToRevert]);
+      }
     }
   };
 
   // Clear all notifications handler - marks ALL notifications (including admin) as read
   const handleClearAll = async () => {
-    // Capture unread notifications before any state updates
-    const unreadNotifications = notifications.filter((n) => !n.read);
+    // Capture unread notifications before any state updates (for error revert)
+    const unreadNotifications = [...notifications];
     
     try {
       const { data: userData } = await supabase.auth.getUser();
@@ -398,10 +402,8 @@ const SynapseOS = () => {
         return;
       }
 
-      // Optimistically mark all notifications as read in UI
-      setNotifications((prev) =>
-        prev.map((n) => ({ ...n, read: true }))
-      );
+      // Optimistically remove all notifications from UI (since we only store unread)
+      setNotifications([]);
 
       // Demo Mode interception
       const demoRes = demoApiIntercept({
@@ -425,12 +427,7 @@ const SynapseOS = () => {
       if (error) {
         console.error("Error clearing notifications:", error);
         // Revert optimistic update on error
-        setNotifications((prev) =>
-          prev.map((n) => {
-            const original = unreadNotifications.find((un) => un.id === n.id);
-            return original ? { ...n, read: false } : n;
-          })
-        );
+        setNotifications(unreadNotifications);
         return;
       }
 
@@ -438,12 +435,7 @@ const SynapseOS = () => {
     } catch (err) {
       console.error("Error clearing notifications:", err);
       // Revert optimistic update on error
-      setNotifications((prev) =>
-        prev.map((n) => {
-          const original = unreadNotifications.find((un) => un.id === n.id);
-          return original ? { ...n, read: false } : n;
-        })
-      );
+      setNotifications(unreadNotifications);
     }
   };
 
