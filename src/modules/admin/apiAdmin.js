@@ -135,10 +135,29 @@ export const getAdminContentMetrics = async () => {
  * POST /api/admin/notifications
  */
 export const sendAdminNotification = async (payload) => {
+  // DIAGNOSTIC: Log payload before sending
+  console.log("[ADMIN_NOTIFICATION_PAYLOAD]", payload);
+  console.log("[ADMIN_NOTIFICATION_PAYLOAD_KEYS]", Object.keys(payload));
+  console.log("[ADMIN_NOTIFICATION_PAYLOAD_USERIDS]", payload.userIds);
+  
   try {
     const res = await api.post("/api/admin/notifications", payload);
+    
+    // DIAGNOSTIC: Log response after receiving
+    console.log("[ADMIN_NOTIFICATION_RESPONSE]", res.data);
+    console.log("[ADMIN_NOTIFICATION_RESPONSE_STATUS]", res.status);
+    
     return res.data;
   } catch (err) {
+    // DIAGNOSTIC: Log error details
+    console.error("[ADMIN_NOTIFICATION_ERROR]", {
+      status: err.response?.status,
+      statusText: err.response?.statusText,
+      data: err.response?.data,
+      message: err.message,
+      fullError: err,
+    });
+    
     if (err.response?.status === 403) {
       window.location.href = "/dashboard";
       throw new Error("Access denied");
