@@ -5,7 +5,7 @@ import AuthInput from './AuthInput';
 import { supabase } from '../../lib/supabaseClient';
 import AppLogo from '../AppLogo';
 
-const Login = ({ onSuccess, onSwitchToSignup }) => {
+const Login = ({ onSuccess, onSwitchToSignup, adminMode = false }) => {
     const navigate = useNavigate();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -48,6 +48,15 @@ const Login = ({ onSuccess, onSwitchToSignup }) => {
                 fullName,
                 email: emailFromUser,
             });
+
+            // Redirect based on entry route
+            if (adminMode) {
+                // Admin login: redirect to /admin
+                navigate("/admin");
+            } else {
+                // Normal login: redirect to /dashboard
+                navigate("/dashboard");
+            }
 
         } catch (err) {
             // Show user-friendly error message
@@ -128,17 +137,19 @@ const Login = ({ onSuccess, onSwitchToSignup }) => {
                         </button>
                     </form>
 
-                    <div className="mt-8 pt-6 border-t border-white/5 text-center">
-                        <p className="text-sm text-muted">
-                            Don't have an account?{" "}
-                            <button
-                                onClick={onSwitchToSignup}
-                                className="text-teal hover:underline"
-                            >
-                                Sign Up
-                            </button>
-                        </p>
-                    </div>
+                    {!adminMode && (
+                        <div className="mt-8 pt-6 border-t border-white/5 text-center">
+                            <p className="text-sm text-muted">
+                                Don't have an account?{" "}
+                                <button
+                                    onClick={onSwitchToSignup}
+                                    className="text-teal hover:underline"
+                                >
+                                    Sign Up
+                                </button>
+                            </p>
+                        </div>
+                    )}
 
                 </div>
             </div>

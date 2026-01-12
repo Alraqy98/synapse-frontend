@@ -184,6 +184,9 @@ const SynapseOS = () => {
   const [authScreen, setAuthScreen] = useState("landing");
   const [tempUserData, setTempUserData] = useState(null);
   const [profile, setProfile] = useState(null);
+
+  // Detect admin route
+  const isAdminRoute = location.pathname.startsWith("/admin");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const notificationsRef = useRef(null);
   const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
@@ -519,6 +522,30 @@ const SynapseOS = () => {
         return;
       }
 
+      // Check if we're on admin route (use location.pathname since isAdminRoute may not be updated yet)
+      const currentIsAdminRoute = location.pathname.startsWith("/admin");
+
+      // Admin route: validate admin role
+      if (currentIsAdminRoute) {
+        // If profile exists but user is not admin, reject access
+        if (profileData && !profileData.is_admin) {
+          // Non-admin user trying to access admin panel
+          // Sign out and redirect to admin login
+          await supabase.auth.signOut();
+          localStorage.removeItem("access_token");
+          setIsAuthenticated(false);
+          setProfile(null);
+          setAuthScreen("login");
+          return;
+        }
+        
+        // Admin user: set profile and allow access
+        setProfile(profileData);
+        setAuthScreen(null);
+        return;
+      }
+
+      // Normal app: check onboarding
       if (
         !profileData ||
         !profileData.field_of_study ||
@@ -536,8 +563,31 @@ const SynapseOS = () => {
     }
   };
 
-  // Session sync
+  // Force logout on admin entry - HARD AUTH BOUNDARY
   useEffect(() => {
+    if (isAdminRoute) {
+      // Immediately clear auth state and sign out
+      const forceLogout = async () => {
+        try {
+          await supabase.auth.signOut();
+        } catch (err) {
+          console.error("Error signing out on admin entry:", err);
+        }
+        // Clear all auth state
+        localStorage.removeItem("access_token");
+        setIsAuthenticated(false);
+        setProfile(null);
+        setAuthScreen("login"); // Set to login screen for admin
+      };
+      forceLogout();
+    }
+  }, [isAdminRoute]);
+
+  // Session sync (only for non-admin routes)
+  useEffect(() => {
+    // Skip session sync if we're on admin route
+    if (isAdminRoute) return;
+
     const sync = async () => {
       const { data: { session }, error } = await supabase.auth.getSession();
       if (!error && session?.access_token) {
@@ -548,6 +598,9 @@ const SynapseOS = () => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
+        // Ignore auth state changes on admin routes
+        if (isAdminRoute) return;
+
         if (session?.access_token) {
           localStorage.setItem("access_token", session.access_token);
           fetchProfile();
@@ -561,7 +614,7 @@ const SynapseOS = () => {
     );
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [isAdminRoute]);
 
   // Fetch notifications on mount and poll while authenticated
   useEffect(() => {
@@ -656,8 +709,49 @@ const SynapseOS = () => {
     );
   }
 
+  // Admin role validation after profile fetch
+  useEffect(() => {
+    // Only validate if we're on admin route, authenticated, and profile is loaded
+    if (isAdminRoute && isAuthenticated && profile !== null) {
+      if (!profile.is_admin) {
+        // Non-admin user: sign out and redirect to admin login
+        const rejectNonAdmin = async () => {
+          try {
+            await supabase.auth.signOut();
+          } catch (err) {
+            console.error("Error signing out non-admin user:", err);
+          }
+          localStorage.removeItem("access_token");
+          setIsAuthenticated(false);
+          setProfile(null);
+          setAuthScreen("login");
+        };
+        rejectNonAdmin();
+      }
+    }
+  }, [isAdminRoute, isAuthenticated, profile]);
+
   // Not authenticated
   if (!isAuthenticated) {
+    // Admin route: always show login screen directly (no landing page)
+    if (isAdminRoute) {
+      return (
+        <Login
+          adminMode={true}
+          onSuccess={(userMeta) => {
+            setTempUserData(userMeta);
+            fetchProfile();
+          }}
+          onSwitchToSignup={() => {
+            // Admin route doesn't support signup, redirect to normal signup
+            navigate("/");
+            setAuthScreen("signup");
+          }}
+        />
+      );
+    }
+
+    // Normal app: show landing/login/signup as usual
     if (authScreen === "landing") {
       return (
         <LandingPage
@@ -674,6 +768,7 @@ const SynapseOS = () => {
     if (authScreen === "login") {
       return (
         <Login
+          adminMode={false}
           onSuccess={(userMeta) => {
             setTempUserData(userMeta);
             fetchProfile();
@@ -1017,12 +1112,12 @@ const SynapseOS = () => {
             
             {/* Admin Panel - Only accessible if is_admin === true */}
             <Route path="/admin" element={
-              profile?.is_admin ? (
+              isAuthenticated && profile?.is_admin === true ? (
                 <div className="flex-1 overflow-y-auto p-6">
                   <AdminPanel profile={profile} />
                 </div>
               ) : (
-                <Navigate to="/dashboard" replace />
+                <Navigate to="/admin" replace />
               )
             } />
             
