@@ -16,6 +16,11 @@ import SettingsPage from "./modules/settings/SettingsPage";
 import ChangePasswordModal from "./components/ChangePasswordModal";
 import NotificationDetailModal from "./components/NotificationDetailModal";
 import AdminPanel from "./modules/admin/AdminPanel";
+import AdminUsers from "./modules/admin/pages/AdminUsers";
+import AdminContent from "./modules/admin/pages/AdminContent";
+import AdminFiles from "./modules/admin/pages/AdminFiles";
+import AdminNotifications from "./modules/admin/pages/AdminNotifications";
+import AdminSettings from "./modules/admin/pages/AdminSettings";
 
 // Icons
 import {
@@ -751,7 +756,13 @@ const SynapseOS = () => {
         "/settings",
       ];
       
-      if (userRoutes.some(route => location.pathname === route || location.pathname.startsWith(route + "/"))) {
+      // Check if current path is a user route (but not an admin route)
+      const isUserRoute = userRoutes.some(route => 
+        location.pathname === route || location.pathname.startsWith(route + "/")
+      );
+      
+      // Only redirect if it's a user route and NOT an admin route
+      if (isUserRoute && !location.pathname.startsWith("/admin")) {
         navigate("/admin", { replace: true });
       }
     }
@@ -857,7 +868,11 @@ const SynapseOS = () => {
       </nav>
 
         <div className="mt-auto">
-          <SidebarItem icon={Settings} label="Settings" to="/settings" />
+          <SidebarItem 
+            icon={Settings} 
+            label="Settings" 
+            to={isAdminRoute ? "/admin/settings" : "/settings"} 
+          />
         </div>
     </aside>
   );
@@ -1139,12 +1154,47 @@ const SynapseOS = () => {
               </div>
             } />
             
-            {/* Admin Panel - Only accessible if is_admin === true */}
+            {/* Admin Routes - Only accessible if is_admin === true */}
             <Route path="/admin" element={
               isAuthenticated && profile?.is_admin === true ? (
                 <div className="flex-1 overflow-y-auto p-6">
                   <AdminPanel profile={profile} />
                 </div>
+              ) : (
+                <Navigate to="/admin" replace />
+              )
+            } />
+            <Route path="/admin/users" element={
+              isAuthenticated && profile?.is_admin === true ? (
+                <AdminUsers />
+              ) : (
+                <Navigate to="/admin" replace />
+              )
+            } />
+            <Route path="/admin/content" element={
+              isAuthenticated && profile?.is_admin === true ? (
+                <AdminContent />
+              ) : (
+                <Navigate to="/admin" replace />
+              )
+            } />
+            <Route path="/admin/files" element={
+              isAuthenticated && profile?.is_admin === true ? (
+                <AdminFiles />
+              ) : (
+                <Navigate to="/admin" replace />
+              )
+            } />
+            <Route path="/admin/notifications" element={
+              isAuthenticated && profile?.is_admin === true ? (
+                <AdminNotifications />
+              ) : (
+                <Navigate to="/admin" replace />
+              )
+            } />
+            <Route path="/admin/settings" element={
+              isAuthenticated && profile?.is_admin === true ? (
+                <AdminSettings />
               ) : (
                 <Navigate to="/admin" replace />
               )
