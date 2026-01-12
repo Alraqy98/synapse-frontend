@@ -14,6 +14,7 @@ import OnboardingFlow from "./components/onboarding/OnboardingFlow";
 import { supabase } from "./lib/supabaseClient";
 import SettingsPage from "./modules/settings/SettingsPage";
 import ChangePasswordModal from "./components/ChangePasswordModal";
+import NotificationDetailModal from "./components/NotificationDetailModal";
 
 // Icons
 import {
@@ -190,8 +191,43 @@ const SynapseOS = () => {
 
   // Notifications state - empty initial state, fetched from backend only
   const [notifications, setNotifications] = useState([]);
+  const [selectedNotification, setSelectedNotification] = useState(null);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+
+  // Notification type handler map
+  const notificationTypeHandlers = {
+    // Admin/system types that open modal
+    admin: "modal",
+    system: "modal",
+    announcement: "modal",
+    // Completion types that navigate
+    summary_completed: "navigate",
+    mcq_completed: "navigate",
+    flashcard_completed: "navigate",
+  };
+
+  // Helper to determine notification behavior
+  const getNotificationBehavior = (type) => {
+    if (!type) return "none";
+    
+    // Check exact match first
+    if (notificationTypeHandlers[type]) {
+      return notificationTypeHandlers[type];
+    }
+    
+    // Check for completion pattern
+    if (type.includes("completed")) {
+      return "navigate";
+    }
+    
+    return "none";
+  };
+
+  // Check if notification is admin/system type
+  const isAdminNotification = (type) => {
+    return type === "admin" || type === "system" || type === "announcement";
+  };
 
   // Centralized modal state
   const [activeModal, setActiveModal] = useState(null); // "upload" | "summary" | "mcq" | "flashcards" | null
@@ -281,7 +317,59 @@ const SynapseOS = () => {
     }
   };
 
-  // Clear all notifications handler - deletes all notifications from Supabase and clears UI
+  // Mark notification as read (acknowledged)
+  const markNotificationAsRead = async (notificationId) => {
+    // Optimistic UI update
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
+    );
+
+    try {
+      // Demo Mode interception
+      const demoRes = demoApiIntercept({
+        method: "PATCH",
+        url: `/notifications/${notificationId}/read`,
+      });
+      if (demoRes.handled) {
+        // Demo mode handled, optimistic update already applied
+        return;
+      }
+
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user;
+
+      if (!user) {
+        // Revert optimistic update if no user
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === notificationId ? { ...n, read: false } : n))
+        );
+        return;
+      }
+
+      // Update in Supabase
+      const { error } = await supabase
+        .from("notifications")
+        .update({ read: true })
+        .eq("id", notificationId)
+        .eq("user_id", user.id);
+
+      if (error) {
+        console.error("Error marking notification as read:", error);
+        // Revert optimistic update on error
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === notificationId ? { ...n, read: false } : n))
+        );
+      }
+    } catch (err) {
+      console.error("Error marking notification as read:", err);
+      // Revert optimistic update on error
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notificationId ? { ...n, read: false } : n))
+      );
+    }
+  };
+
+  // Clear all notifications handler - marks non-admin notifications as read, protects admin notifications
   const handleClearAll = async () => {
     try {
       const { data: userData } = await supabase.auth.getUser();
@@ -289,93 +377,124 @@ const SynapseOS = () => {
 
       if (!user) return;
 
-      // Delete all notifications for user from Supabase
+      // Filter out admin/system notifications (they persist until acknowledged)
+      const nonAdminNotifications = notifications.filter(
+        (n) => !isAdminNotification(n.type)
+      );
+
+      if (nonAdminNotifications.length === 0) {
+        // Only admin notifications remain, don't clear anything
+        return;
+      }
+
+      // Demo Mode interception
+      const demoRes = demoApiIntercept({
+        method: "PATCH",
+        url: "/notifications/clear-all",
+      });
+      if (demoRes.handled) {
+        // Optimistically remove non-admin notifications from UI
+        setNotifications((prev) =>
+          prev.filter((n) => isAdminNotification(n.type))
+        );
+        return;
+      }
+
+      // Mark all non-admin notifications as read in Supabase
+      const nonAdminIds = nonAdminNotifications.map((n) => n.id);
+      
       const { error } = await supabase
         .from("notifications")
-        .delete()
-        .eq("user_id", user.id);
+        .update({ read: true })
+        .eq("user_id", user.id)
+        .in("id", nonAdminIds);
 
       if (error) {
         console.error("Error clearing notifications:", error);
         return;
       }
 
-      // Immediately clear UI state
-      setNotifications([]);
+      // Optimistically remove non-admin notifications from UI
+      // Admin notifications remain visible until acknowledged
+      setNotifications((prev) =>
+        prev.filter((n) => isAdminNotification(n.type))
+      );
     } catch (err) {
       console.error("Error clearing notifications:", err);
-      // Still clear UI state on error
-      setNotifications([]);
     }
   };
 
-  // Handle notification click - navigates to related content for success notifications
+  // Handle notification click - uses type handlers to determine behavior
   const handleNotificationClick = (notification) => {
-    // Only make success/completion notifications clickable
-    const isSuccessNotification = 
-      notification.type === "summary_completed" ||
-      notification.type === "mcq_completed" ||
-      notification.type === "flashcard_completed" ||
-      (notification.type && notification.type.includes("completed"));
-
-    if (!isSuccessNotification) {
-      console.log("[Notification] Not a success notification, ignoring click", { type: notification.type });
-      return;
-    }
-
-    // Debug: Log notification structure
-    console.log("[Notification] Click handler fired", {
-      type: notification.type,
-      fileId: notification.fileId,
-      summaryId: notification.summaryId,
-      mcqDeckId: notification.mcqDeckId,
-      flashcardDeckId: notification.flashcardDeckId,
-      fullNotification: notification
-    });
+    const behavior = getNotificationBehavior(notification.type);
 
     // Close dropdown
     setNotificationsOpen(false);
 
-    // Helper to validate ID (not null, not empty string, not undefined)
-    const isValidId = (id) => {
-      return id && typeof id === 'string' && id.trim().length > 0;
-    };
-
-    // Priority: Specific generated objects take precedence over file view
-    // Deep-link to the exact generated object, not just the section
-    
-    // 1. Summary-specific notification → deep-link to summary
-    if (isValidId(notification.summaryId)) {
-      console.log("[Notification] Navigating to summary", `/summaries/${notification.summaryId}`);
-      navigate(`/summaries/${notification.summaryId}`);
-      return;
-    }
-    
-    // 2. MCQ-specific notification → deep-link to MCQ deck
-    if (isValidId(notification.mcqDeckId)) {
-      console.log("[Notification] Navigating to MCQ deck", `/mcq/${notification.mcqDeckId}`);
-      navigate(`/mcq/${notification.mcqDeckId}`);
-      return;
-    }
-    
-    // 3. Flashcard-specific notification → deep-link to flashcard deck
-    if (isValidId(notification.flashcardDeckId)) {
-      console.log("[Notification] Navigating to flashcard deck", `/flashcards/${notification.flashcardDeckId}`);
-      navigate(`/flashcards/${notification.flashcardDeckId}`);
+    if (behavior === "modal") {
+      // Admin/system notifications open modal
+      setSelectedNotification(notification);
       return;
     }
 
-    // 4. Fallback: Navigate to file view if no specific object exists
-    // This handles render/OCR notifications and other file-level events
-    if (isValidId(notification.fileId)) {
-      console.log("[Notification] Navigating to file view", `/library/${notification.fileId}`);
-      navigate(`/library/${notification.fileId}`);
+    if (behavior === "navigate") {
+      // Completion notifications navigate to related content
+      // Helper to validate ID (not null, not empty string, not undefined)
+      const isValidId = (id) => {
+        return id && typeof id === 'string' && id.trim().length > 0;
+      };
+
+      // Priority: Specific generated objects take precedence over file view
+      // Deep-link to the exact generated object, not just the section
+      
+      // 1. Summary-specific notification → deep-link to summary
+      if (isValidId(notification.summaryId)) {
+        console.log("[Notification] Navigating to summary", `/summaries/${notification.summaryId}`);
+        navigate(`/summaries/${notification.summaryId}`);
+        return;
+      }
+      
+      // 2. MCQ-specific notification → deep-link to MCQ deck
+      if (isValidId(notification.mcqDeckId)) {
+        console.log("[Notification] Navigating to MCQ deck", `/mcq/${notification.mcqDeckId}`);
+        navigate(`/mcq/${notification.mcqDeckId}`);
+        return;
+      }
+      
+      // 3. Flashcard-specific notification → deep-link to flashcard deck
+      if (isValidId(notification.flashcardDeckId)) {
+        console.log("[Notification] Navigating to flashcard deck", `/flashcards/${notification.flashcardDeckId}`);
+        navigate(`/flashcards/${notification.flashcardDeckId}`);
+        return;
+      }
+
+      // 4. Fallback: Navigate to file view if no specific object exists
+      // This handles render/OCR notifications and other file-level events
+      if (isValidId(notification.fileId)) {
+        console.log("[Notification] Navigating to file view", `/library/${notification.fileId}`);
+        navigate(`/library/${notification.fileId}`);
+        return;
+      }
+
+      // If we get here, no valid IDs were found
+      // Do NOT navigate - notification is not clickable
+      console.warn("[Notification] No valid IDs found for navigation - notification is not clickable", notification);
       return;
     }
 
-    // If we get here, no valid IDs were found
-    // Do NOT navigate - notification is not clickable
-    console.warn("[Notification] No valid IDs found for navigation - notification is not clickable", notification);
+    // behavior === "none" - do nothing
+    console.log("[Notification] Notification type has no click behavior", { type: notification.type });
+  };
+
+  // Handle notification acknowledgment (OK button in modal)
+  const handleNotificationAcknowledge = () => {
+    if (!selectedNotification) return;
+
+    // Mark as read
+    markNotificationAsRead(selectedNotification.id);
+
+    // Close modal
+    setSelectedNotification(null);
   };
 
   // Fetch profile
@@ -683,12 +802,9 @@ const SynapseOS = () => {
                       </div>
                     ) : (
                       notifications.map((n) => {
-                        // Determine if notification is clickable (success/completion type)
-                        const isClickable = 
-                          n.type === "summary_completed" ||
-                          n.type === "mcq_completed" ||
-                          n.type === "flashcard_completed" ||
-                          (n.type && n.type.includes("completed"));
+                        // Determine if notification is clickable using type handler
+                        const behavior = getNotificationBehavior(n.type);
+                        const isClickable = behavior === "modal" || behavior === "navigate";
                         
                         const dataDemo =
                           n.type === "mcq_completed" ? "notif-item-mcq-ready" : undefined;
@@ -954,6 +1070,13 @@ const SynapseOS = () => {
       <ChangePasswordModal
         isOpen={changePasswordModalOpen}
         onClose={() => setChangePasswordModalOpen(false)}
+      />
+
+      {/* Notification Detail Modal */}
+      <NotificationDetailModal
+        open={selectedNotification !== null}
+        notification={selectedNotification}
+        onAcknowledge={handleNotificationAcknowledge}
       />
     </div>
   );
