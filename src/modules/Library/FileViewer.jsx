@@ -140,6 +140,16 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
 
     const pages = file.page_contents || [];
     
+    // Verification: Log page_contents availability for vision pipeline
+    useEffect(() => {
+        console.log("[VISION VERIFY] FileViewer page_contents:", {
+            hasPageContents: !!file.page_contents,
+            pagesCount: pages.length,
+            fileId: file?.id,
+            firstPageImageUrl: pages[0]?.image_url || pages[0]?.image_path || null,
+        });
+    }, [file?.id, file?.page_contents, pages.length]);
+    
     // Sync activePage with pageNumber prop when it changes
     useEffect(() => {
         if (pageNumber !== null && pageNumber !== undefined && pageNumber !== activePage) {
@@ -239,6 +249,11 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
         if (cachedRenderedUrl && !imageFailed) {
             setRenderedImageUrl(cachedRenderedUrl);
             setPageImageForTutor(cachedRenderedUrl);
+            // Verification: Log when page image is captured from cached rendered URL
+            console.log("[VISION VERIFY] Page image captured from cached rendered URL:", {
+                page: activePage,
+                source: "cached_rendered",
+            });
             setIsRendering(false);
             return;
         }
@@ -247,6 +262,12 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
         if (imageUrl && !imageFailed) {
             setRenderedImageUrl(null);
             setPageImageForTutor(imageUrl);
+            // Verification: Log when page image is captured from page_contents
+            console.log("[VISION VERIFY] Page image captured from page_contents:", {
+                page: activePage,
+                imageUrl: imageUrl.substring(0, 100),
+                source: "page_contents",
+            });
             setIsRendering(false);
             return;
         }
@@ -268,6 +289,12 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                         if (blob) {
                             const url = URL.createObjectURL(blob);
                             setPageImageForTutor(url);
+                            // Verification: Log when image is extracted from PDF.js canvas
+                            console.log("[VISION VERIFY] Page image extracted from PDF.js canvas:", {
+                                page: activePage,
+                                blobSize: blob.size,
+                                source: "pdfjs_canvas",
+                            });
                         }
                     }, 'image/png', 0.9);
                 }
@@ -670,6 +697,14 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                 page: tutorPayload.page,
                 mode: tutorPayload.mode,
                 tutorMode: tutorPayload.tutorMode,
+            });
+
+            // Verification: Log vision payload status
+            console.log("[VISION PAYLOAD] Tutor request includes image:", {
+                hasImage: !!pageImageForTutor,
+                hasScreenshotUrl: !!tutorPayload.screenshotUrl,
+                imageType: pageImageForTutor ? (pageImageForTutor.startsWith('blob:') ? 'blob' : 'url') : 'null',
+                imagePreview: pageImageForTutor ? pageImageForTutor.substring(0, 100) : null,
             });
 
             const res = await sendMessageToTutor(tutorPayload);

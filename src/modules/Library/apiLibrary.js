@@ -113,6 +113,8 @@ const mapItemFromApi = (item) => {
         render_state: item.render_state || item.file_render_state || null,
         file_render_state: item.file_render_state || item.render_state || null, // Keep for backwards compatibility
         is_done: item.is_done ?? false, // User-controlled done status
+        // Preserve page_contents for FileViewer vision pipeline
+        page_contents: item.page_contents || null,
     };
 
     // DIAGNOSTIC: Log mapped item for first file (to trace data flow)
