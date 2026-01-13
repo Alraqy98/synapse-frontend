@@ -94,7 +94,7 @@ export default function DemoOverlay() {
   // Step 2: Auto-navigate to page 2 (image-only) when FileViewer is visible
   useEffect(() => {
     if (!isDemo || currentStep !== 2) return;
-    if (!location.pathname.includes(`/library/${DEMO_FILE_ID}`)) return;
+    if (!location.pathname.includes(`/library/file/${DEMO_FILE_ID}`)) return;
 
     // Check if FileViewer root is present
     const fileViewerRoot = document.querySelector("[data-demo='fileviewer-root']");
@@ -102,8 +102,8 @@ export default function DemoOverlay() {
 
     // Navigate to page 2 (image-only page)
     const targetPage = DEMO_IMAGE_ONLY_PAGE_INDEX + 1; // 1-based
-    if (location.pathname !== `/library/${DEMO_FILE_ID}/page/${targetPage}`) {
-      navigate(`/library/${DEMO_FILE_ID}/page/${targetPage}`, { replace: true });
+    if (location.pathname !== `/library/file/${DEMO_FILE_ID}/page/${targetPage}`) {
+      navigate(`/library/file/${DEMO_FILE_ID}/page/${targetPage}`, { replace: true });
     }
   }, [isDemo, currentStep, location.pathname, navigate]);
 
@@ -115,7 +115,7 @@ export default function DemoOverlay() {
   // Delay navigation until overlay is fully mounted to prevent visual jitter
   useEffect(() => {
     if (!isDemo || currentStep !== 4) return;
-    if (!location.pathname.includes(`/library/${DEMO_FILE_ID}`)) return;
+    if (!location.pathname.includes(`/library/file/${DEMO_FILE_ID}`)) return;
 
     // Wait for overlay to be fully mounted and DOM to be stable
     const timer = setTimeout(() => {
@@ -428,7 +428,7 @@ export default function DemoOverlay() {
     if (currentStep === 1 && step.autoAdvance?.condition === "fileviewer_visible") {
       const checkFileViewer = setInterval(() => {
         const fileViewer = document.querySelector("[data-demo='fileviewer-root']");
-        if (fileViewer && location.pathname.includes(`/library/${DEMO_FILE_ID}`)) {
+        if (fileViewer && location.pathname.includes(`/library/file/${DEMO_FILE_ID}`)) {
           clearInterval(checkFileViewer);
           // Small delay before advancing
           setTimeout(() => {

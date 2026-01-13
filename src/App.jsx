@@ -46,6 +46,7 @@ import {
 
 import TutorPage from "./modules/Tutor/TutorPage";
 import LibraryPage from "./modules/Library/LibraryPage";
+import FileViewerPage from "./modules/Library/FileViewerPage";
 import MCQTab from "./modules/mcq/MCQTab";
 import DashboardPage from "./modules/dashboard/DashboardPage";
 import LibraryUploadModal from "./modules/Library/LibraryUploadModal";
@@ -460,9 +461,9 @@ const SynapseOS = () => {
       // 4. Fallback: Navigate to file view if no specific object exists
       // This handles render/OCR notifications and other file-level events
       if (isValidId(notification.fileId)) {
-        console.log("[Notification] Navigating to file view", `/library/${notification.fileId}`);
+        console.log("[Notification] Navigating to file view", `/library/file/${notification.fileId}`);
         // Preserve folder context: when opening from notifications, return to library root
-        navigate(`/library/${notification.fileId}`, {
+        navigate(`/library/file/${notification.fileId}`, {
           state: {
             fromFolderPath: "/library",
           },
@@ -1070,12 +1071,14 @@ const SynapseOS = () => {
               </div>
             } />
             
-            {/* Library routes - slug-based folder routing */}
+            {/* Library browsing routes (folders only) */}
             <Route path="/library" element={<LibraryPage />} />
             <Route path="/library/:parentSlug/:childSlug" element={<LibraryPage />} />
             <Route path="/library/:folderSlug" element={<LibraryPage />} />
-            <Route path="/library/:fileId" element={<LibraryPage />} />
-            <Route path="/library/:fileId/page/:pageNumber" element={<LibraryPage />} />
+            
+            {/* File viewer routes (isolated namespace) */}
+            <Route path="/library/file/:fileId" element={<FileViewerPage />} />
+            <Route path="/library/file/:fileId/page/:pageNumber" element={<FileViewerPage />} />
             
             {/* Tutor routes */}
             <Route path="/tutor" element={<TutorPage />} />

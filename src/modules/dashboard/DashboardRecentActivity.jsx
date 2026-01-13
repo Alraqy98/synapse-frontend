@@ -145,7 +145,7 @@ const DashboardRecentActivity = () => {
 
     const handleFileClick = (fileId) => {
         // Preserve folder context: when opening from dashboard, return to library root
-        navigate(`/library/${fileId}`, {
+        navigate(`/library/file/${fileId}`, {
             state: {
                 fromFolderPath: "/library",
             },

@@ -6,7 +6,6 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import LibraryFilters from "./LibraryFilters";
 import LibraryGrid from "./LibraryGrid";
 import LibraryUploadModal from "./LibraryUploadModal";
-import FileViewer from "./FileViewer";
 import CreateFolderModal from "./CreateFolderModal";
 
 import RenameModal from "./RenameModal";
@@ -30,22 +29,13 @@ import {
     buildFolderPath,
 } from "./utils/folderSlugs";
 
-// Helper to check if a string looks like a UUID
-const looksLikeUuid = (str) => {
-    if (!str) return false;
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    return uuidRegex.test(str);
-};
-
 const LibraryPage = () => {
-    const { fileId, pageNumber, folderSlug, parentSlug, childSlug } = useParams();
+    const { folderSlug, parentSlug, childSlug } = useParams();
     const navigate = useNavigate();
     const location = useLocation();
     
     const [items, setItems] = useState([]);
     const [activeFilter, setActiveFilter] = useState("All");
-    const [selectedFile, setSelectedFile] = useState(null);
-    const [isLoadingFile, setIsLoadingFile] = useState(false);
 
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [showFolderModal, setShowFolderModal] = useState(false);
@@ -114,9 +104,6 @@ const LibraryPage = () => {
     // ----------------------------------------------
     // When URL changes (slugs), resolve to folder IDs and update state
     useEffect(() => {
-        // Skip if we're viewing a file (fileId takes precedence)
-        if (fileId) return;
-        
         // Determine active folder from URL slugs (childSlug takes precedence for nested folders)
         const activeSlug = childSlug || folderSlug || null;
         
@@ -204,15 +191,9 @@ const LibraryPage = () => {
                             navigate("/library");
                         }
                     } else {
-                        // Slug not found - check if it's actually a fileId (UUID)
-                        if (looksLikeUuid(activeSlug)) {
-                            // This is a fileId, navigate to file route
-                            navigate(`/library/${activeSlug}`, { replace: true });
-                        } else {
-                            // Slug not found and not a UUID, redirect to root
-                            console.warn(`Folder slug "${activeSlug}" not found`);
-                            navigate("/library");
-                        }
+                        // Slug not found, redirect to root
+                        console.warn(`Folder slug "${activeSlug}" not found`);
+                        navigate("/library");
                     }
                 } catch (err) {
                     console.error("Failed to load folder:", err);
@@ -239,7 +220,7 @@ const LibraryPage = () => {
             }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [folderSlug, parentSlug, childSlug, activeFilter, fileId]);
+    }, [folderSlug, parentSlug, childSlug, activeFilter]);
 
     // Listen for demo exit to force library reload
     useEffect(() => {
@@ -342,28 +323,6 @@ const LibraryPage = () => {
         }
     };
 
-    // ----------------------------------------------
-    // LOAD FILE FROM URL PARAMS
-    // ----------------------------------------------
-    useEffect(() => {
-        if (fileId) {
-            const loadFile = async () => {
-                try {
-                    setIsLoadingFile(true);
-                    const full = await getItemById(fileId);
-                    setSelectedFile(full);
-                } catch (err) {
-                    console.error("Failed to load file:", err);
-                    navigate("/library");
-                } finally {
-                    setIsLoadingFile(false);
-                }
-            };
-            loadFile();
-        } else {
-            setSelectedFile(null);
-        }
-    }, [fileId, navigate]);
 
     // ----------------------------------------------
     // OPEN FILE OR FOLDER - Update URL route (Slug-based)
@@ -394,7 +353,7 @@ const LibraryPage = () => {
         // This allows FileViewer's back button to return to the exact folder
         // where the file was opened, preserving folder context across navigation
         const currentPath = location.pathname;
-        navigate(`/library/${item.id}`, {
+        navigate(`/library/file/${item.id}`, {
             state: {
                 fromFolderPath: currentPath, // e.g., "/library/emergency" or "/library"
             },
@@ -567,29 +526,7 @@ const LibraryPage = () => {
     };
 
     // ----------------------------------------------
-    // VIEWER MODE (when fileId is in URL)
-    // ----------------------------------------------
-    if (fileId && selectedFile) {
-        return (
-            <FileViewer 
-                file={selectedFile} 
-                onBack={handleBack}
-                initialPage={pageNumber ? Number(pageNumber) : 1}
-            />
-        );
-    }
-    
-    // Show loading state while file is being loaded
-    if (fileId && isLoadingFile) {
-        return (
-            <div className="flex-1 flex items-center justify-center">
-                <div className="text-muted">Loading file...</div>
-            </div>
-        );
-    }
-
-    // ----------------------------------------------
-    // GRID MODE
+    // GRID MODE (Library browsing only)
     // ----------------------------------------------
     return (
         <div className="flex flex-1 h-full overflow-hidden relative">

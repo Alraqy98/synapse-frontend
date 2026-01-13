@@ -150,9 +150,9 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
         setActivePage(normalizedPage);
         if (file?.id) {
             if (normalizedPage === 1) {
-                navigate(`/library/${file.id}`, { replace: true });
+                navigate(`/library/file/${file.id}`, { replace: true });
             } else {
-                navigate(`/library/${file.id}/page/${normalizedPage}`, { replace: true });
+                navigate(`/library/file/${file.id}/page/${normalizedPage}`, { replace: true });
             }
         }
     };
@@ -850,9 +850,9 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
                 // Update URL without triggering navigation
                 if (file?.id) {
                     if (closestPage === 1) {
-                        window.history.replaceState({}, '', `/library/${file.id}`);
+                        window.history.replaceState({}, '', `/library/file/${file.id}`);
                     } else {
-                        window.history.replaceState({}, '', `/library/${file.id}/page/${closestPage}`);
+                        window.history.replaceState({}, '', `/library/file/${file.id}/page/${closestPage}`);
                     }
                 }
             }
