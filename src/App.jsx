@@ -1065,10 +1065,10 @@ const SynapseOS = () => {
               </div>
             } />
             
-            {/* Library routes */}
+            {/* Library routes - slug-based folder routing */}
             <Route path="/library" element={<LibraryPage />} />
-            <Route path="/library/folder/:folderId" element={<LibraryPage />} />
-            <Route path="/library/folder/:folderId/sub/:subFolderId" element={<LibraryPage />} />
+            <Route path="/library/:parentSlug/:childSlug" element={<LibraryPage />} />
+            <Route path="/library/:folderSlug" element={<LibraryPage />} />
             <Route path="/library/:fileId" element={<LibraryPage />} />
             <Route path="/library/:fileId/page/:pageNumber" element={<LibraryPage />} />
             

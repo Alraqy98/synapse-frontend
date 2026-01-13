@@ -22,9 +22,23 @@ import {
     createLibraryFolder,
     updateFileStatus,
 } from "./apiLibrary";
+import {
+    generateSlug,
+    registerFolder,
+    getFolderBySlug,
+    getSlugById,
+    buildFolderPath,
+} from "./utils/folderSlugs";
+
+// Helper to check if a string looks like a UUID
+const looksLikeUuid = (str) => {
+    if (!str) return false;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(str);
+};
 
 const LibraryPage = () => {
-    const { fileId, pageNumber, folderId, subFolderId } = useParams();
+    const { fileId, pageNumber, folderSlug, parentSlug, childSlug } = useParams();
     const navigate = useNavigate();
     const location = useLocation();
     
@@ -46,7 +60,7 @@ const LibraryPage = () => {
 
     const [currentFolder, setCurrentFolder] = useState(null);
     const [breadcrumbs, setBreadcrumbs] = useState([
-        { label: "All", folderId: null },
+        { label: "All", folderId: null, slug: null },
     ]);
     
     // Sorting state - persists across folder navigation
@@ -81,6 +95,13 @@ const LibraryPage = () => {
             const data = await getLibraryItems(filter, folderId);
             setItems(data);
             itemsRef.current = data; // Update ref without causing re-render
+            
+            // Register all folders in slug cache
+            data.forEach(item => {
+                if (item.is_folder) {
+                    registerFolder(item.id, item.title, item.parent_id);
+                }
+            });
         } catch (err) {
             console.error("Failed loading library items:", err);
         } finally {
@@ -89,41 +110,109 @@ const LibraryPage = () => {
     };
 
     // ----------------------------------------------
-    // SYNC URL PARAMS WITH FOLDER STATE
+    // SYNC URL PARAMS WITH FOLDER STATE (Slug-based)
     // ----------------------------------------------
-    // When URL changes (folderId/subFolderId), update folder state and load items
+    // When URL changes (slugs), resolve to folder IDs and update state
     useEffect(() => {
         // Skip if we're viewing a file (fileId takes precedence)
         if (fileId) return;
         
-        // Determine active folder from URL params (subFolderId takes precedence)
-        const activeFolderId = subFolderId || folderId || null;
+        // Determine active folder from URL slugs (childSlug takes precedence for nested folders)
+        const activeSlug = childSlug || folderSlug || null;
         
-        if (activeFolderId) {
-            // Load folder info and update state
+        if (activeSlug) {
+            // Resolve slug to folder ID
             const loadFolder = async () => {
                 try {
-                    const folderData = await getItemById(activeFolderId);
-                    if (folderData.is_folder) {
-                        setCurrentFolder(folderData);
-                        // Build breadcrumbs from URL path
-                        const newBreadcrumbs = [{ label: activeFilter, folderId: null }];
+                    // First, try to get folder from slug cache
+                    let folderData = getFolderBySlug(activeSlug);
+                    let activeFolderId = folderData?.id;
+                    
+                    // If not in cache, we need to search for it
+                    // This happens on first load or refresh
+                    if (!activeFolderId) {
+                        // Load all items to find the folder
+                        const allItems = await getLibraryItems(activeFilter, null);
                         
-                        // If we have a parent folder (folderId exists and subFolderId is the active one)
-                        if (subFolderId && folderId) {
-                            const parentFolder = await getItemById(folderId);
-                            newBreadcrumbs.push({ label: parentFolder.title, folderId: folderId });
-                            newBreadcrumbs.push({ label: folderData.title, folderId: subFolderId });
-                        } else if (folderId) {
-                            // Single-level folder
-                            newBreadcrumbs.push({ label: folderData.title, folderId: folderId });
+                        // Register all folders in cache
+                        allItems
+                            .filter(item => item.is_folder)
+                            .forEach(folder => {
+                                registerFolder(folder.id, folder.title, folder.parent_id);
+                            });
+                        
+                        // Try again after registration
+                        folderData = getFolderBySlug(activeSlug);
+                        activeFolderId = folderData?.id;
+                    }
+                    
+                    // If still not found, try loading from parent context
+                    if (!activeFolderId && parentSlug) {
+                        const parentData = getFolderBySlug(parentSlug);
+                        if (parentData) {
+                            const parentItems = await getLibraryItems(activeFilter, parentData.id);
+                            const foundFolder = parentItems.find(
+                                item => item.is_folder && generateSlug(item.title) === activeSlug
+                            );
+                            if (foundFolder) {
+                                registerFolder(foundFolder.id, foundFolder.title, foundFolder.parent_id);
+                                activeFolderId = foundFolder.id;
+                            }
                         }
-                        
-                        setBreadcrumbs(newBreadcrumbs);
-                        loadItems(activeFilter, activeFolderId);
+                    }
+                    
+                    if (activeFolderId) {
+                        // Load full folder data
+                        const fullFolderData = await getItemById(activeFolderId);
+                        if (fullFolderData.is_folder) {
+                            // Register in cache if not already
+                            registerFolder(fullFolderData.id, fullFolderData.title, fullFolderData.parent_id);
+                            
+                            setCurrentFolder(fullFolderData);
+                            
+                            // Build breadcrumbs from folder hierarchy
+                            const newBreadcrumbs = [{ label: activeFilter, folderId: null, slug: null }];
+                            
+                            // If nested (parentSlug and childSlug both exist)
+                            if (parentSlug && childSlug) {
+                                const parentData = getFolderBySlug(parentSlug);
+                                if (parentData) {
+                                    newBreadcrumbs.push({
+                                        label: parentData.name,
+                                        folderId: parentData.id,
+                                        slug: parentSlug,
+                                    });
+                                }
+                                newBreadcrumbs.push({
+                                    label: fullFolderData.title,
+                                    folderId: fullFolderData.id,
+                                    slug: childSlug,
+                                });
+                            } else if (folderSlug) {
+                                // Single-level folder
+                                newBreadcrumbs.push({
+                                    label: fullFolderData.title,
+                                    folderId: fullFolderData.id,
+                                    slug: folderSlug,
+                                });
+                            }
+                            
+                            setBreadcrumbs(newBreadcrumbs);
+                            loadItems(activeFilter, activeFolderId);
+                        } else {
+                            // Not a folder, redirect to root
+                            navigate("/library");
+                        }
                     } else {
-                        // Not a folder, redirect to root
-                        navigate("/library");
+                        // Slug not found - check if it's actually a fileId (UUID)
+                        if (looksLikeUuid(activeSlug)) {
+                            // This is a fileId, navigate to file route
+                            navigate(`/library/${activeSlug}`, { replace: true });
+                        } else {
+                            // Slug not found and not a UUID, redirect to root
+                            console.warn(`Folder slug "${activeSlug}" not found`);
+                            navigate("/library");
+                        }
                     }
                 } catch (err) {
                     console.error("Failed to load folder:", err);
@@ -132,25 +221,32 @@ const LibraryPage = () => {
             };
             loadFolder();
         } else {
-            // URL is root - reset to root state
+            // URL is root (/library) - reset to root state
             if (currentFolder) {
                 setCurrentFolder(null);
-                setBreadcrumbs([{ label: activeFilter, folderId: null }]);
+                setBreadcrumbs([{ label: activeFilter, folderId: null, slug: null }]);
                 loadItems(activeFilter, null);
             } else if (items.length === 0) {
-                // Initial load at root
-                loadItems(activeFilter, null);
+                // Initial load at root - register all folders in cache
+                loadItems(activeFilter, null).then(() => {
+                    // After loading, register folders in slug cache
+                    items.forEach(item => {
+                        if (item.is_folder) {
+                            registerFolder(item.id, item.title, item.parent_id);
+                        }
+                    });
+                });
             }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [folderId, subFolderId, activeFilter, fileId]);
+    }, [folderSlug, parentSlug, childSlug, activeFilter, fileId]);
 
     // Listen for demo exit to force library reload
     useEffect(() => {
         const handleDemoExit = () => {
             // Reset to root folder and reload items
             setCurrentFolder(null);
-            setBreadcrumbs([{ label: "All", folderId: null }]);
+            setBreadcrumbs([{ label: "All", folderId: null, slug: null }]);
             setActiveFilter("All");
             loadItems("All", null);
         };
@@ -208,13 +304,13 @@ const LibraryPage = () => {
     const handleFilterChange = (newFilter) => {
         setActiveFilter(newFilter);
         setCurrentFolder(null);
-        setBreadcrumbs([{ label: newFilter, folderId: null }]);
+        setBreadcrumbs([{ label: newFilter, folderId: null, slug: null }]);
         // Navigate to root when filter changes
         navigate("/library");
     };
 
     // ----------------------------------------------
-    // BREADCRUMB CLICK - Navigate to folder route
+    // BREADCRUMB CLICK - Navigate to folder route (Slug-based)
     // ----------------------------------------------
     const handleBreadcrumbClick = (idx) => {
         if (idx === breadcrumbs.length - 1) return;
@@ -225,15 +321,23 @@ const LibraryPage = () => {
             // Navigate to root
             navigate("/library");
         } else {
-            // Navigate to folder route
-            // Check if this is a nested folder (has parent in breadcrumbs)
-            const parentIdx = idx - 1;
-            if (parentIdx >= 0 && breadcrumbs[parentIdx].folderId) {
-                // Nested folder: /library/folder/:folderId/sub/:subFolderId
-                navigate(`/library/folder/${breadcrumbs[parentIdx].folderId}/sub/${crumb.folderId}`);
+            // Build path from breadcrumbs up to clicked crumb
+            const pathSegments = [];
+            for (let i = 1; i <= idx; i++) {
+                const segment = breadcrumbs[i];
+                if (segment.slug) {
+                    pathSegments.push(segment.slug);
+                } else if (segment.folderId) {
+                    // Fallback: generate slug if not cached
+                    const slug = getSlugById(segment.folderId) || generateSlug(segment.label);
+                    pathSegments.push(slug);
+                }
+            }
+            
+            if (pathSegments.length > 0) {
+                navigate(`/library/${pathSegments.join("/")}`);
             } else {
-                // Top-level folder: /library/folder/:folderId
-                navigate(`/library/folder/${crumb.folderId}`);
+                navigate("/library");
             }
         }
     };
@@ -262,37 +366,54 @@ const LibraryPage = () => {
     }, [fileId, navigate]);
 
     // ----------------------------------------------
-    // OPEN FILE OR FOLDER - Update URL route
+    // OPEN FILE OR FOLDER - Update URL route (Slug-based)
     // ----------------------------------------------
     const handleOpen = async (item) => {
         if (item.is_folder === true) {
-            // Navigate to folder route
+            // Register folder in slug cache
+            registerFolder(item.id, item.title, item.parent_id);
+            
+            // Build folder path using slugs
+            const folderSlug = getSlugById(item.id) || generateSlug(item.title);
+            if (!getSlugById(item.id)) {
+                registerFolder(item.id, item.title, item.parent_id);
+            }
+            
             if (currentFolder?.id) {
                 // Nested folder: current folder is parent
-                navigate(`/library/folder/${currentFolder.id}/sub/${item.id}`);
+                const parentSlug = getSlugById(currentFolder.id) || generateSlug(currentFolder.title);
+                navigate(`/library/${parentSlug}/${folderSlug}`);
             } else {
                 // Top-level folder
-                navigate(`/library/folder/${item.id}`);
+                navigate(`/library/${folderSlug}`);
             }
             return;
         }
 
-        // Navigate to file URL (unchanged)
-        navigate(`/library/${item.id}`);
+        // For files: store current folder path in navigation state
+        const currentPath = location.pathname;
+        navigate(`/library/${item.id}`, {
+            state: {
+                fromFolderPath: currentPath,
+            },
+        });
     };
 
     const handleBack = () => {
-        // Navigate back to current folder or root
-        if (currentFolder?.id) {
-            if (subFolderId) {
-                // Go back to parent folder
-                navigate(`/library/folder/${folderId}`);
+        // Restore folder path from navigation state (if file was opened from a folder)
+        const fromFolderPath = location.state?.fromFolderPath;
+        
+        if (fromFolderPath) {
+            // Return to the folder where file was opened
+            navigate(fromFolderPath);
+        } else {
+            // Fallback: navigate back to current folder or root
+            if (currentFolder?.id) {
+                const folderSlug = getSlugById(currentFolder.id) || generateSlug(currentFolder.title);
+                navigate(`/library/${folderSlug}`);
             } else {
-                // Go back to root
                 navigate("/library");
             }
-        } else {
-            navigate("/library");
         }
     };
     
