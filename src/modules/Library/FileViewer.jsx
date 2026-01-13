@@ -645,11 +645,13 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
             });
 
             // Task 2: Normalize payload explicitly - force String and Number, never undefined
-            const res = await sendMessageToTutor({
+            // CRITICAL: Explicitly set mode to "page" for page-aware tutor behavior
+            const tutorPayload = {
                 sessionId,
                 message: `[File ${file.title} | Page ${activePage}] ${msg}`,
                 fileId: normalizedFileId,      // FORCE string
                 page: normalizedPage,          // FORCE number
+                mode: "page",                  // CRITICAL: Explicit page-aware mode
                 image: pageImageForTutor,
                 screenshotUrl: pageImageForTutor,
                 tutorMode: tutorMode,         // "page_locked" | "open"
@@ -659,7 +661,18 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                     folder_ids: [],
                     include_books: true,
                 },
+            };
+
+            // Debug log to verify mode is set correctly
+            console.log("[TUTOR PAYLOAD] FileViewer page-aware mode:", {
+                message: tutorPayload.message.substring(0, 50),
+                fileId: tutorPayload.fileId,
+                page: tutorPayload.page,
+                mode: tutorPayload.mode,
+                tutorMode: tutorPayload.tutorMode,
             });
+
+            const res = await sendMessageToTutor(tutorPayload);
 
             // Generate stable ID for assistant message
             const assistantMsgId = `assistant-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
