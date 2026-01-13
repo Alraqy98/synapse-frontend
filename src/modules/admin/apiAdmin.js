@@ -131,6 +131,23 @@ export const getAdminContentMetrics = async () => {
 };
 
 /**
+ * Get admin users list
+ * GET /api/admin/users
+ */
+export const getAdminUsers = async () => {
+  try {
+    const res = await api.get("/api/admin/users");
+    return res.data?.users ?? [];
+  } catch (err) {
+    if (err.response?.status === 403) {
+      window.location.href = "/dashboard";
+    }
+    console.error("[ADMIN_USERS_FETCH_FAILED]", err);
+    return [];
+  }
+};
+
+/**
  * Send admin notification to all users
  * POST /api/admin/notifications
  */
