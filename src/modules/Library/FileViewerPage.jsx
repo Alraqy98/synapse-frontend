@@ -65,6 +65,8 @@ const FileViewerPage = () => {
     return (
         <FileViewer
             file={file}
+            fileId={fileId}
+            pageNumber={pageNumber ? Number(pageNumber) : null}
             onBack={handleBack}
             initialPage={pageNumber ? Number(pageNumber) : 1}
         />

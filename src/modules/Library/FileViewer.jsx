@@ -4,7 +4,7 @@
 // -------------------------------------------------------------
 
 import React, { useState, useRef, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useDemo } from "../../modules/demo/DemoContext";
 import DemoAstraChat from "./DemoAstraChat";
 import {
@@ -62,10 +62,14 @@ function getSupabaseToken() {
 // =====================================================================
 // MAIN VIEWER
 // =====================================================================
-const FileViewer = ({ file, onBack, initialPage = 1 }) => {
-    const { fileId: urlFileId, pageNumber: urlPageNumber } = useParams();
+const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
     const navigate = useNavigate();
     const { isDemo, currentStep } = useDemo() || {};
+    
+    // Log context for debugging
+    useEffect(() => {
+        console.log("[ASTRA CONTEXT] FileViewer props:", { fileId, pageNumber, fileIdFromFile: file?.id });
+    }, [fileId, pageNumber, file?.id]);
     // UI
     const [activeAction, setActiveAction] = useState(null);
     const [actionResult, setActionResult] = useState(null);
@@ -118,9 +122,8 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
     });
 
     // Page renderer
-    // Sync activePage with URL params
-    const urlPage = urlPageNumber ? Number(urlPageNumber) : null;
-    const [activePage, setActivePage] = useState(urlPage || initialPage || 1);
+    // Initialize activePage from pageNumber prop or initialPage
+    const [activePage, setActivePage] = useState(pageNumber !== null && pageNumber !== undefined ? pageNumber : (initialPage || 1));
     const [pageImageForTutor, setPageImageForTutor] = useState(null);
     const [renderedImageUrl, setRenderedImageUrl] = useState(null); // Store rendered image URL per page
     const [isRendering, setIsRendering] = useState(false);
@@ -137,12 +140,12 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
 
     const pages = file.page_contents || [];
     
-    // Sync activePage with URL params when they change
+    // Sync activePage with pageNumber prop when it changes
     useEffect(() => {
-        if (urlPage && urlPage !== activePage) {
-            setActivePage(urlPage);
+        if (pageNumber !== null && pageNumber !== undefined && pageNumber !== activePage) {
+            setActivePage(pageNumber);
         }
-    }, [urlPage]);
+    }, [pageNumber, activePage]);
     
     // Update URL when activePage changes (but not from URL change)
     const goToPage = (page) => {
@@ -202,15 +205,15 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
 
     // Reset refs and state when file changes
     useEffect(() => {
-        // Use URL page or initialPage, default to 1
-        const startPage = urlPage || initialPage || 1;
+        // Use pageNumber prop or initialPage, default to 1
+        const startPage = (pageNumber !== null && pageNumber !== undefined ? pageNumber : initialPage) || 1;
         setActivePage(startPage);
         setPageImageForTutor(null);
         setRenderedImageUrl(null);
         renderAttemptedRef.current = new Set();
         imageLoadFailedRef.current = new Set();
         renderedImageUrlsRef.current = new Map();
-    }, [file.id, urlPage, initialPage]);
+    }, [file.id, pageNumber, initialPage]);
 
     // =====================================================================
     // GET CURRENT PAGE IMAGE URL (from page_contents, no backend call)
