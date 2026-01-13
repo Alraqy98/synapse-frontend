@@ -298,6 +298,16 @@ const LibraryPage = () => {
     // ----------------------------------------------
     // SORTING LOGIC
     // ----------------------------------------------
+    // Natural numeric comparison for names (handles numbers correctly: 2 before 10)
+    const compareNames = (a, b) => {
+        const nameA = (a.title || "").toLowerCase();
+        const nameB = (b.title || "").toLowerCase();
+        return nameA.localeCompare(nameB, undefined, {
+            numeric: true,
+            sensitivity: 'base',
+        });
+    };
+    
     const sortItems = (itemsToSort) => {
         if (!itemsToSort || itemsToSort.length === 0) return itemsToSort;
         
@@ -305,17 +315,9 @@ const LibraryPage = () => {
         
         switch (sortMode) {
             case "name_asc":
-                return sorted.sort((a, b) => {
-                    const nameA = (a.title || "").toLowerCase();
-                    const nameB = (b.title || "").toLowerCase();
-                    return nameA.localeCompare(nameB);
-                });
+                return sorted.sort((a, b) => compareNames(a, b));
             case "name_desc":
-                return sorted.sort((a, b) => {
-                    const nameA = (a.title || "").toLowerCase();
-                    const nameB = (b.title || "").toLowerCase();
-                    return nameB.localeCompare(nameA);
-                });
+                return sorted.sort((a, b) => compareNames(b, a));
             case "date_newest":
                 return sorted.sort((a, b) => {
                     const dateA = new Date(a.created_at || 0);
@@ -329,13 +331,12 @@ const LibraryPage = () => {
                     return dateA - dateB;
                 });
             case "type":
-                // Folders first, then files, both sorted by name
+                // Folders first, then files, both sorted by name (natural numeric)
                 return sorted.sort((a, b) => {
-                    if (a.is_folder && !b.is_folder) return -1;
-                    if (!a.is_folder && b.is_folder) return 1;
-                    const nameA = (a.title || "").toLowerCase();
-                    const nameB = (b.title || "").toLowerCase();
-                    return nameA.localeCompare(nameB);
+                    if (a.is_folder !== b.is_folder) {
+                        return a.is_folder ? -1 : 1;
+                    }
+                    return compareNames(a, b);
                 });
             default:
                 return sorted;
