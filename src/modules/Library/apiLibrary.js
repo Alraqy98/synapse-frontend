@@ -111,7 +111,8 @@ const mapItemFromApi = (item) => {
         // Render state (source of truth for processing indicator - terminal states only)
         // Backend may return as render_state or file_render_state
         render_state: item.render_state || item.file_render_state || null,
-        file_render_state: item.file_render_state || item.render_state || null // Keep for backwards compatibility
+        file_render_state: item.file_render_state || item.render_state || null, // Keep for backwards compatibility
+        is_done: item.is_done ?? false, // User-controlled done status
     };
 
     // DIAGNOSTIC: Log mapped item for first file (to trace data flow)
@@ -401,6 +402,16 @@ export const renameItem = async (id, newName) => {
 
     await handleJson(res);
     return true;
+};
+
+// ------------------------------------------------------
+// UPDATE FILE STATUS (is_done)
+// ------------------------------------------------------
+export const updateFileStatus = async (fileId, isDone) => {
+    const res = await api.patch(`/library/item/${fileId}/status`, {
+        is_done: isDone,
+    });
+    return res.data;
 };
 
 // ------------------------------------------------------

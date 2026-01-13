@@ -10,6 +10,7 @@ const LibraryGrid = ({
     onMoveToFolder,      // NEW
     onChangeCategory,    // NEW
     onRename,            // NEW
+    onToggleDone,        // NEW
     isLoading,
 }) => {
     if (isLoading) {
@@ -44,6 +45,7 @@ const LibraryGrid = ({
                         onMoveToFolder={onMoveToFolder}     // NEW
                         onChangeCategory={onChangeCategory} // NEW
                         onRename={onRename}                 // NEW
+                        onToggleDone={onToggleDone}         // NEW
                     />
                 ))}
             </div>

@@ -20,6 +20,7 @@ import {
     moveItem,
     getItemById,
     createLibraryFolder,
+    updateFileStatus,
 } from "./apiLibrary";
 
 const LibraryPage = () => {
@@ -296,6 +297,30 @@ const LibraryPage = () => {
     };
     
     // ----------------------------------------------
+    // TOGGLE FILE DONE STATUS
+    // ----------------------------------------------
+    const handleToggleDone = async (fileId, isDone) => {
+        // Optimistic update
+        setItems((prev) =>
+            prev.map((item) =>
+                item.id === fileId ? { ...item, is_done: isDone } : item
+            )
+        );
+
+        try {
+            await updateFileStatus(fileId, isDone);
+        } catch (err) {
+            // Rollback on failure
+            setItems((prev) =>
+                prev.map((item) =>
+                    item.id === fileId ? { ...item, is_done: !isDone } : item
+                )
+            );
+            console.error("Failed to update file status", err);
+        }
+    };
+    
+    // ----------------------------------------------
     // SORTING LOGIC
     // ----------------------------------------------
     // Natural numeric comparison for names (handles numbers correctly: 2 before 10)
@@ -508,6 +533,7 @@ const LibraryPage = () => {
                     onRename={handleRename}
                     onMoveToFolder={handleMoveToFolder}
                     onChangeCategory={handleChangeCategory}
+                    onToggleDone={handleToggleDone}
                     isLoading={isLoading || isOpening}
                 />
             </div>

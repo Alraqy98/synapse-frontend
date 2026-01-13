@@ -21,6 +21,7 @@ const LibraryCard = ({
     onMoveToFolder,
     onChangeCategory,
     onRename,
+    onToggleDone,
 }) => {
     const [menuOpen, setMenuOpen] = useState(false);
     const menuRef = useRef(null);
@@ -106,12 +107,31 @@ const LibraryCard = ({
     return (
         <div
             data-demo="demo-file-card"
-            className="
+            className={`
                 group bg-[#1a1d24] border border-white/5 rounded-2xl p-4
                 hover:border-teal/40 transition-all hover:shadow-[0_0_35px_rgba(0,200,180,0.12)]
                 flex flex-col cursor-pointer relative
-            "
+                ${item.is_done ? "opacity-60" : ""}
+            `}
         >
+            {/* CHECKBOX - Top-left (files only) */}
+            {!isFolder && (
+                <div
+                    className="absolute top-2 left-2 z-10"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <input
+                        type="checkbox"
+                        checked={item.is_done || false}
+                        onChange={(e) => {
+                            e.stopPropagation();
+                            onToggleDone?.(item.id, e.target.checked);
+                        }}
+                        className="w-5 h-5 accent-teal cursor-pointer"
+                    />
+                </div>
+            )}
+
             {/* HEADER */}
             <div className="flex justify-between items-start mb-3">
                 <div
