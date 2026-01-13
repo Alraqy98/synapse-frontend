@@ -19,6 +19,7 @@ import {
     ChevronUp,
     LayoutGrid,
     Scroll,
+    Edit3,
 } from "lucide-react";
 
 import GenerateFlashcardsModal from "../flashcards/GenerateFlashcardsModal";
@@ -28,7 +29,7 @@ import { apiSummaries } from "../summaries/apiSummaries";
 import { apiMCQ } from "../mcq/apiMCQ";
 import { getFlashcardDecksByFile } from "../flashcards/apiFlashcards";
 
-import { performLibraryAction } from "./apiLibrary";
+import { performLibraryAction, renameItem } from "./apiLibrary";
 import {
     sendMessageToTutor,
     createNewSession,
@@ -102,6 +103,13 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
     const [modeSelectorCollapsed, setModeSelectorCollapsed] = useState(true); // Mode selector collapsed by default
     const chatEndRef = useRef(null);
     const messagesInitializedRef = useRef(false); // Track if messages have been loaded from backend
+
+    // Rename state
+    const [isRenaming, setIsRenaming] = useState(false);
+    const [renameValue, setRenameValue] = useState(file?.title || "");
+    const [renameError, setRenameError] = useState(null);
+    const [isRenamingLoading, setIsRenamingLoading] = useState(false);
+    const renameInputRef = useRef(null);
 
     // View mode: 'page' or 'scroll'
     const [viewMode, setViewMode] = useState(() => {
@@ -700,6 +708,88 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
         goToPage(newPage);
     };
 
+    // =====================================================================
+    // RENAME HANDLER
+    // =====================================================================
+    // Sync renameValue when file.title changes
+    useEffect(() => {
+        if (file?.title && !isRenaming) {
+            setRenameValue(file.title);
+        }
+    }, [file?.title, isRenaming]);
+
+    const handleRenameStart = () => {
+        setRenameValue(file?.title || "");
+        setRenameError(null);
+        setIsRenaming(true);
+        // Focus input after state update
+        setTimeout(() => {
+            renameInputRef.current?.focus();
+            renameInputRef.current?.select();
+        }, 0);
+    };
+
+    const handleRenameCancel = () => {
+        setRenameValue(file?.title || "");
+        setRenameError(null);
+        setIsRenaming(false);
+    };
+
+    const handleRenameSubmit = async () => {
+        const trimmedName = renameValue.trim();
+        
+        if (!trimmedName) {
+            setRenameError("Name cannot be empty");
+            return;
+        }
+        
+        if (trimmedName === file?.title) {
+            handleRenameCancel();
+            return;
+        }
+
+        if (!file?.id) {
+            setRenameError("File ID missing");
+            return;
+        }
+
+        const originalTitle = file.title;
+        
+        setIsRenamingLoading(true);
+        setRenameError(null);
+
+        try {
+            await renameItem(file.id, trimmedName);
+            setIsRenaming(false);
+            // Update local state - the parent will refresh on next navigation
+            setRenameValue(trimmedName);
+        } catch (err) {
+            console.error("Rename failed:", err);
+            setRenameError("Rename failed. Please try again.");
+            setRenameValue(originalTitle);
+        } finally {
+            setIsRenamingLoading(false);
+        }
+    };
+
+    // Handle keyboard events for rename
+    useEffect(() => {
+        if (!isRenaming) return;
+
+        const handleKeyDown = (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                handleRenameSubmit();
+            } else if (e.key === "Escape") {
+                e.preventDefault();
+                handleRenameCancel();
+            }
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isRenaming, renameValue]);
 
     // Keyboard navigation (Page Mode only)
     useEffect(() => {
@@ -875,8 +965,52 @@ const FileViewer = ({ file, onBack, initialPage = 1 }) => {
                         <ArrowLeft size={20} />
                     </button>
 
-                    <div>
-                        <h2 className="font-bold text-lg">{file.title}</h2>
+                    <div className="flex flex-col gap-1">
+                        {isRenaming ? (
+                            <div className="flex items-center gap-2">
+                                <input
+                                    ref={renameInputRef}
+                                    type="text"
+                                    value={renameValue}
+                                    onChange={(e) => {
+                                        setRenameValue(e.target.value);
+                                        setRenameError(null);
+                                    }}
+                                    onBlur={handleRenameCancel}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                            e.preventDefault();
+                                            handleRenameSubmit();
+                                        } else if (e.key === "Escape") {
+                                            e.preventDefault();
+                                            handleRenameCancel();
+                                        }
+                                    }}
+                                    disabled={isRenamingLoading}
+                                    className="px-2 py-1 bg-[#0f1115] border border-teal/50 rounded text-lg font-bold text-white focus:outline-none focus:border-teal"
+                                    style={{ minWidth: "200px" }}
+                                />
+                                {renameError && (
+                                    <span className="text-xs text-red-400">{renameError}</span>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-2 group">
+                                <h2 
+                                    className="font-bold text-lg cursor-pointer hover:text-teal transition-colors"
+                                    onClick={handleRenameStart}
+                                >
+                                    {file.title}
+                                </h2>
+                                <button
+                                    onClick={handleRenameStart}
+                                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-white/10 rounded transition-opacity"
+                                    title="Rename file"
+                                >
+                                    <Edit3 size={14} className="text-muted hover:text-teal" />
+                                </button>
+                            </div>
+                        )}
                         <p className="text-xs text-muted uppercase">{file.category}</p>
                     </div>
 
