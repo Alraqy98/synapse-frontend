@@ -391,10 +391,12 @@ const LibraryPage = () => {
         }
 
         // For files: store current folder path in navigation state
+        // This allows FileViewer's back button to return to the exact folder
+        // where the file was opened, preserving folder context across navigation
         const currentPath = location.pathname;
         navigate(`/library/${item.id}`, {
             state: {
-                fromFolderPath: currentPath,
+                fromFolderPath: currentPath, // e.g., "/library/emergency" or "/library"
             },
         });
     };

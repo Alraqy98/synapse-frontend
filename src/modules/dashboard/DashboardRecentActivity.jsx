@@ -1,6 +1,6 @@
 // src/modules/dashboard/DashboardRecentActivity.jsx
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { FileText, BookOpen, CheckSquare, Zap } from "lucide-react";
 import { getRecentFiles } from "../Library/apiLibrary";
 import { getAllSummaries } from "../summaries/apiSummaries";
@@ -27,6 +27,7 @@ const formatRelativeTime = (dateString) => {
 
 const DashboardRecentActivity = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const [recentFiles, setRecentFiles] = useState([]);
     const [recentGenerations, setRecentGenerations] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -143,7 +144,12 @@ const DashboardRecentActivity = () => {
     };
 
     const handleFileClick = (fileId) => {
-        navigate(`/library/${fileId}`);
+        // Preserve folder context: when opening from dashboard, return to library root
+        navigate(`/library/${fileId}`, {
+            state: {
+                fromFolderPath: "/library",
+            },
+        });
     };
 
     const handleGenerationClick = (generation) => {

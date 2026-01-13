@@ -461,7 +461,12 @@ const SynapseOS = () => {
       // This handles render/OCR notifications and other file-level events
       if (isValidId(notification.fileId)) {
         console.log("[Notification] Navigating to file view", `/library/${notification.fileId}`);
-        navigate(`/library/${notification.fileId}`);
+        // Preserve folder context: when opening from notifications, return to library root
+        navigate(`/library/${notification.fileId}`, {
+          state: {
+            fromFolderPath: "/library",
+          },
+        });
         return;
       }
 
