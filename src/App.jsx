@@ -1067,6 +1067,8 @@ const SynapseOS = () => {
             
             {/* Library routes */}
             <Route path="/library" element={<LibraryPage />} />
+            <Route path="/library/folder/:folderId" element={<LibraryPage />} />
+            <Route path="/library/folder/:folderId/sub/:subFolderId" element={<LibraryPage />} />
             <Route path="/library/:fileId" element={<LibraryPage />} />
             <Route path="/library/:fileId/page/:pageNumber" element={<LibraryPage />} />
             

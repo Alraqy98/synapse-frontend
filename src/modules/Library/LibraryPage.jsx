@@ -23,7 +23,7 @@ import {
 } from "./apiLibrary";
 
 const LibraryPage = () => {
-    const { fileId, pageNumber } = useParams();
+    const { fileId, pageNumber, folderId, subFolderId } = useParams();
     const navigate = useNavigate();
     const location = useLocation();
     
@@ -47,6 +47,9 @@ const LibraryPage = () => {
     const [breadcrumbs, setBreadcrumbs] = useState([
         { label: "All", folderId: null },
     ]);
+    
+    // Sorting state - persists across folder navigation
+    const [sortMode, setSortMode] = useState("date_newest");
 
     // Ref to track polling state without causing re-renders
     const pollingIntervalRef = useRef(null);
@@ -84,13 +87,62 @@ const LibraryPage = () => {
         }
     };
 
+    // ----------------------------------------------
+    // SYNC URL PARAMS WITH FOLDER STATE
+    // ----------------------------------------------
+    // When URL changes (folderId/subFolderId), update folder state and load items
     useEffect(() => {
-        loadItems("All", null);
-    }, []);
-
-    useEffect(() => {
-        loadItems(activeFilter, currentFolder?.id || null);
-    }, [activeFilter, currentFolder?.id]);
+        // Skip if we're viewing a file (fileId takes precedence)
+        if (fileId) return;
+        
+        // Determine active folder from URL params (subFolderId takes precedence)
+        const activeFolderId = subFolderId || folderId || null;
+        
+        if (activeFolderId) {
+            // Load folder info and update state
+            const loadFolder = async () => {
+                try {
+                    const folderData = await getItemById(activeFolderId);
+                    if (folderData.is_folder) {
+                        setCurrentFolder(folderData);
+                        // Build breadcrumbs from URL path
+                        const newBreadcrumbs = [{ label: activeFilter, folderId: null }];
+                        
+                        // If we have a parent folder (folderId exists and subFolderId is the active one)
+                        if (subFolderId && folderId) {
+                            const parentFolder = await getItemById(folderId);
+                            newBreadcrumbs.push({ label: parentFolder.title, folderId: folderId });
+                            newBreadcrumbs.push({ label: folderData.title, folderId: subFolderId });
+                        } else if (folderId) {
+                            // Single-level folder
+                            newBreadcrumbs.push({ label: folderData.title, folderId: folderId });
+                        }
+                        
+                        setBreadcrumbs(newBreadcrumbs);
+                        loadItems(activeFilter, activeFolderId);
+                    } else {
+                        // Not a folder, redirect to root
+                        navigate("/library");
+                    }
+                } catch (err) {
+                    console.error("Failed to load folder:", err);
+                    navigate("/library");
+                }
+            };
+            loadFolder();
+        } else {
+            // URL is root - reset to root state
+            if (currentFolder) {
+                setCurrentFolder(null);
+                setBreadcrumbs([{ label: activeFilter, folderId: null }]);
+                loadItems(activeFilter, null);
+            } else if (items.length === 0) {
+                // Initial load at root
+                loadItems(activeFilter, null);
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [folderId, subFolderId, activeFilter, fileId]);
 
     // Listen for demo exit to force library reload
     useEffect(() => {
@@ -156,10 +208,12 @@ const LibraryPage = () => {
         setActiveFilter(newFilter);
         setCurrentFolder(null);
         setBreadcrumbs([{ label: newFilter, folderId: null }]);
+        // Navigate to root when filter changes
+        navigate("/library");
     };
 
     // ----------------------------------------------
-    // BREADCRUMB CLICK
+    // BREADCRUMB CLICK - Navigate to folder route
     // ----------------------------------------------
     const handleBreadcrumbClick = (idx) => {
         if (idx === breadcrumbs.length - 1) return;
@@ -167,13 +221,19 @@ const LibraryPage = () => {
         const crumb = breadcrumbs[idx];
 
         if (!crumb.folderId) {
-            setCurrentFolder(null);
-            setBreadcrumbs(breadcrumbs.slice(0, idx + 1));
-            loadItems(activeFilter, null);
+            // Navigate to root
+            navigate("/library");
         } else {
-            setCurrentFolder({ id: crumb.folderId, title: crumb.label });
-            setBreadcrumbs(breadcrumbs.slice(0, idx + 1));
-            loadItems(activeFilter, crumb.folderId);
+            // Navigate to folder route
+            // Check if this is a nested folder (has parent in breadcrumbs)
+            const parentIdx = idx - 1;
+            if (parentIdx >= 0 && breadcrumbs[parentIdx].folderId) {
+                // Nested folder: /library/folder/:folderId/sub/:subFolderId
+                navigate(`/library/folder/${breadcrumbs[parentIdx].folderId}/sub/${crumb.folderId}`);
+            } else {
+                // Top-level folder: /library/folder/:folderId
+                navigate(`/library/folder/${crumb.folderId}`);
+            }
         }
     };
 
@@ -201,25 +261,89 @@ const LibraryPage = () => {
     }, [fileId, navigate]);
 
     // ----------------------------------------------
-    // OPEN FILE OR FOLDER
+    // OPEN FILE OR FOLDER - Update URL route
     // ----------------------------------------------
     const handleOpen = async (item) => {
         if (item.is_folder === true) {
-            setCurrentFolder(item);
-            setBreadcrumbs((prev) => [
-                ...prev,
-                { label: item.title, folderId: item.id },
-            ]);
+            // Navigate to folder route
+            if (currentFolder?.id) {
+                // Nested folder: current folder is parent
+                navigate(`/library/folder/${currentFolder.id}/sub/${item.id}`);
+            } else {
+                // Top-level folder
+                navigate(`/library/folder/${item.id}`);
+            }
             return;
         }
 
-        // Navigate to file URL
+        // Navigate to file URL (unchanged)
         navigate(`/library/${item.id}`);
     };
 
     const handleBack = () => {
-        navigate("/library");
+        // Navigate back to current folder or root
+        if (currentFolder?.id) {
+            if (subFolderId) {
+                // Go back to parent folder
+                navigate(`/library/folder/${folderId}`);
+            } else {
+                // Go back to root
+                navigate("/library");
+            }
+        } else {
+            navigate("/library");
+        }
     };
+    
+    // ----------------------------------------------
+    // SORTING LOGIC
+    // ----------------------------------------------
+    const sortItems = (itemsToSort) => {
+        if (!itemsToSort || itemsToSort.length === 0) return itemsToSort;
+        
+        const sorted = [...itemsToSort];
+        
+        switch (sortMode) {
+            case "name_asc":
+                return sorted.sort((a, b) => {
+                    const nameA = (a.title || "").toLowerCase();
+                    const nameB = (b.title || "").toLowerCase();
+                    return nameA.localeCompare(nameB);
+                });
+            case "name_desc":
+                return sorted.sort((a, b) => {
+                    const nameA = (a.title || "").toLowerCase();
+                    const nameB = (b.title || "").toLowerCase();
+                    return nameB.localeCompare(nameA);
+                });
+            case "date_newest":
+                return sorted.sort((a, b) => {
+                    const dateA = new Date(a.created_at || 0);
+                    const dateB = new Date(b.created_at || 0);
+                    return dateB - dateA;
+                });
+            case "date_oldest":
+                return sorted.sort((a, b) => {
+                    const dateA = new Date(a.created_at || 0);
+                    const dateB = new Date(b.created_at || 0);
+                    return dateA - dateB;
+                });
+            case "type":
+                // Folders first, then files, both sorted by name
+                return sorted.sort((a, b) => {
+                    if (a.is_folder && !b.is_folder) return -1;
+                    if (!a.is_folder && b.is_folder) return 1;
+                    const nameA = (a.title || "").toLowerCase();
+                    const nameB = (b.title || "").toLowerCase();
+                    return nameA.localeCompare(nameB);
+                });
+            default:
+                return sorted;
+        }
+    };
+    
+    // Apply sorting to items
+    const sortedItems = sortItems(items);
 
     // ----------------------------------------------
     // DELETE
@@ -356,8 +480,27 @@ const LibraryPage = () => {
                     </nav>
                 </div>
 
+                {/* Sorting Control */}
+                <div className="h-12 flex items-center justify-between px-6 border-b border-white/5 bg-[#0f1115]">
+                    <div className="flex-1" />
+                    <div className="flex items-center gap-2">
+                        <label className="text-xs text-muted">Sort:</label>
+                        <select
+                            value={sortMode}
+                            onChange={(e) => setSortMode(e.target.value)}
+                            className="px-3 py-1.5 text-xs bg-[#1a1d24] border border-white/10 rounded-lg text-white focus:outline-none focus:border-teal transition"
+                        >
+                            <option value="date_newest">Date added (Newest first)</option>
+                            <option value="date_oldest">Date added (Oldest first)</option>
+                            <option value="name_asc">Name (A → Z)</option>
+                            <option value="name_desc">Name (Z → A)</option>
+                            <option value="type">Type (Folders first)</option>
+                        </select>
+                    </div>
+                </div>
+
                 <LibraryGrid
-                    items={items}
+                    items={sortedItems}
                     onOpen={handleOpen}
                     onDelete={handleDelete}
                     onMove={handleMove}
