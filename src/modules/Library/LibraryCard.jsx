@@ -11,6 +11,7 @@ import {
     FolderOpen,
     Edit3,
     ArrowLeftRight,
+    Check,
 } from "lucide-react";
 // Processing logic kept for backend/AI features but not used for UI blocking
 
@@ -111,24 +112,29 @@ const LibraryCard = ({
                 group bg-[#1a1d24] border border-white/5 rounded-2xl p-4
                 hover:border-teal/40 transition-all hover:shadow-[0_0_35px_rgba(0,200,180,0.12)]
                 flex flex-col cursor-pointer relative
-                ${item.is_done ? "opacity-60" : ""}
+                ${item.is_done ? "opacity-75" : ""}
             `}
         >
-            {/* CHECKBOX - Top-left (files only) */}
+            {/* DONE MARKER - Top-left (files only) */}
             {!isFolder && (
                 <div
                     className="absolute top-2 left-2 z-10"
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleDone?.(item.id, !item.is_done);
+                    }}
                 >
-                    <input
-                        type="checkbox"
-                        checked={item.is_done || false}
-                        onChange={(e) => {
-                            e.stopPropagation();
-                            onToggleDone?.(item.id, e.target.checked);
-                        }}
-                        className="w-5 h-5 accent-teal cursor-pointer"
-                    />
+                    <div
+                        className={`
+                            w-6 h-6 rounded-full flex items-center justify-center border transition-colors cursor-pointer
+                            ${item.is_done
+                                ? "bg-teal-500 border-teal-500 text-black"
+                                : "border-gray-600 text-transparent hover:border-teal-400"
+                            }
+                        `}
+                    >
+                        <Check className="w-4 h-4" />
+                    </div>
                 </div>
             )}
 
