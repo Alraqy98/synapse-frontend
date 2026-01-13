@@ -1,8 +1,10 @@
 // src/modules/admin/pages/AdminUsers.jsx
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { getAdminUsers } from "../apiAdmin";
 
 const AdminUsers = () => {
+  const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -102,7 +104,11 @@ const AdminUsers = () => {
                 </thead>
                 <tbody className="divide-y divide-white/5">
                   {users.map((user) => (
-                    <tr key={user.id} className="hover:bg-white/5 transition-colors">
+                    <tr
+                      key={user.id}
+                      className="hover:bg-white/5 transition-colors cursor-pointer"
+                      onClick={() => navigate(`/admin/users/${user.id}`)}
+                    >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-white">
                           {user.full_name || "—"}

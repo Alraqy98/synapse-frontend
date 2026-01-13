@@ -18,6 +18,7 @@ import ChangePasswordModal from "./components/ChangePasswordModal";
 import NotificationDetailModal from "./components/NotificationDetailModal";
 import AdminPanel from "./modules/admin/AdminPanel";
 import AdminUsers from "./modules/admin/pages/AdminUsers";
+import AdminUserDetail from "./modules/admin/pages/AdminUserDetail";
 import AdminContent from "./modules/admin/pages/AdminContent";
 import AdminFiles from "./modules/admin/pages/AdminFiles";
 import AdminNotifications from "./modules/admin/pages/AdminNotifications";
@@ -1144,6 +1145,13 @@ const SynapseOS = () => {
             <Route path="/admin/users" element={
               isAuthenticated && profile?.is_admin === true ? (
                 <AdminUsers />
+              ) : (
+                <Navigate to="/admin" replace />
+              )
+            } />
+            <Route path="/admin/users/:userId" element={
+              isAuthenticated && profile?.is_admin === true ? (
+                <AdminUserDetail />
               ) : (
                 <Navigate to="/admin" replace />
               )

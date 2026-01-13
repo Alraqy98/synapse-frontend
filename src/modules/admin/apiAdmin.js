@@ -148,6 +148,27 @@ export const getAdminUsers = async () => {
 };
 
 /**
+ * Get admin user detail
+ * GET /api/admin/users/:userId
+ */
+export const getAdminUserDetail = async (userId) => {
+  try {
+    const res = await api.get(`/api/admin/users/${userId}`);
+    return res.data;
+  } catch (err) {
+    if (err.response?.status === 403) {
+      window.location.href = "/dashboard";
+      throw new Error("Access denied");
+    }
+    if (err.response?.status === 404) {
+      throw new Error("User not found");
+    }
+    console.error("[ADMIN_USER_DETAIL_FETCH_FAILED]", err);
+    throw err;
+  }
+};
+
+/**
  * Send admin notification to all users
  * POST /api/admin/notifications
  */
