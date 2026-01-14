@@ -32,7 +32,7 @@ const LibraryCard = ({
         item.type === "folder" ||
         item.kind === "folder";
 
-    const folderColor = item.folder_color || "#f7c948"; // fallback yellow
+    const folderColor = item.color || "#f7c948"; // fallback yellow
 
     // Processing logic kept for backend/AI features but not used for UI blocking
     // Files are always accessible regardless of processing state

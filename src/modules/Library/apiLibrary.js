@@ -115,6 +115,8 @@ const mapItemFromApi = (item) => {
         is_done: item.is_done ?? false, // User-controlled done status
         // Preserve page_contents for FileViewer vision pipeline
         page_contents: item.page_contents || null,
+        // Preserve folder color from API
+        color: item.color || null,
     };
 
     // DIAGNOSTIC: Log mapped item for first file (to trace data flow)
@@ -185,6 +187,7 @@ export const getLibraryItems = async (
                     }
                 });
             }
+            
         }
         
         return (data.items || []).map(mapItemFromApi);

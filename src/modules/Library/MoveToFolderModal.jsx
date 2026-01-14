@@ -4,7 +4,7 @@ import { X, Folder, ArrowUpLeft } from "lucide-react";
 import { getAllFolders, moveToFolder } from "./apiLibrary";
 
 /* ------------------------------------------------------
-   Fallback pastel color (used only if folder_color missing)
+   Fallback pastel color (used only if color missing)
 ------------------------------------------------------ */
 const fallbackColor = (name) => {
     let hash = 0;
@@ -136,7 +136,7 @@ const MoveToFolderModal = ({ item, onClose, onSuccess }) => {
                         </button>
 
                         {folders.map((f) => {
-                            const color = f.folder_color || fallbackColor(f.title);
+                            const color = f.color || fallbackColor(f.title);
 
                             return (
                                 <button

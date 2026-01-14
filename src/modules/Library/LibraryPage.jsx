@@ -508,12 +508,12 @@ const LibraryPage = () => {
     // ----------------------------------------------
     // CREATE FOLDER — FIXED
     // ----------------------------------------------
-    const handleCreateFolder = async ({ title, folder_color, parent_id }) => {
+    const handleCreateFolder = async ({ title, color, parent_id }) => {
         try {
             await createLibraryFolder(
                 title,
                 parent_id ?? currentFolder?.id ?? null,
-                folder_color
+                color
             );
 
             await loadItems(activeFilter, currentFolder?.id || null);
