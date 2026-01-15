@@ -17,6 +17,8 @@ import {
     Send,
     ChevronDown,
     ChevronUp,
+    ChevronRight,
+    ChevronLeft,
     LayoutGrid,
     Scroll,
     Edit3,
@@ -75,6 +77,12 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
     const [actionResult, setActionResult] = useState(null);
     const [isLoadingAction, setIsLoadingAction] = useState(false);
     const [toolsCollapsed, setToolsCollapsed] = useState(true);
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return window.innerWidth < 768;
+        }
+        return false;
+    });
     const [showFlashcardsModal, setShowFlashcardsModal] = useState(false);
     const [showMCQModal, setShowMCQModal] = useState(false);
     const [showSummaryModal, setShowSummaryModal] = useState(false);
@@ -1004,7 +1012,7 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
     // RENDER UI
     // =====================================================================
     return (
-        <div className="h-screen overflow-hidden flex bg-[#0f1115]" data-demo="fileviewer-root">
+        <div className="h-screen overflow-hidden flex bg-[#0f1115] relative" data-demo="fileviewer-root">
             {/* LEFT PANEL */}
             <div className="flex-1 flex flex-col border-r border-white/5">
                 {/* HEADER */}
@@ -1175,6 +1183,7 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                                 className="flex-1 bg-[#0f1115] rounded-lg border border-white/5 shadow-xl overflow-hidden flex items-center justify-center"
                                 style={{ userSelect: "text" }}
                                 data-demo="page-canvas"
+                                key={`page-${activePage}-${sidebarCollapsed}`}
                             >
                                 {renderPage(activePage, false)}
                             </div>
@@ -1221,16 +1230,19 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
             </div>
 
             {/* RIGHT SIDEBAR */}
-            <div className="w-[400px] bg-[#1a1d24] flex flex-col border-l border-white/5 overflow-hidden">
+            <div className={`${sidebarCollapsed ? 'w-0 md:w-0' : 'w-full md:w-[400px]'} transition-all duration-300 ease-in-out bg-[#1a1d24] flex flex-col ${sidebarCollapsed ? 'border-l-0' : 'border-l border-white/5'} overflow-hidden`}>
                 {/* AI Tools Section - Collapsible */}
                 <div className="border-b border-white/5">
                     <button
                         onClick={() => setAiToolsCollapsed((x) => !x)}
-                        className="w-full p-3 flex items-center justify-between hover:bg-white/5 transition-colors"
+                        className="w-full p-3 flex items-center justify-between bg-gradient-to-r from-teal/10 to-transparent bg-[#0f1115] border-l-4 border-teal hover:bg-teal/10 hover:border-teal/60 transition-colors"
                     >
-                        <div className="text-left">
-                            <h3 className="text-xs font-medium text-white/70 uppercase tracking-wider">AI Tools</h3>
-                            <p className="text-[10px] text-muted mt-0.5">Page-aware agent</p>
+                        <div className="text-left flex items-center gap-2">
+                            <Sparkles size={16} className="text-teal flex-shrink-0" />
+                            <div>
+                                <h3 className="text-xs font-semibold text-white uppercase tracking-wider">AI Tools</h3>
+                                <p className="text-[10px] text-teal/60 mt-0.5">Page-aware agent • Page {activePage}</p>
+                            </div>
                         </div>
                         {aiToolsCollapsed ? <ChevronDown size={14} className="text-muted" /> : <ChevronUp size={14} className="text-muted" />}
                     </button>
@@ -1499,6 +1511,19 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                     // Summary generation started - user can check progress in Summaries tab
                 }}
             />
+            
+            {/* SIDEBAR TOGGLE BUTTON */}
+            <button
+                onClick={() => setSidebarCollapsed((x) => !x)}
+                className={`fixed top-1/2 -translate-y-1/2 z-50 w-10 h-10 min-w-[44px] min-h-[44px] bg-[#1a1d24] border border-white/10 hover:bg-teal/10 hover:border-teal rounded-l-lg flex items-center justify-center transition-all duration-300 ${sidebarCollapsed ? 'right-0' : 'left-0 md:left-auto md:right-[400px]'}`}
+                aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+                {sidebarCollapsed ? (
+                    <ChevronLeft size={20} className="text-white" />
+                ) : (
+                    <ChevronRight size={20} className="text-white" />
+                )}
+            </button>
         </div>
     );
 };
