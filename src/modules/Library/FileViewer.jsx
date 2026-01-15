@@ -132,10 +132,16 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
         return stored === 'scroll' ? 'scroll' : 'page';
     });
 
-    // Zoom state
-    const [zoomLevel, setZoomLevel] = useState(1);
+    // Zoom state - per-page zoom levels
+    const [pageZoomLevels, setPageZoomLevels] = useState(() => new Map()); // Map<pageNum, zoomLevel>
     const [isZoomedBeyondFit, setIsZoomedBeyondFit] = useState(false); // Track if content exceeds container (for center preservation)
     const [canPanHorizontally, setCanPanHorizontally] = useState(false); // Track actual horizontal overflow for scrollbar control
+    
+    // Get zoom level for a specific page (defaults to 1)
+    const getPageZoom = (pageNum) => pageZoomLevels.get(pageNum) || 1;
+    
+    // Get current active page zoom level
+    const zoomLevel = getPageZoom(activePage);
 
     // Page state (must be declared before useEffect that uses them)
     const [activePage, setActivePage] = useState(pageNumber !== null && pageNumber !== undefined ? pageNumber : (initialPage || 1));
@@ -164,20 +170,34 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
 
     const handleZoomIn = () => {
         isZoomingRef.current = true;
-        setZoomLevel((prev) => Math.min(prev + 0.25, 3));
+        setPageZoomLevels((prev) => {
+            const newMap = new Map(prev);
+            const currentZoom = getPageZoom(activePage);
+            newMap.set(activePage, Math.min(currentZoom + 0.25, 3));
+            return newMap;
+        });
     };
 
     const handleZoomOut = () => {
         isZoomingRef.current = true;
-        setZoomLevel((prev) => Math.max(prev - 0.25, 0.5));
+        setPageZoomLevels((prev) => {
+            const newMap = new Map(prev);
+            const currentZoom = getPageZoom(activePage);
+            newMap.set(activePage, Math.max(currentZoom - 0.25, 0.5));
+            return newMap;
+        });
     };
 
     const handleZoomReset = () => {
         isZoomingRef.current = true;
-        setZoomLevel(1);
+        setPageZoomLevels((prev) => {
+            const newMap = new Map(prev);
+            newMap.set(activePage, 1);
+            return newMap;
+        });
     };
 
-    // Reset zoom flag after zoomLevel updates
+    // Reset zoom flag after zoom level updates
     useEffect(() => {
         // Reset flag after a brief delay to allow all zoom-related effects to complete
         const timeoutId = setTimeout(() => {
@@ -185,7 +205,7 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
         }, 100);
 
         return () => clearTimeout(timeoutId);
-    }, [zoomLevel]);
+    }, [zoomLevel, activePage]);
 
     // Calculate if scaled content exceeds container width
     useEffect(() => {
@@ -1126,57 +1146,64 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [viewMode, activePage, totalPages]);
 
-    // Scroll-based page indicator update (Scroll Mode)
+    // IntersectionObserver-based page indicator update (Scroll Mode)
+    // Uses visibility ratio instead of scroll position for accurate detection under zoom
     useEffect(() => {
         if (viewMode !== 'scroll' || !scrollContainerRef.current) return;
 
         const container = scrollContainerRef.current;
-        const updateActivePageFromScroll = () => {
-            // Don't update page indicator during zoom (prevents scroll interference)
-            if (isZoomingRef.current) return;
+        const pageVisibility = new Map(); // Track visibility ratio per page
 
-            const containerRect = container.getBoundingClientRect();
-            const containerTop = containerRect.top;
-            const containerHeight = containerRect.height;
-            const viewportCenter = containerTop + containerHeight / 2;
+        const observer = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((entry) => {
+                    const pageNum = parseInt(entry.target.getAttribute('data-page') || '1', 10);
+                    // Calculate visibility ratio (intersection area / page area)
+                    const ratio = entry.intersectionRatio;
+                    pageVisibility.set(pageNum, ratio);
+                });
 
-            let closestPage = 1;
-            let closestDistance = Infinity;
+                // Find page with highest visibility ratio
+                let maxVisibility = 0;
+                let mostVisiblePage = activePage; // Default to current if no clear winner
 
-            // Find the page closest to viewport center
-            for (let page = 1; page <= totalPages; page++) {
-                const pageRef = pageRefs.current[page];
-                if (pageRef) {
-                    const pageRect = pageRef.getBoundingClientRect();
-                    const pageCenter = pageRect.top + pageRect.height / 2;
-                    const distance = Math.abs(pageCenter - viewportCenter);
+                pageVisibility.forEach((ratio, pageNum) => {
+                    if (ratio > maxVisibility) {
+                        maxVisibility = ratio;
+                        mostVisiblePage = pageNum;
+                    }
+                });
 
-                    if (distance < closestDistance) {
-                        closestDistance = distance;
-                        closestPage = page;
+                // Only update if we have a clear winner and it's different from current
+                if (maxVisibility > 0 && mostVisiblePage !== activePage && !isZoomingRef.current) {
+                    setActivePage(mostVisiblePage);
+                    // Update URL without triggering navigation
+                    if (file?.id) {
+                        if (mostVisiblePage === 1) {
+                            window.history.replaceState({}, '', `/library/file/${file.id}`);
+                        } else {
+                            window.history.replaceState({}, '', `/library/file/${file.id}/page/${mostVisiblePage}`);
+                        }
                     }
                 }
+            },
+            {
+                root: container,
+                rootMargin: '0px',
+                threshold: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], // Multiple thresholds for accurate ratio
             }
+        );
 
-            if (closestPage !== activePage) {
-                setActivePage(closestPage);
-                // Update URL without triggering navigation
-                if (file?.id) {
-                    if (closestPage === 1) {
-                        window.history.replaceState({}, '', `/library/file/${file.id}`);
-                    } else {
-                        window.history.replaceState({}, '', `/library/file/${file.id}/page/${closestPage}`);
-                    }
-                }
+        // Observe all page elements
+        for (let page = 1; page <= totalPages; page++) {
+            const pageRef = pageRefs.current[page];
+            if (pageRef) {
+                observer.observe(pageRef);
             }
-        };
-
-        container.addEventListener('scroll', updateActivePageFromScroll);
-        // Also check on mount/resize
-        updateActivePageFromScroll();
+        }
 
         return () => {
-            container.removeEventListener('scroll', updateActivePageFromScroll);
+            observer.disconnect();
         };
     }, [viewMode, totalPages, activePage, file?.id]);
 
@@ -1497,29 +1524,29 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                             style={{ userSelect: "text" }}
                             data-demo="scroll-canvas"
                         >
-                            <div
-                                style={{
-                                    transform: `scale(${zoomLevel})`,
-                                    transition: 'transform 0.2s ease-out',
-                                    transformOrigin: 'center center',
-                                    width: '100%',
-                                    maxWidth: '100%',
-                                }}
-                            >
-                                <div className="w-full max-w-full">
-                                    {Array.from({ length: totalPages }, (_, i) => {
-                                        const pageNum = i + 1;
-                                        // Lazy rendering: only render visible pages + buffer
-                                        const shouldRender = true; // For now, render all (can optimize with IntersectionObserver later)
-                                        
-                                        return (
+                            <div className="w-full max-w-full">
+                                {Array.from({ length: totalPages }, (_, i) => {
+                                    const pageNum = i + 1;
+                                    const pageZoom = getPageZoom(pageNum);
+                                    const shouldRender = true; // For now, render all (can optimize with IntersectionObserver later)
+                                    
+                                    return (
+                                        <div
+                                            key={pageNum}
+                                            ref={(el) => {
+                                                if (el) pageRefs.current[pageNum] = el;
+                                            }}
+                                            className="w-full flex items-center justify-center py-4 border-b border-white/5 last:border-b-0"
+                                            data-page={pageNum}
+                                        >
                                             <div
-                                                key={pageNum}
-                                                ref={(el) => {
-                                                    if (el) pageRefs.current[pageNum] = el;
+                                                style={{
+                                                    transform: `scale(${pageZoom})`,
+                                                    transition: 'transform 0.2s ease-out',
+                                                    transformOrigin: 'center center',
+                                                    width: '100%',
+                                                    maxWidth: '100%',
                                                 }}
-                                                className="w-full flex items-center justify-center py-4 border-b border-white/5 last:border-b-0"
-                                                data-page={pageNum}
                                             >
                                                 {shouldRender ? (
                                                     <div className="w-full max-w-4xl px-4">
