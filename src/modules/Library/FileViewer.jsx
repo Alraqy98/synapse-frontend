@@ -1434,10 +1434,8 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                             {/* Page Content */}
                             <div
                                 ref={pageContainerRef}
-                                className={`flex-1 bg-[#0f1115] rounded-lg border border-white/5 shadow-xl flex items-center ${
-                                    isZoomedBeyondFit 
-                                        ? 'overflow-auto justify-start' 
-                                        : 'overflow-hidden justify-center'
+                                className={`flex-1 bg-[#0f1115] rounded-lg border border-white/5 shadow-xl flex items-center justify-center ${
+                                    isZoomedBeyondFit ? 'overflow-auto' : 'overflow-hidden'
                                 }`}
                                 style={{ userSelect: "text" }}
                                 data-demo="page-canvas"
@@ -1448,7 +1446,7 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                                     style={{
                                         transform: `scale(${zoomLevel})`,
                                         transition: 'transform 0.2s ease-out',
-                                        transformOrigin: isZoomedBeyondFit ? 'top left' : 'top center',
+                                        transformOrigin: 'center center',
                                         width: '100%',
                                         maxWidth: '100%',
                                     }}
@@ -1471,7 +1469,7 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                                 style={{
                                     transform: `scale(${zoomLevel})`,
                                     transition: 'transform 0.2s ease-out',
-                                    transformOrigin: isZoomedBeyondFit ? 'top left' : 'top center',
+                                    transformOrigin: 'center center',
                                     width: '100%',
                                     maxWidth: '100%',
                                 }}
@@ -1488,9 +1486,7 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                                                 ref={(el) => {
                                                     if (el) pageRefs.current[pageNum] = el;
                                                 }}
-                                                className={`w-full flex items-center py-4 border-b border-white/5 last:border-b-0 ${
-                                                    isZoomedBeyondFit ? 'justify-start' : 'justify-center'
-                                                }`}
+                                                className="w-full flex items-center justify-center py-4 border-b border-white/5 last:border-b-0"
                                                 data-page={pageNum}
                                             >
                                                 {shouldRender ? (
