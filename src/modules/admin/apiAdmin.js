@@ -224,3 +224,35 @@ export const getAdminSuggestions = async () => {
     throw err;
   }
 };
+
+/**
+ * Get admin files list
+ * GET /api/admin/files
+ * 
+ * TODO: Backend endpoint to be implemented
+ * Expected response shape:
+ * [
+ *   {
+ *     id,
+ *     file_name,
+ *     user_email,
+ *     uploaded_at,
+ *     render_status, // "pending" | "completed" | "failed"
+ *     ocr_status     // "pending" | "completed" | "failed"
+ *   }
+ * ]
+ */
+export const getAdminFiles = async () => {
+  try {
+    const res = await api.get("/api/admin/files");
+    // Backend should return array of files
+    return Array.isArray(res.data) ? res.data : [];
+  } catch (err) {
+    if (err.response?.status === 403) {
+      window.location.href = "/dashboard";
+      throw new Error("Access denied");
+    }
+    console.error("[ADMIN_FILES_FETCH_FAILED]", err);
+    throw err;
+  }
+};
