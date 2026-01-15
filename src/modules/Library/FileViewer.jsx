@@ -159,18 +159,32 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
     const imageLoadFailedRef = useRef(new Set()); // Track image load failures: `${file.id}:${page}`
     const renderedImageUrlsRef = useRef(new Map()); // Store rendered image URLs: `${file.id}:${page}` -> URL
     const prevIsZoomedBeyondFitRef = useRef(false); // Track previous zoom state for transition detection
+    const isZoomingRef = useRef(false); // Track when zoom is in progress to prevent auto-scroll interference
 
     const handleZoomIn = () => {
+        isZoomingRef.current = true;
         setZoomLevel((prev) => Math.min(prev + 0.25, 3));
     };
 
     const handleZoomOut = () => {
+        isZoomingRef.current = true;
         setZoomLevel((prev) => Math.max(prev - 0.25, 0.5));
     };
 
     const handleZoomReset = () => {
+        isZoomingRef.current = true;
         setZoomLevel(1);
     };
+
+    // Reset zoom flag after zoomLevel updates
+    useEffect(() => {
+        // Reset flag after a brief delay to allow all zoom-related effects to complete
+        const timeoutId = setTimeout(() => {
+            isZoomingRef.current = false;
+        }, 100);
+
+        return () => clearTimeout(timeoutId);
+    }, [zoomLevel]);
 
     // Calculate if scaled content exceeds container width
     useEffect(() => {
@@ -1086,6 +1100,9 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
 
         const container = scrollContainerRef.current;
         const updateActivePageFromScroll = () => {
+            // Don't update page indicator during zoom (prevents scroll interference)
+            if (isZoomingRef.current) return;
+
             const containerRect = container.getBoundingClientRect();
             const containerTop = containerRect.top;
             const containerHeight = containerRect.height;
@@ -1332,11 +1349,13 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                                     if (viewMode !== 'scroll') {
                                         setViewMode('scroll');
                                         localStorage.setItem('synapse_fileviewer_mode', 'scroll');
-                                        // Scroll to current page when switching to scroll mode
+                                        // Scroll to current page when switching to scroll mode (only if not zooming)
                                         setTimeout(() => {
-                                            const pageRef = pageRefs.current[activePage];
-                                            if (pageRef && scrollContainerRef.current) {
-                                                pageRef.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                            if (!isZoomingRef.current) {
+                                                const pageRef = pageRefs.current[activePage];
+                                                if (pageRef && scrollContainerRef.current) {
+                                                    pageRef.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                                }
                                             }
                                         }, 100);
                                     }
