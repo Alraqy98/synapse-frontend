@@ -865,12 +865,12 @@ const SynapseOS = () => {
   );
   };
 
-  // MAIN UI
+  // MAIN UI (Authenticated Layout)
   return (
-    <div className="h-screen w-full text-white flex bg-void relative">
+    <div className="h-[100dvh] w-full text-white flex bg-void relative overflow-hidden">
       <Sidebar />
 
-      <main className="flex-1 ml-20 flex flex-col h-full overflow-hidden relative">
+      <main className="flex-1 ml-20 flex flex-col h-full overflow-y-auto relative">
         {/* HEADER */}
         <header className="h-16 flex-shrink-0 border-b border-white/5 flex justify-between items-center px-6 bg-void/90 backdrop-blur z-10">
 
