@@ -158,6 +158,7 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
     const renderAttemptedRef = useRef(new Set()); // Track render attempts per page: `${file.id}:${page}`
     const imageLoadFailedRef = useRef(new Set()); // Track image load failures: `${file.id}:${page}`
     const renderedImageUrlsRef = useRef(new Map()); // Store rendered image URLs: `${file.id}:${page}` -> URL
+    const prevIsZoomedBeyondFitRef = useRef(false); // Track previous zoom state for transition detection
 
     const handleZoomIn = () => {
         setZoomLevel((prev) => Math.min(prev + 0.25, 3));
@@ -321,6 +322,45 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
             }
         };
     }, [zoomLevel, viewMode, activePage, file?.id]);
+
+    // Preserve visual center when transitioning from fit to zoomed mode
+    useEffect(() => {
+        let timeoutId = null;
+
+        // Only act on transition from false → true
+        if (!prevIsZoomedBeyondFitRef.current && isZoomedBeyondFit) {
+            // Use a small delay to ensure DOM has updated and scrollWidth is available
+            timeoutId = setTimeout(() => {
+                if (viewMode === 'page' && pageContainerRef.current) {
+                    // Page mode: center the scrollable container
+                    const container = pageContainerRef.current;
+                    const scrollWidth = container.scrollWidth;
+                    const clientWidth = container.clientWidth;
+                    if (scrollWidth > clientWidth) {
+                        container.scrollLeft = (scrollWidth - clientWidth) / 2;
+                    }
+                } else if (viewMode === 'scroll' && scrollContainerRef.current) {
+                    // Scroll mode: center horizontally (but preserve vertical scroll)
+                    const container = scrollContainerRef.current;
+                    const scrollWidth = container.scrollWidth;
+                    const clientWidth = container.clientWidth;
+                    if (scrollWidth > clientWidth) {
+                        container.scrollLeft = (scrollWidth - clientWidth) / 2;
+                    }
+                }
+            }, 50); // Small delay to ensure layout has updated
+        }
+
+        // Update ref for next comparison (always update, regardless of transition)
+        prevIsZoomedBeyondFitRef.current = isZoomedBeyondFit;
+
+        // Cleanup timeout if component unmounts or dependencies change
+        return () => {
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+            }
+        };
+    }, [isZoomedBeyondFit, viewMode]);
     
     // Verification: Log page_contents availability for vision pipeline
     useEffect(() => {
