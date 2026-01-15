@@ -352,6 +352,12 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
         }
     };
 
+    // Page navigation helper (must be declared before useEffect that uses it)
+    const bumpPage = (d) => {
+        const newPage = Math.max(1, Math.min(activePage + d, totalPages));
+        goToPage(newPage);
+    };
+
     // =====================================================================
     // LOAD PDF TO DETERMINE PAGE COUNT (single source of truth)
     // =====================================================================
@@ -935,11 +941,6 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
     }, [chatMessages]);
 
     // Demo Mode: Real Astra chat is disabled - DemoAstraChat component handles demo chat
-
-    const bumpPage = (d) => {
-        const newPage = Math.max(1, Math.min(activePage + d, totalPages));
-        goToPage(newPage);
-    };
 
     // =====================================================================
     // RENAME HANDLER
