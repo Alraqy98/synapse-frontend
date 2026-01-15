@@ -203,3 +203,24 @@ export const sendAdminNotification = async (payload) => {
     throw err;
   }
 };
+
+/**
+ * Get admin suggestions list
+ * GET /api/admin/suggestions
+ * 
+ * TODO: Backend endpoint expected to return:
+ * { success: true, suggestions: [{ id, user_id, user_name, user_email, content, created_at, status }] }
+ */
+export const getAdminSuggestions = async () => {
+  try {
+    const res = await api.get("/api/admin/suggestions");
+    return res.data?.suggestions ?? [];
+  } catch (err) {
+    if (err.response?.status === 403) {
+      window.location.href = "/dashboard";
+      throw new Error("Access denied");
+    }
+    console.error("[ADMIN_SUGGESTIONS_FETCH_FAILED]", err);
+    throw err;
+  }
+};

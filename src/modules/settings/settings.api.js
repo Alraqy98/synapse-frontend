@@ -1,16 +1,26 @@
 // src/modules/settings/settings.api.js
+import api from "../../lib/api";
 
-// Later you can replace these with Supabase calls
-
+/**
+ * Send user suggestion/feedback to backend
+ * POST /api/suggestions
+ * 
+ * TODO: Backend endpoint expected to accept:
+ * { content: string, user_id: string }
+ * 
+ * Backend should return: { success: true }
+ */
 export async function sendFeedback({ message, user }) {
-    // v1: just log it (or hook to Supabase later)
-    console.log("📩 New Feedback:", {
-        message,
-        user,
-        created_at: new Date().toISOString(),
-    });
-
-    return { success: true };
+    try {
+        const res = await api.post("/api/suggestions", {
+            content: message.trim(),
+            user_id: user?.id,
+        });
+        return res.data || { success: true };
+    } catch (err) {
+        console.error("Failed to send suggestion:", err);
+        throw err;
+    }
 }
 
 export async function fetchAnnouncements() {

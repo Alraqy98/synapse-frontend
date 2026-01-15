@@ -23,6 +23,7 @@ import AdminContent from "./modules/admin/pages/AdminContent";
 import AdminFiles from "./modules/admin/pages/AdminFiles";
 import AdminNotifications from "./modules/admin/pages/AdminNotifications";
 import AdminSettings from "./modules/admin/pages/AdminSettings";
+import AdminSuggestions from "./modules/admin/pages/AdminSuggestions";
 
 // Icons
 import {
@@ -42,6 +43,7 @@ import {
   Lock,
   Users,
   FileText,
+  MessageSquare,
 } from "lucide-react";
 
 import TutorPage from "./modules/Tutor/TutorPage";
@@ -807,6 +809,7 @@ const SynapseOS = () => {
     { icon: FileText, label: "Content", to: "/admin/content" },
     { icon: Folder, label: "Files", to: "/admin/files" },
     { icon: Bell, label: "Notifications", to: "/admin/notifications" },
+    { icon: MessageSquare, label: "Suggestions", to: "/admin/suggestions" },
   ];
 
   // User sidebar navigation config (existing items)
@@ -1190,6 +1193,13 @@ const SynapseOS = () => {
             <Route path="/admin/settings" element={
               isAuthenticated && profile?.is_admin === true ? (
                 <AdminSettings />
+              ) : (
+                <Navigate to="/admin" replace />
+              )
+            } />
+            <Route path="/admin/suggestions" element={
+              isAuthenticated && profile?.is_admin === true ? (
+                <AdminSuggestions />
               ) : (
                 <Navigate to="/admin" replace />
               )
