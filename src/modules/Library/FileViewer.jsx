@@ -22,6 +22,9 @@ import {
     LayoutGrid,
     Scroll,
     Edit3,
+    ZoomIn,
+    ZoomOut,
+    RotateCcw,
 } from "lucide-react";
 
 import GenerateFlashcardsModal from "../flashcards/GenerateFlashcardsModal";
@@ -128,6 +131,21 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
         const stored = localStorage.getItem('synapse_fileviewer_mode');
         return stored === 'scroll' ? 'scroll' : 'page';
     });
+
+    // Zoom state
+    const [zoomLevel, setZoomLevel] = useState(1);
+
+    const handleZoomIn = () => {
+        setZoomLevel((prev) => Math.min(prev + 0.25, 3));
+    };
+
+    const handleZoomOut = () => {
+        setZoomLevel((prev) => Math.max(prev - 0.25, 0.5));
+    };
+
+    const handleZoomReset = () => {
+        setZoomLevel(1);
+    };
 
     // Page renderer
     // Initialize activePage from pageNumber prop or initialPage
@@ -1074,6 +1092,37 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                     </div>
 
                     <div className="ml-auto flex items-center gap-4">
+                        {/* Zoom Controls */}
+                        {viewMode === 'page' && (
+                            <div className="flex items-center gap-1 bg-black/40 rounded-lg border border-white/10 p-1">
+                                <button
+                                    onClick={handleZoomOut}
+                                    disabled={zoomLevel <= 0.5}
+                                    className="px-2 py-1.5 rounded text-xs font-medium transition-colors flex items-center justify-center text-muted hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title="Zoom Out"
+                                    aria-label="Zoom Out"
+                                >
+                                    <ZoomOut size={14} />
+                                </button>
+                                <button
+                                    onClick={handleZoomReset}
+                                    className="px-2 py-1.5 rounded text-xs font-medium transition-colors flex items-center justify-center text-muted hover:text-white"
+                                    title="Reset Zoom"
+                                    aria-label="Reset Zoom"
+                                >
+                                    <RotateCcw size={14} />
+                                </button>
+                                <button
+                                    onClick={handleZoomIn}
+                                    disabled={zoomLevel >= 3}
+                                    className="px-2 py-1.5 rounded text-xs font-medium transition-colors flex items-center justify-center text-muted hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title="Zoom In"
+                                    aria-label="Zoom In"
+                                >
+                                    <ZoomIn size={14} />
+                                </button>
+                            </div>
+                        )}
                         {/* View Mode Toggle */}
                         <div className="flex items-center gap-2 bg-black/40 rounded-lg border border-white/10 p-1">
                             <button
@@ -1185,7 +1234,15 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                                 data-demo="page-canvas"
                                 key={`page-${activePage}-${sidebarCollapsed}`}
                             >
-                                {renderPage(activePage, false)}
+                                <div
+                                    style={{
+                                        transform: `scale(${zoomLevel})`,
+                                        transition: 'transform 0.2s ease-out',
+                                        transformOrigin: 'center center',
+                                    }}
+                                >
+                                    {renderPage(activePage, false)}
+                                </div>
                             </div>
                         </>
                     ) : (
@@ -1238,7 +1295,7 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                         className="w-full p-3 flex items-center justify-between bg-gradient-to-r from-teal/10 to-transparent bg-[#0f1115] border-l-4 border-teal hover:bg-teal/10 hover:border-teal/60 transition-colors"
                     >
                         <div className="text-left flex items-center gap-2">
-                            <Sparkles size={16} className="text-teal flex-shrink-0" />
+                            <Sparkles size={22} className="text-teal flex-shrink-0" />
                             <div>
                                 <h3 className="text-xs font-semibold text-white uppercase tracking-wider">AI Tools</h3>
                                 <p className="text-[10px] text-teal/60 mt-0.5">Page-aware agent • Page {activePage}</p>
@@ -1265,7 +1322,7 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                                             onClick={() => handleAction(a.id)}
                                             className="p-2 rounded-lg bg-[#0f1115] border border-white/10 hover:bg-white/5"
                                         >
-                                            <a.icon size={18} />
+                                            <a.icon size={22} />
                                         </button>
                                     ))}
                                 </div>
@@ -1329,7 +1386,7 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                                     }`}
                                     >
                                         {dataDemo && <span data-demo={dataDemo} className="hidden" />}
-                                    <a.icon size={20} />
+                                    <a.icon size={22} />
                                     <span>{a.label}</span>
                                     {isGenerating && (
                                         <span className="text-xs text-muted mt-1">Generating...</span>
