@@ -134,6 +134,7 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
 
     // Zoom state
     const [zoomLevel, setZoomLevel] = useState(1);
+    const [isZoomedBeyondFit, setIsZoomedBeyondFit] = useState(false); // Track if content exceeds container
 
     const handleZoomIn = () => {
         setZoomLevel((prev) => Math.min(prev + 0.25, 3));
@@ -147,6 +148,157 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
         setZoomLevel(1);
     };
 
+    // Calculate if scaled content exceeds container width
+    useEffect(() => {
+        // For scroll mode, enable horizontal scroll when zoomed > 1
+        if (viewMode === 'scroll') {
+            setIsZoomedBeyondFit(zoomLevel > 1);
+            return;
+        }
+
+        // For page mode, measure actual content vs container
+        if (viewMode !== 'page' || !pageContainerRef.current || !pageContentRef.current) {
+            setIsZoomedBeyondFit(false);
+            return;
+        }
+
+        const checkOverflow = () => {
+            const container = pageContainerRef.current;
+            const content = pageContentRef.current;
+            if (!container || !content) {
+                setIsZoomedBeyondFit(false);
+                return;
+            }
+
+            const containerWidth = container.clientWidth;
+            if (containerWidth === 0) {
+                setIsZoomedBeyondFit(false);
+                return;
+            }
+
+            // Get the actual rendered content element
+            const contentElement = content.firstElementChild;
+            if (!contentElement) {
+                setIsZoomedBeyondFit(false);
+                return;
+            }
+
+            // Find the actual image/canvas element
+            let mediaElement = null;
+            if (contentElement.tagName === 'IMG') {
+                mediaElement = contentElement;
+            } else if (contentElement.tagName === 'CANVAS') {
+                mediaElement = contentElement;
+            } else if (contentElement.querySelector) {
+                // Check for nested canvas or img
+                mediaElement = contentElement.querySelector('canvas') || 
+                             contentElement.querySelector('img');
+            }
+
+            if (!mediaElement) {
+                // No media element found, assume no overflow
+                setIsZoomedBeyondFit(false);
+                return;
+            }
+
+            // Get natural/intrinsic width
+            let naturalWidth = 0;
+            if (mediaElement.tagName === 'IMG') {
+                naturalWidth = mediaElement.naturalWidth || mediaElement.offsetWidth || 0;
+            } else if (mediaElement.tagName === 'CANVAS') {
+                naturalWidth = mediaElement.width || mediaElement.offsetWidth || 0;
+            }
+
+            // If we don't have a valid width yet, wait
+            if (naturalWidth === 0) {
+                setIsZoomedBeyondFit(false);
+                return;
+            }
+
+            // Calculate scaled width
+            const scaledWidth = naturalWidth * zoomLevel;
+            const exceedsContainer = scaledWidth > containerWidth;
+            setIsZoomedBeyondFit(exceedsContainer);
+        };
+
+        // Initial check
+        checkOverflow();
+
+        // Re-check after a delay to account for async loading
+        const timeoutId = setTimeout(checkOverflow, 150);
+        
+        // Listen for image loads
+        const contentElement = pageContentRef.current?.firstElementChild;
+        const imageLoadHandler = () => {
+            setTimeout(checkOverflow, 50);
+        };
+
+        if (contentElement) {
+            // Check for direct image
+            if (contentElement.tagName === 'IMG') {
+                if (contentElement.complete) {
+                    checkOverflow();
+                } else {
+                    contentElement.addEventListener('load', imageLoadHandler);
+                    contentElement.addEventListener('error', checkOverflow);
+                }
+            }
+            
+            // Check for nested images
+            const images = contentElement.querySelectorAll?.('img') || [];
+            images.forEach(img => {
+                if (img.complete) {
+                    checkOverflow();
+                } else {
+                    img.addEventListener('load', imageLoadHandler);
+                    img.addEventListener('error', checkOverflow);
+                }
+            });
+
+            // Check for canvas (rendering is async)
+            const canvas = contentElement.querySelector?.('canvas') || 
+                          (contentElement.tagName === 'CANVAS' ? contentElement : null);
+            if (canvas) {
+                // Canvas width is set during render, check periodically
+                let checkCount = 0;
+                const canvasCheckInterval = setInterval(() => {
+                    checkCount++;
+                    if (canvas.width > 0) {
+                        checkOverflow();
+                        clearInterval(canvasCheckInterval);
+                    } else if (checkCount > 20) {
+                        // Give up after 2 seconds
+                        clearInterval(canvasCheckInterval);
+                    }
+                }, 100);
+                
+                setTimeout(() => clearInterval(canvasCheckInterval), 2000);
+            }
+        }
+
+        // Also check on window resize
+        const resizeHandler = () => {
+            setTimeout(checkOverflow, 50);
+        };
+        window.addEventListener('resize', resizeHandler);
+
+        return () => {
+            clearTimeout(timeoutId);
+            window.removeEventListener('resize', resizeHandler);
+            if (contentElement) {
+                if (contentElement.tagName === 'IMG') {
+                    contentElement.removeEventListener('load', imageLoadHandler);
+                    contentElement.removeEventListener('error', checkOverflow);
+                }
+                const images = contentElement.querySelectorAll?.('img') || [];
+                images.forEach(img => {
+                    img.removeEventListener('load', imageLoadHandler);
+                    img.removeEventListener('error', checkOverflow);
+                });
+            }
+        };
+    }, [zoomLevel, viewMode, activePage, file?.id]);
+
     // Page renderer
     // Initialize activePage from pageNumber prop or initialPage
     const [activePage, setActivePage] = useState(pageNumber !== null && pageNumber !== undefined ? pageNumber : (initialPage || 1));
@@ -158,6 +310,8 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
     const pdfCanvasRef = useRef(null);
     const scrollContainerRef = useRef(null);
     const pageRefs = useRef({}); // Store refs for each page in scroll mode
+    const pageContainerRef = useRef(null); // Ref for page mode container
+    const pageContentRef = useRef(null); // Ref for page mode content wrapper
     
     // Use refs for stable tracking that doesn't reset on re-renders
     const renderAttemptedRef = useRef(new Set()); // Track render attempts per page: `${file.id}:${page}`
@@ -1227,16 +1381,22 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
 
                             {/* Page Content */}
                             <div
-                                className="flex-1 bg-[#0f1115] rounded-lg border border-white/5 shadow-xl overflow-hidden flex items-center justify-center"
+                                ref={pageContainerRef}
+                                className={`flex-1 bg-[#0f1115] rounded-lg border border-white/5 shadow-xl flex items-center ${
+                                    isZoomedBeyondFit 
+                                        ? 'overflow-auto justify-start' 
+                                        : 'overflow-hidden justify-center'
+                                }`}
                                 style={{ userSelect: "text" }}
                                 data-demo="page-canvas"
                                 key={`page-${activePage}`}
                             >
                                 <div
+                                    ref={pageContentRef}
                                     style={{
                                         transform: `scale(${zoomLevel})`,
                                         transition: 'transform 0.2s ease-out',
-                                        transformOrigin: 'top center',
+                                        transformOrigin: isZoomedBeyondFit ? 'top left' : 'top center',
                                         width: '100%',
                                         maxWidth: '100%',
                                     }}
@@ -1249,7 +1409,9 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                         // SCROLL MODE: Vertical scroll container with all pages
                         <div
                             ref={scrollContainerRef}
-                            className="flex-1 bg-[#0f1115] rounded-lg border border-white/5 shadow-xl overflow-y-auto overflow-x-hidden"
+                            className={`flex-1 bg-[#0f1115] rounded-lg border border-white/5 shadow-xl overflow-y-auto ${
+                                isZoomedBeyondFit ? 'overflow-x-auto' : 'overflow-x-hidden'
+                            }`}
                             style={{ userSelect: "text" }}
                             data-demo="scroll-canvas"
                         >
@@ -1257,7 +1419,7 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                                 style={{
                                     transform: `scale(${zoomLevel})`,
                                     transition: 'transform 0.2s ease-out',
-                                    transformOrigin: 'top center',
+                                    transformOrigin: isZoomedBeyondFit ? 'top left' : 'top center',
                                     width: '100%',
                                     maxWidth: '100%',
                                 }}
@@ -1274,7 +1436,9 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                                                 ref={(el) => {
                                                     if (el) pageRefs.current[pageNum] = el;
                                                 }}
-                                                className="w-full flex items-center justify-center py-4 border-b border-white/5 last:border-b-0"
+                                                className={`w-full flex items-center py-4 border-b border-white/5 last:border-b-0 ${
+                                                    isZoomedBeyondFit ? 'justify-start' : 'justify-center'
+                                                }`}
                                                 data-page={pageNum}
                                             >
                                                 {shouldRender ? (
