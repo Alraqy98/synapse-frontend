@@ -155,11 +155,46 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
     const pages = file.page_contents || [];
 
     // Refs for zoom overflow detection (must be declared before useEffect that uses them)
-    const pageContainerRef = useRef(null); // Ref for page mode container
-    const pageContentRef = useRef(null); // Ref for page mode content wrapper
+    const pageContainerRef = useRef(null); // Ref for page mode container (outer scroll container)
+    const pageContentRef = useRef(null); // Ref for page mode content (inner page element)
+    const pageCenteringWrapperRef = useRef(null); // Ref for page mode centering wrapper
     const pdfCanvasRef = useRef(null);
     const scrollContainerRef = useRef(null);
     const pageRefs = useRef({}); // Store refs for each page in scroll mode
+    const pageNaturalWidthsRef = useRef(new Map()); // Store natural page widths: Map<pageNum, width>
+    
+    // Helper to get natural page width (for centering wrapper calculation)
+    const getPageNaturalWidth = (pageNum) => {
+        return pageNaturalWidthsRef.current.get(pageNum) || 0;
+    };
+    
+    // Helper to measure and store page natural width
+    const measurePageWidth = (pageNum, element) => {
+        if (!element) return;
+        
+        // Find the actual image/canvas element
+        let mediaElement = null;
+        if (element.tagName === 'IMG') {
+            mediaElement = element;
+        } else if (element.tagName === 'CANVAS') {
+            mediaElement = element;
+        } else if (element.querySelector) {
+            mediaElement = element.querySelector('canvas') || element.querySelector('img');
+        }
+        
+        if (mediaElement) {
+            let naturalWidth = 0;
+            if (mediaElement.tagName === 'IMG') {
+                naturalWidth = mediaElement.naturalWidth || mediaElement.offsetWidth || 0;
+            } else if (mediaElement.tagName === 'CANVAS') {
+                naturalWidth = mediaElement.width || mediaElement.offsetWidth || 0;
+            }
+            
+            if (naturalWidth > 0) {
+                pageNaturalWidthsRef.current.set(pageNum, naturalWidth);
+            }
+        }
+    };
     
     // Use refs for stable tracking that doesn't reset on re-renders
     const renderAttemptedRef = useRef(new Set()); // Track render attempts per page: `${file.id}:${page}`
@@ -358,34 +393,61 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
         };
     }, [zoomLevel, viewMode, activePage, file?.id]);
 
-    // Preserve visual center when transitioning from fit to zoomed mode
-    // useLayoutEffect runs synchronously after DOM mutations, before paint
-    // This ensures scrollLeft is set before any visual update and won't be overridden
+    // Update centering wrapper width when zoom or page changes (margin-based centering)
     useLayoutEffect(() => {
-        // Only act on transition from false → true
-        if (!prevIsZoomedBeyondFitRef.current && isZoomedBeyondFit) {
-            if (viewMode === 'page' && pageContainerRef.current) {
-                // Page mode: center the scrollable container
-                const container = pageContainerRef.current;
-                const scrollWidth = container.scrollWidth;
-                const clientWidth = container.clientWidth;
-                if (scrollWidth > clientWidth) {
-                    container.scrollLeft = (scrollWidth - clientWidth) / 2;
-                }
-            } else if (viewMode === 'scroll' && scrollContainerRef.current) {
-                // Scroll mode: center horizontally (but preserve vertical scroll)
-                const container = scrollContainerRef.current;
-                const scrollWidth = container.scrollWidth;
-                const clientWidth = container.clientWidth;
-                if (scrollWidth > clientWidth) {
-                    container.scrollLeft = (scrollWidth - clientWidth) / 2;
-                }
+        if (viewMode === 'page' && pageCenteringWrapperRef.current && pageContentRef.current) {
+            const pageWidth = getPageNaturalWidth(activePage);
+            if (pageWidth > 0) {
+                // Centering wrapper width = pageWidth * zoomLevel
+                const wrapperWidth = pageWidth * zoomLevel;
+                pageCenteringWrapperRef.current.style.width = `${wrapperWidth}px`;
+                
+                // Measure page width if not already stored
+                measurePageWidth(activePage, pageContentRef.current);
+            } else {
+                // Measure page width on first render
+                measurePageWidth(activePage, pageContentRef.current);
+                // Retry after a brief delay to allow image/canvas to load
+                const timeoutId = setTimeout(() => {
+                    const measuredWidth = getPageNaturalWidth(activePage);
+                    if (measuredWidth > 0 && pageCenteringWrapperRef.current) {
+                        const wrapperWidth = measuredWidth * zoomLevel;
+                        pageCenteringWrapperRef.current.style.width = `${wrapperWidth}px`;
+                    }
+                }, 100);
+                return () => clearTimeout(timeoutId);
             }
         }
 
         // Update ref for next comparison (always update, regardless of transition)
         prevIsZoomedBeyondFitRef.current = isZoomedBeyondFit;
-    }, [isZoomedBeyondFit, viewMode]);
+    }, [zoomLevel, activePage, viewMode]);
+
+    // Measure page widths when content loads (for both page and scroll modes)
+    useEffect(() => {
+        if (viewMode === 'page' && pageContentRef.current) {
+            // Measure active page width
+            measurePageWidth(activePage, pageContentRef.current);
+            // Retry after a delay to catch async-loaded images
+            const timeoutId = setTimeout(() => {
+                if (pageContentRef.current) {
+                    measurePageWidth(activePage, pageContentRef.current);
+                }
+            }, 200);
+            return () => clearTimeout(timeoutId);
+        } else if (viewMode === 'scroll') {
+            // Measure all rendered page widths
+            Object.entries(pageRefs.current).forEach(([pageNum, pageRef]) => {
+                if (pageRef) {
+                    // Find the inner page element (the one with transform scale)
+                    const innerPageElement = pageRef.querySelector('div[style*="transform"]');
+                    if (innerPageElement) {
+                        measurePageWidth(parseInt(pageNum, 10), innerPageElement);
+                    }
+                }
+            });
+        }
+    }, [activePage, viewMode, totalPages, file?.id]);
 
     // Measure actual horizontal overflow for scrollbar control
     // Use real DOM measurements to determine if horizontal scrolling is needed
@@ -1271,7 +1333,7 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
         // Priority (c): Use PDF.js fallback with signed_url
         if (file.signed_url) {
             return (
-                <div className={isScrollMode ? "w-full max-w-full" : "w-full max-w-full h-full flex items-center justify-center"}>
+                <div className="w-full">
                     <PdfJsPage
                         pdfUrl={file.signed_url}
                         pageNumber={pageNum}
@@ -1490,27 +1552,40 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                                 </button>
                             )}
 
-                            {/* Page Content */}
+                            {/* Page Content - 3-layer structure: scroll container → centering wrapper → scaled page */}
                             <div
                                 ref={pageContainerRef}
-                                className={`flex-1 bg-[#0f1115] rounded-lg border border-white/5 shadow-xl flex items-center justify-center ${
-                                    canPanHorizontally ? 'overflow-auto' : 'overflow-hidden'
-                                }`}
+                                className={`flex-1 bg-[#0f1115] rounded-lg border border-white/5 shadow-xl ${
+                                    canPanHorizontally ? 'overflow-x-auto' : 'overflow-x-hidden'
+                                } overflow-y-auto`}
                                 style={{ userSelect: "text" }}
                                 data-demo="page-canvas"
                                 key={`page-${activePage}`}
                             >
+                                {/* Middle centering wrapper: width = pageWidth * zoomLevel, margin: 0 auto */}
                                 <div
-                                    ref={pageContentRef}
+                                    ref={pageCenteringWrapperRef}
                                     style={{
-                                        transform: `scale(${zoomLevel})`,
-                                        transition: 'transform 0.2s ease-out',
-                                        transformOrigin: 'center center',
-                                        width: '100%',
-                                        maxWidth: '100%',
+                                        margin: '0 auto',
+                                        width: getPageNaturalWidth(activePage) > 0 
+                                            ? `${getPageNaturalWidth(activePage) * zoomLevel}px` 
+                                            : 'auto',
                                     }}
                                 >
-                                    {renderPage(activePage, false)}
+                                    {/* Inner page element: transform scale applied here, keeps original width */}
+                                    <div
+                                        ref={pageContentRef}
+                                        style={{
+                                            transform: `scale(${zoomLevel})`,
+                                            transition: 'transform 0.2s ease-out',
+                                            transformOrigin: 'top center',
+                                            width: getPageNaturalWidth(activePage) > 0 
+                                                ? `${getPageNaturalWidth(activePage)}px` 
+                                                : 'auto',
+                                        }}
+                                    >
+                                        {renderPage(activePage, false)}
+                                    </div>
                                 </div>
                             </div>
                         </>
@@ -1524,10 +1599,11 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                             style={{ userSelect: "text" }}
                             data-demo="scroll-canvas"
                         >
-                            <div className="w-full max-w-full">
+                            <div className="w-full">
                                 {Array.from({ length: totalPages }, (_, i) => {
                                     const pageNum = i + 1;
                                     const pageZoom = getPageZoom(pageNum);
+                                    const pageWidth = getPageNaturalWidth(pageNum);
                                     const shouldRender = true; // For now, render all (can optimize with IntersectionObserver later)
                                     
                                     return (
@@ -1536,27 +1612,46 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                                             ref={(el) => {
                                                 if (el) pageRefs.current[pageNum] = el;
                                             }}
-                                            className="w-full flex items-center justify-center py-4 border-b border-white/5 last:border-b-0"
+                                            className="w-full py-4 border-b border-white/5 last:border-b-0"
                                             data-page={pageNum}
                                         >
+                                            {/* Outer scroll container for horizontal panning (per page) */}
                                             <div
-                                                style={{
-                                                    transform: `scale(${pageZoom})`,
-                                                    transition: 'transform 0.2s ease-out',
-                                                    transformOrigin: 'center center',
-                                                    width: '100%',
-                                                    maxWidth: '100%',
-                                                }}
+                                                className={`w-full ${
+                                                    canPanHorizontally ? 'overflow-x-auto' : 'overflow-x-hidden'
+                                                }`}
                                             >
-                                                {shouldRender ? (
-                                                    <div className="w-full max-w-4xl px-4">
-                                                        {renderPage(pageNum, true)}
+                                                {/* Middle centering wrapper: width = pageWidth * zoomLevel, margin: 0 auto */}
+                                                <div
+                                                    style={{
+                                                        margin: '0 auto',
+                                                        width: pageWidth > 0 
+                                                            ? `${pageWidth * pageZoom}px` 
+                                                            : 'auto',
+                                                    }}
+                                                >
+                                                    {/* Inner page element: transform scale applied here, keeps original width */}
+                                                    <div
+                                                        style={{
+                                                            transform: `scale(${pageZoom})`,
+                                                            transition: 'transform 0.2s ease-out',
+                                                            transformOrigin: 'top center',
+                                                            width: pageWidth > 0 
+                                                                ? `${pageWidth}px` 
+                                                                : 'auto',
+                                                        }}
+                                                    >
+                                                        {shouldRender ? (
+                                                            <div className="w-full">
+                                                                {renderPage(pageNum, true)}
+                                                            </div>
+                                                        ) : (
+                                                            <div className="w-full h-[800px] flex items-center justify-center text-muted text-sm">
+                                                                Loading page {pageNum}...
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                ) : (
-                                                    <div className="w-full h-[800px] flex items-center justify-center text-muted text-sm">
-                                                        Loading page {pageNum}...
-                                                    </div>
-                                                )}
+                                                </div>
                                             </div>
                                         </div>
                                     );
