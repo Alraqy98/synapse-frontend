@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import LandingHero from "./LandingHero";
 import LandingPreviewChat from "./LandingPreviewChat";
 import LandingFeatures from "./LandingFeatures";
@@ -6,8 +6,16 @@ import LandingCTA from "./LandingCTA";
 import logo from "../assets/synapse-logo.png";
 
 const LandingPage = ({ onLogin, onSignup }) => {
+    // Add body class on mount, remove on unmount
+    useEffect(() => {
+        document.body.classList.add("landing");
+        return () => {
+            document.body.classList.remove("landing");
+        };
+    }, []);
+
     return (
-        <div className="w-full min-h-screen bg-[#0D0F12] text-white overflow-x-hidden selection:bg-teal selection:text-black">
+        <div className="landing-page w-full min-h-screen bg-[#0D0F12] text-white overflow-x-hidden selection:bg-teal selection:text-black">
 
             {/* Navbar */}
             <nav className="flex justify-between items-center px-6 py-6 max-w-7xl mx-auto w-full relative z-50">

@@ -414,6 +414,19 @@ main>div {
 }
 
 /* =========================================================
+   LANDING PAGE: Hide scrollbar (scrolling still works)
+   ========================================================= */
+
+body.landing ::-webkit-scrollbar {
+    display: none;
+}
+
+body.landing {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+}
+
+/* =========================================================
    PREMIUM MICRO-ANIMATIONS (Synapse V1)
    ========================================================= */
 

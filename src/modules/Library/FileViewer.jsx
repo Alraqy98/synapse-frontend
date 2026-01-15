@@ -1008,7 +1008,7 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
         // Priority (c): Use PDF.js fallback with signed_url
         if (file.signed_url) {
             return (
-                <div className={isScrollMode ? "w-full" : "w-full h-full flex items-center justify-center"}>
+                <div className={isScrollMode ? "w-full max-w-full" : "w-full max-w-full h-full flex items-center justify-center"}>
                     <PdfJsPage
                         pdfUrl={file.signed_url}
                         pageNumber={pageNum}
@@ -1237,6 +1237,8 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                                         transform: `scale(${zoomLevel})`,
                                         transition: 'transform 0.2s ease-out',
                                         transformOrigin: 'top center',
+                                        width: '100%',
+                                        maxWidth: '100%',
                                     }}
                                 >
                                     {renderPage(activePage, false)}
@@ -1247,7 +1249,7 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                         // SCROLL MODE: Vertical scroll container with all pages
                         <div
                             ref={scrollContainerRef}
-                            className="flex-1 bg-[#0f1115] rounded-lg border border-white/5 shadow-xl overflow-y-auto"
+                            className="flex-1 bg-[#0f1115] rounded-lg border border-white/5 shadow-xl overflow-y-auto overflow-x-hidden"
                             style={{ userSelect: "text" }}
                             data-demo="scroll-canvas"
                         >
@@ -1256,9 +1258,11 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                                     transform: `scale(${zoomLevel})`,
                                     transition: 'transform 0.2s ease-out',
                                     transformOrigin: 'top center',
+                                    width: '100%',
+                                    maxWidth: '100%',
                                 }}
                             >
-                                <div className="w-full">
+                                <div className="w-full max-w-full">
                                     {Array.from({ length: totalPages }, (_, i) => {
                                         const pageNum = i + 1;
                                         // Lazy rendering: only render visible pages + buffer

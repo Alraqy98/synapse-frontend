@@ -88,7 +88,7 @@ export default function PdfJsPage({ pdfUrl, pageNumber, onRenderComplete }) {
     }, [pdfUrl, pageNumber, onRenderComplete]);
 
     return (
-        <div className="relative w-full h-full flex items-center justify-center">
+        <div className="relative w-full max-w-full h-full flex items-center justify-center">
             {isRendering && (
                 <div className="absolute inset-0 flex items-center justify-center">
                     <div className="text-muted text-sm opacity-50">
