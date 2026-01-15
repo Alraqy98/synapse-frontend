@@ -147,6 +147,12 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
     const zoomCanvasRef = useRef(null);
     const pageRefs = useRef({});
     const pdfCanvasRef = useRef(null);
+    const activePageRef = useRef(activePage); // Track current page to avoid unnecessary state updates
+    
+    // Update activePageRef when activePage changes (from external sources like URL)
+    useEffect(() => {
+        activePageRef.current = activePage;
+    }, [activePage]);
     
     // Use refs for stable tracking that doesn't reset on re-renders
     const renderAttemptedRef = useRef(new Set()); // Track render attempts per page: `${file.id}:${page}`
@@ -194,72 +200,96 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
         setZoomLevel(1);
     };
 
-    // Page tracking - IntersectionObserver (independent of zoom)
+    // Page tracking - center-to-center distance (independent of zoom)
     useEffect(() => {
-        if (viewMode !== 'scroll' || !scrollContainerRef.current) return;
+        if (viewMode !== "scroll") return;
 
-        const container = scrollContainerRef.current;
-        if (!container) return;
+        const rootEl = scrollContainerRef.current;
+        if (!rootEl) return;
+
+        const observed = new Set();
+
+        const pickClosestToCenter = (elements) => {
+            const rootRect = rootEl.getBoundingClientRect();
+            const rootCenterY = rootRect.top + rootRect.height / 2;
+
+            let bestPage = null;
+            let bestDist = Infinity;
+
+            for (const el of elements) {
+                const page = Number(el.getAttribute("data-page"));
+                if (!page) continue;
+
+                const r = el.getBoundingClientRect();
+                const centerY = r.top + r.height / 2;
+                const dist = Math.abs(centerY - rootCenterY);
+
+                if (dist < bestDist) {
+                    bestDist = dist;
+                    bestPage = page;
+                }
+            }
+
+            return bestPage;
+        };
 
         const observer = new IntersectionObserver(
             (entries) => {
-                let maxRatio = 0;
-                let visiblePage = activePage;
+                const intersecting = entries
+                    .filter(e => e.isIntersecting)
+                    .map(e => e.target);
 
-                entries.forEach((entry) => {
-                    const pageNum = Number(entry.target.dataset.page);
-                    if (!isNaN(pageNum) && entry.intersectionRatio > maxRatio) {
-                        maxRatio = entry.intersectionRatio;
-                        visiblePage = pageNum;
-                    }
-                });
+                let nextPage;
 
-                if (maxRatio > 0 && visiblePage !== activePage) {
-                    setActivePage(visiblePage);
+                if (intersecting.length) {
+                    nextPage = pickClosestToCenter(intersecting);
+                } else {
+                    const all = Array.from(rootEl.querySelectorAll("[data-page]"));
+                    nextPage = pickClosestToCenter(all);
+                }
+
+                if (
+                    nextPage &&
+                    nextPage !== activePageRef.current
+                ) {
+                    activePageRef.current = nextPage;
+                    setActivePage(nextPage);
                     // Update URL without triggering navigation
                     if (file?.id) {
-                        if (visiblePage === 1) {
+                        if (nextPage === 1) {
                             window.history.replaceState({}, '', `/library/file/${file.id}`);
                         } else {
-                            window.history.replaceState({}, '', `/library/file/${file.id}/page/${visiblePage}`);
+                            window.history.replaceState({}, '', `/library/file/${file.id}/page/${nextPage}`);
                         }
                     }
                 }
             },
             {
-                root: container,
-                threshold: [0.2, 0.4, 0.6],
+                root: rootEl,
+                threshold: [0, 0.01],
+                rootMargin: "-45% 0px -45% 0px",
             }
         );
 
-        // Observe all page elements with data-page attribute
-        // Query directly from DOM to ensure we get all pages, including async-rendered ones
         const observePages = () => {
-            // Use a Set to avoid observing the same element twice
-            const observedElements = new Set();
-            
-            // Query DOM directly for all elements with data-page attribute
-            const pageElements = container.querySelectorAll('[data-page]');
-            pageElements.forEach((el) => {
-                const pageNum = el.dataset.page;
-                if (pageNum && !observedElements.has(el)) {
+            rootEl.querySelectorAll("[data-page]").forEach(el => {
+                if (!observed.has(el)) {
+                    observed.add(el);
                     observer.observe(el);
-                    observedElements.add(el);
                 }
             });
         };
 
-        // Observe immediately and after delays to catch async renders
         observePages();
-        const timeoutId1 = setTimeout(observePages, 100);
-        const timeoutId2 = setTimeout(observePages, 500);
+        const raf = requestAnimationFrame(observePages);
+        const t = setTimeout(observePages, 200);
 
         return () => {
-            clearTimeout(timeoutId1);
-            clearTimeout(timeoutId2);
+            cancelAnimationFrame(raf);
+            clearTimeout(t);
             observer.disconnect();
         };
-    }, [viewMode, totalPages, file?.id]);
+    }, [viewMode, file?.id, totalPages]);
 
     // Horizontal scrollbar - based on DOM measurements only
     useLayoutEffect(() => {
