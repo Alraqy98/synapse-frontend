@@ -208,13 +208,13 @@ export const sendAdminNotification = async (payload) => {
  * Get admin suggestions list
  * GET /api/admin/suggestions
  * 
- * TODO: Backend endpoint expected to return:
- * { success: true, suggestions: [{ id, user_id, user_name, user_email, content, created_at, status }] }
+ * Backend returns: Array of suggestions [{ id, user_id, user_name, user_email, content, created_at, status }]
  */
 export const getAdminSuggestions = async () => {
   try {
     const res = await api.get("/api/admin/suggestions");
-    return res.data?.suggestions ?? [];
+    // Backend returns raw array, not wrapped object
+    return Array.isArray(res.data) ? res.data : [];
   } catch (err) {
     if (err.response?.status === 403) {
       window.location.href = "/dashboard";

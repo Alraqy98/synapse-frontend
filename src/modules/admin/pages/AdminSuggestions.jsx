@@ -13,6 +13,8 @@ const AdminSuggestions = () => {
         setLoading(true);
         setError(null);
         const suggestionsData = await getAdminSuggestions();
+        // Debug: log response to verify data shape
+        console.log("Admin suggestions response:", suggestionsData);
         setSuggestions(suggestionsData);
       } catch (err) {
         console.error("Failed to fetch suggestions:", err);
