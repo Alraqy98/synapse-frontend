@@ -1330,7 +1330,7 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                                     {[
                                         { id: "summary", icon: FileText },
                                         { id: "flashcards", icon: Zap },
-                                        { id: "quiz", icon: HelpCircle },
+                                        { id: "quiz", icon: CheckSquare },
                                     ].map((a) => (
                                         <button
                                             key={a.id}
