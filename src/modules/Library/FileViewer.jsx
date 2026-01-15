@@ -1093,8 +1093,7 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
 
                     <div className="ml-auto flex items-center gap-4">
                         {/* Zoom Controls */}
-                        {viewMode === 'page' && (
-                            <div className="flex items-center gap-1 bg-black/40 rounded-lg border border-white/10 p-1">
+                        <div className="flex items-center gap-1 bg-black/40 rounded-lg border border-white/10 p-1">
                                 <button
                                     onClick={handleZoomOut}
                                     disabled={zoomLevel <= 0.5}
@@ -1122,7 +1121,6 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                                     <ZoomIn size={14} />
                                 </button>
                             </div>
-                        )}
                         {/* View Mode Toggle */}
                         <div className="flex items-center gap-2 bg-black/40 rounded-lg border border-white/10 p-1">
                             <button
