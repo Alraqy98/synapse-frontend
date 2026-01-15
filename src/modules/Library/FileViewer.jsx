@@ -80,12 +80,6 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
     const [actionResult, setActionResult] = useState(null);
     const [isLoadingAction, setIsLoadingAction] = useState(false);
     const [toolsCollapsed, setToolsCollapsed] = useState(true);
-    const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-        if (typeof window !== 'undefined') {
-            return window.innerWidth < 768;
-        }
-        return false;
-    });
     const [showFlashcardsModal, setShowFlashcardsModal] = useState(false);
     const [showMCQModal, setShowMCQModal] = useState(false);
     const [showSummaryModal, setShowSummaryModal] = useState(false);
@@ -132,19 +126,13 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
         return stored === 'scroll' ? 'scroll' : 'page';
     });
 
-    // Zoom state - per-page zoom levels
-    const [pageZoomLevels, setPageZoomLevels] = useState(() => new Map()); // Map<pageNum, zoomLevel>
-    const [isZoomedBeyondFit, setIsZoomedBeyondFit] = useState(false); // Track if content exceeds container (for center preservation)
+    // Zoom state - single viewport-scoped zoom
+    const [zoomLevel, setZoomLevel] = useState(1);
+    const zoomRef = useRef(1);
     const [canPanHorizontally, setCanPanHorizontally] = useState(false); // Track actual horizontal overflow for scrollbar control
-    
-    // Get zoom level for a specific page (defaults to 1)
-    const getPageZoom = (pageNum) => pageZoomLevels.get(pageNum) || 1;
 
     // Page state (must be declared before useEffect that uses them)
     const [activePage, setActivePage] = useState(pageNumber !== null && pageNumber !== undefined ? pageNumber : (initialPage || 1));
-    
-    // Get current active page zoom level (must be declared after activePage)
-    const zoomLevel = getPageZoom(activePage);
     const [pageImageForTutor, setPageImageForTutor] = useState(null);
     const [renderedImageUrl, setRenderedImageUrl] = useState(null); // Store rendered image URL per page
     const [isRendering, setIsRendering] = useState(false);
@@ -154,331 +142,107 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
     // Page data (must be declared before useEffect that uses it)
     const pages = file.page_contents || [];
 
-    // Refs for zoom overflow detection (must be declared before useEffect that uses them)
-    const pageContainerRef = useRef(null); // Ref for page mode container (outer scroll container)
-    const pageContentRef = useRef(null); // Ref for page mode content (inner page element)
-    const pageCenteringWrapperRef = useRef(null); // Ref for page mode centering wrapper
-    const pdfCanvasRef = useRef(null);
+    // Required refs for zoom and page tracking
     const scrollContainerRef = useRef(null);
-    const pageRefs = useRef({}); // Store refs for each page in scroll mode
-    const pageNaturalWidthsRef = useRef(new Map()); // Store natural page widths: Map<pageNum, width>
-    
-    // Helper to get natural page width (for centering wrapper calculation)
-    const getPageNaturalWidth = (pageNum) => {
-        return pageNaturalWidthsRef.current.get(pageNum) || 0;
-    };
-    
-    // Helper to measure and store page natural width
-    const measurePageWidth = (pageNum, element) => {
-        if (!element) return;
-        
-        // Find the actual image/canvas element
-        let mediaElement = null;
-        if (element.tagName === 'IMG') {
-            mediaElement = element;
-        } else if (element.tagName === 'CANVAS') {
-            mediaElement = element;
-        } else if (element.querySelector) {
-            mediaElement = element.querySelector('canvas') || element.querySelector('img');
-        }
-        
-        if (mediaElement) {
-            let naturalWidth = 0;
-            if (mediaElement.tagName === 'IMG') {
-                naturalWidth = mediaElement.naturalWidth || mediaElement.offsetWidth || 0;
-            } else if (mediaElement.tagName === 'CANVAS') {
-                naturalWidth = mediaElement.width || mediaElement.offsetWidth || 0;
-            }
-            
-            if (naturalWidth > 0) {
-                pageNaturalWidthsRef.current.set(pageNum, naturalWidth);
-            }
-        }
-    };
+    const zoomCanvasRef = useRef(null);
+    const pageRefs = useRef({});
+    const pdfCanvasRef = useRef(null);
     
     // Use refs for stable tracking that doesn't reset on re-renders
     const renderAttemptedRef = useRef(new Set()); // Track render attempts per page: `${file.id}:${page}`
     const imageLoadFailedRef = useRef(new Set()); // Track image load failures: `${file.id}:${page}`
     const renderedImageUrlsRef = useRef(new Map()); // Store rendered image URLs: `${file.id}:${page}` -> URL
-    const prevIsZoomedBeyondFitRef = useRef(false); // Track previous zoom state for transition detection
-    const isZoomingRef = useRef(false); // Track when zoom is in progress to prevent auto-scroll interference
 
-    const handleZoomIn = () => {
-        isZoomingRef.current = true;
-        setPageZoomLevels((prev) => {
-            const newMap = new Map(prev);
-            const currentZoom = getPageZoom(activePage);
-            newMap.set(activePage, Math.min(currentZoom + 0.25, 3));
-            return newMap;
+    // Side panel state
+    const [isSidePanelOpen, setIsSidePanelOpen] = useState(true);
+
+    // Zoom centered on active page
+    const zoomBy = (delta) => {
+        const container = scrollContainerRef.current;
+        const activeEl = pageRefs.current[activePage];
+
+        const prevZoom = zoomRef.current;
+        const nextZoom = Math.max(0.5, Math.min(3, prevZoom + delta));
+
+        if (!container || !activeEl) {
+            zoomRef.current = nextZoom;
+            setZoomLevel(nextZoom);
+            return;
+        }
+
+        const containerRect = container.getBoundingClientRect();
+        const pageRect = activeEl.getBoundingClientRect();
+
+        const pageCenterY =
+            pageRect.top - containerRect.top + pageRect.height / 2;
+
+        const viewportCenterY = container.clientHeight / 2;
+        const offsetY = pageCenterY - viewportCenterY;
+
+        zoomRef.current = nextZoom;
+        setZoomLevel(nextZoom);
+
+        requestAnimationFrame(() => {
+            container.scrollTop += offsetY * (nextZoom / prevZoom);
         });
     };
 
-    const handleZoomOut = () => {
-        isZoomingRef.current = true;
-        setPageZoomLevels((prev) => {
-            const newMap = new Map(prev);
-            const currentZoom = getPageZoom(activePage);
-            newMap.set(activePage, Math.max(currentZoom - 0.25, 0.5));
-            return newMap;
-        });
-    };
-
+    const handleZoomIn = () => zoomBy(0.15);
+    const handleZoomOut = () => zoomBy(-0.15);
     const handleZoomReset = () => {
-        isZoomingRef.current = true;
-        setPageZoomLevels((prev) => {
-            const newMap = new Map(prev);
-            newMap.set(activePage, 1);
-            return newMap;
-        });
+        zoomRef.current = 1;
+        setZoomLevel(1);
     };
 
-    // Reset zoom flag after zoom level updates
+    // Page tracking - IntersectionObserver (independent of zoom)
     useEffect(() => {
-        // Reset flag after a brief delay to allow all zoom-related effects to complete
-        const timeoutId = setTimeout(() => {
-            isZoomingRef.current = false;
-        }, 100);
+        if (viewMode !== 'scroll' || !scrollContainerRef.current) return;
 
-        return () => clearTimeout(timeoutId);
-    }, [zoomLevel, activePage]);
+        const observer = new IntersectionObserver(
+            (entries) => {
+                let maxRatio = 0;
+                let visiblePage = activePage;
 
-    // Calculate if scaled content exceeds container width
-    useEffect(() => {
-        // For scroll mode, enable horizontal scroll when zoomed > 1
-        if (viewMode === 'scroll') {
-            setIsZoomedBeyondFit(zoomLevel > 1);
-            return;
-        }
-
-        // For page mode, measure actual content vs container
-        if (viewMode !== 'page' || !pageContainerRef.current || !pageContentRef.current) {
-            setIsZoomedBeyondFit(false);
-            return;
-        }
-
-        const checkOverflow = () => {
-            const container = pageContainerRef.current;
-            const content = pageContentRef.current;
-            if (!container || !content) {
-                setIsZoomedBeyondFit(false);
-                return;
-            }
-
-            const containerWidth = container.clientWidth;
-            if (containerWidth === 0) {
-                setIsZoomedBeyondFit(false);
-                return;
-            }
-
-            // Get the actual rendered content element
-            const contentElement = content.firstElementChild;
-            if (!contentElement) {
-                setIsZoomedBeyondFit(false);
-                return;
-            }
-
-            // Find the actual image/canvas element
-            let mediaElement = null;
-            if (contentElement.tagName === 'IMG') {
-                mediaElement = contentElement;
-            } else if (contentElement.tagName === 'CANVAS') {
-                mediaElement = contentElement;
-            } else if (contentElement.querySelector) {
-                // Check for nested canvas or img
-                mediaElement = contentElement.querySelector('canvas') || 
-                             contentElement.querySelector('img');
-            }
-
-            if (!mediaElement) {
-                // No media element found, assume no overflow
-                setIsZoomedBeyondFit(false);
-                return;
-            }
-
-            // Get natural/intrinsic width
-            let naturalWidth = 0;
-            if (mediaElement.tagName === 'IMG') {
-                naturalWidth = mediaElement.naturalWidth || mediaElement.offsetWidth || 0;
-            } else if (mediaElement.tagName === 'CANVAS') {
-                naturalWidth = mediaElement.width || mediaElement.offsetWidth || 0;
-            }
-
-            // If we don't have a valid width yet, wait
-            if (naturalWidth === 0) {
-                setIsZoomedBeyondFit(false);
-                return;
-            }
-
-            // Calculate scaled width
-            const scaledWidth = naturalWidth * zoomLevel;
-            const exceedsContainer = scaledWidth > containerWidth;
-            setIsZoomedBeyondFit(exceedsContainer);
-        };
-
-        // Initial check
-        checkOverflow();
-
-        // Re-check after a delay to account for async loading
-        const timeoutId = setTimeout(checkOverflow, 150);
-        
-        // Listen for image loads
-        const contentElement = pageContentRef.current?.firstElementChild;
-        const imageLoadHandler = () => {
-            setTimeout(checkOverflow, 50);
-        };
-
-        if (contentElement) {
-            // Check for direct image
-            if (contentElement.tagName === 'IMG') {
-                if (contentElement.complete) {
-                    checkOverflow();
-                } else {
-                    contentElement.addEventListener('load', imageLoadHandler);
-                    contentElement.addEventListener('error', checkOverflow);
-                }
-            }
-            
-            // Check for nested images
-            const images = contentElement.querySelectorAll?.('img') || [];
-            images.forEach(img => {
-                if (img.complete) {
-                    checkOverflow();
-                } else {
-                    img.addEventListener('load', imageLoadHandler);
-                    img.addEventListener('error', checkOverflow);
-                }
-            });
-
-            // Check for canvas (rendering is async)
-            const canvas = contentElement.querySelector?.('canvas') || 
-                          (contentElement.tagName === 'CANVAS' ? contentElement : null);
-            if (canvas) {
-                // Canvas width is set during render, check periodically
-                let checkCount = 0;
-                const canvasCheckInterval = setInterval(() => {
-                    checkCount++;
-                    if (canvas.width > 0) {
-                        checkOverflow();
-                        clearInterval(canvasCheckInterval);
-                    } else if (checkCount > 20) {
-                        // Give up after 2 seconds
-                        clearInterval(canvasCheckInterval);
+                entries.forEach((entry) => {
+                    const pageNum = Number(entry.target.dataset.page);
+                    if (entry.intersectionRatio > maxRatio) {
+                        maxRatio = entry.intersectionRatio;
+                        visiblePage = pageNum;
                     }
-                }, 100);
-                
-                setTimeout(() => clearInterval(canvasCheckInterval), 2000);
-            }
-        }
-
-        // Also check on window resize
-        const resizeHandler = () => {
-            setTimeout(checkOverflow, 50);
-        };
-        window.addEventListener('resize', resizeHandler);
-
-        return () => {
-            clearTimeout(timeoutId);
-            window.removeEventListener('resize', resizeHandler);
-            if (contentElement) {
-                if (contentElement.tagName === 'IMG') {
-                    contentElement.removeEventListener('load', imageLoadHandler);
-                    contentElement.removeEventListener('error', checkOverflow);
-                }
-                const images = contentElement.querySelectorAll?.('img') || [];
-                images.forEach(img => {
-                    img.removeEventListener('load', imageLoadHandler);
-                    img.removeEventListener('error', checkOverflow);
                 });
-            }
-        };
-    }, [zoomLevel, viewMode, activePage, file?.id]);
 
-    // Update centering wrapper width when zoom or page changes (margin-based centering)
-    useLayoutEffect(() => {
-        if (viewMode === 'page' && pageCenteringWrapperRef.current && pageContentRef.current) {
-            const pageWidth = getPageNaturalWidth(activePage);
-            if (pageWidth > 0) {
-                // Centering wrapper width = pageWidth * zoomLevel
-                const wrapperWidth = pageWidth * zoomLevel;
-                pageCenteringWrapperRef.current.style.width = `${wrapperWidth}px`;
-                
-                // Measure page width if not already stored
-                measurePageWidth(activePage, pageContentRef.current);
-            } else {
-                // Measure page width on first render
-                measurePageWidth(activePage, pageContentRef.current);
-                // Retry after a brief delay to allow image/canvas to load
-                const timeoutId = setTimeout(() => {
-                    const measuredWidth = getPageNaturalWidth(activePage);
-                    if (measuredWidth > 0 && pageCenteringWrapperRef.current) {
-                        const wrapperWidth = measuredWidth * zoomLevel;
-                        pageCenteringWrapperRef.current.style.width = `${wrapperWidth}px`;
+                if (maxRatio > 0 && visiblePage !== activePage) {
+                    setActivePage(visiblePage);
+                    // Update URL without triggering navigation
+                    if (file?.id) {
+                        if (visiblePage === 1) {
+                            window.history.replaceState({}, '', `/library/file/${file.id}`);
+                        } else {
+                            window.history.replaceState({}, '', `/library/file/${file.id}/page/${visiblePage}`);
+                        }
                     }
-                }, 100);
-                return () => clearTimeout(timeoutId);
+                }
+            },
+            {
+                root: scrollContainerRef.current,
+                threshold: [0.25, 0.5, 0.75],
             }
-        }
+        );
 
-        // Update ref for next comparison (always update, regardless of transition)
-        prevIsZoomedBeyondFitRef.current = isZoomedBeyondFit;
+        Object.values(pageRefs.current).forEach((el) => {
+            if (el) observer.observe(el);
+        });
+
+        return () => observer.disconnect();
+    }, [viewMode, activePage, file?.id]);
+
+    // Horizontal scrollbar - based on DOM measurements only
+    useLayoutEffect(() => {
+        const el = scrollContainerRef.current;
+        if (!el) return;
+
+        setCanPanHorizontally(el.scrollWidth > el.clientWidth + 1);
     }, [zoomLevel, activePage, viewMode]);
-
-    // Measure page widths when content loads (for both page and scroll modes)
-    useEffect(() => {
-        if (viewMode === 'page' && pageContentRef.current) {
-            // Measure active page width
-            measurePageWidth(activePage, pageContentRef.current);
-            // Retry after a delay to catch async-loaded images
-            const timeoutId = setTimeout(() => {
-                if (pageContentRef.current) {
-                    measurePageWidth(activePage, pageContentRef.current);
-                }
-            }, 200);
-            return () => clearTimeout(timeoutId);
-        } else if (viewMode === 'scroll') {
-            // Measure all rendered page widths
-            Object.entries(pageRefs.current).forEach(([pageNum, pageRef]) => {
-                if (pageRef) {
-                    // Find the inner page element (the one with transform scale)
-                    const innerPageElement = pageRef.querySelector('div[style*="transform"]');
-                    if (innerPageElement) {
-                        measurePageWidth(parseInt(pageNum, 10), innerPageElement);
-                    }
-                }
-            });
-        }
-    }, [activePage, viewMode, totalPages, file?.id]);
-
-    // Measure actual horizontal overflow for scrollbar control
-    // Use real DOM measurements to determine if horizontal scrolling is needed
-    useLayoutEffect(() => {
-        const measureOverflow = () => {
-            if (viewMode === 'page' && pageContainerRef.current) {
-                const container = pageContainerRef.current;
-                const scrollWidth = container.scrollWidth;
-                const clientWidth = container.clientWidth;
-                // Add 1px tolerance to avoid subpixel jitter
-                const hasOverflow = scrollWidth > clientWidth + 1;
-                setCanPanHorizontally(hasOverflow);
-            } else if (viewMode === 'scroll' && scrollContainerRef.current) {
-                const container = scrollContainerRef.current;
-                const scrollWidth = container.scrollWidth;
-                const clientWidth = container.clientWidth;
-                // Add 1px tolerance to avoid subpixel jitter
-                const hasOverflow = scrollWidth > clientWidth + 1;
-                setCanPanHorizontally(hasOverflow);
-            } else {
-                setCanPanHorizontally(false);
-            }
-        };
-
-        // Measure immediately
-        measureOverflow();
-
-        // Also measure on window resize
-        window.addEventListener('resize', measureOverflow);
-        return () => window.removeEventListener('resize', measureOverflow);
-    }, [viewMode, zoomLevel, activePage, file?.id]);
     
     // Verification: Log page_contents availability for vision pipeline
     useEffect(() => {
@@ -1208,66 +972,6 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [viewMode, activePage, totalPages]);
 
-    // IntersectionObserver-based page indicator update (Scroll Mode)
-    // Uses visibility ratio instead of scroll position for accurate detection under zoom
-    useEffect(() => {
-        if (viewMode !== 'scroll' || !scrollContainerRef.current) return;
-
-        const container = scrollContainerRef.current;
-        const pageVisibility = new Map(); // Track visibility ratio per page
-
-        const observer = new IntersectionObserver(
-            (entries) => {
-                entries.forEach((entry) => {
-                    const pageNum = parseInt(entry.target.getAttribute('data-page') || '1', 10);
-                    // Calculate visibility ratio (intersection area / page area)
-                    const ratio = entry.intersectionRatio;
-                    pageVisibility.set(pageNum, ratio);
-                });
-
-                // Find page with highest visibility ratio
-                let maxVisibility = 0;
-                let mostVisiblePage = activePage; // Default to current if no clear winner
-
-                pageVisibility.forEach((ratio, pageNum) => {
-                    if (ratio > maxVisibility) {
-                        maxVisibility = ratio;
-                        mostVisiblePage = pageNum;
-                    }
-                });
-
-                // Only update if we have a clear winner and it's different from current
-                if (maxVisibility > 0 && mostVisiblePage !== activePage && !isZoomingRef.current) {
-                    setActivePage(mostVisiblePage);
-                    // Update URL without triggering navigation
-                    if (file?.id) {
-                        if (mostVisiblePage === 1) {
-                            window.history.replaceState({}, '', `/library/file/${file.id}`);
-                        } else {
-                            window.history.replaceState({}, '', `/library/file/${file.id}/page/${mostVisiblePage}`);
-                        }
-                    }
-                }
-            },
-            {
-                root: container,
-                rootMargin: '0px',
-                threshold: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], // Multiple thresholds for accurate ratio
-            }
-        );
-
-        // Observe all page elements
-        for (let page = 1; page <= totalPages; page++) {
-            const pageRef = pageRefs.current[page];
-            if (pageRef) {
-                observer.observe(pageRef);
-            }
-        }
-
-        return () => {
-            observer.disconnect();
-        };
-    }, [viewMode, totalPages, activePage, file?.id]);
 
     // Render a single page (reusable for both modes)
     const renderPage = (pageNum, isScrollMode = false) => {
@@ -1417,6 +1121,14 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                     </div>
 
                     <div className="ml-auto flex items-center gap-4">
+                        {/* Side Panel Toggle */}
+                        <button
+                            onClick={() => setIsSidePanelOpen(v => !v)}
+                            className="ml-2 rounded-md p-2 hover:bg-white/10"
+                            title={isSidePanelOpen ? 'Hide panel' : 'Show panel'}
+                        >
+                            {isSidePanelOpen ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
+                        </button>
                         {/* Zoom Controls */}
                         <div className="flex items-center gap-1 bg-black/40 rounded-lg border border-white/10 p-1">
                                 <button
@@ -1470,13 +1182,11 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                                     if (viewMode !== 'scroll') {
                                         setViewMode('scroll');
                                         localStorage.setItem('synapse_fileviewer_mode', 'scroll');
-                                        // Scroll to current page when switching to scroll mode (only if not zooming)
+                                        // Scroll to current page when switching to scroll mode
                                         setTimeout(() => {
-                                            if (!isZoomingRef.current) {
-                                                const pageRef = pageRefs.current[activePage];
-                                                if (pageRef && scrollContainerRef.current) {
-                                                    pageRef.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                                }
+                                            const pageRef = pageRefs.current[activePage];
+                                            if (pageRef && scrollContainerRef.current) {
+                                                pageRef.scrollIntoView({ behavior: 'smooth', block: 'center' });
                                             }
                                         }, 100);
                                     }
@@ -1552,37 +1262,29 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                                 </button>
                             )}
 
-                            {/* Page Content - 3-layer structure: scroll container → centering wrapper → scaled page */}
+                            {/* Page Content - viewport-scoped zoom */}
                             <div
-                                ref={pageContainerRef}
-                                className={`flex-1 bg-[#0f1115] rounded-lg border border-white/5 shadow-xl ${
+                                ref={scrollContainerRef}
+                                className={`flex-1 bg-[#0f1115] rounded-lg border border-white/5 shadow-xl relative h-full ${
                                     canPanHorizontally ? 'overflow-x-auto' : 'overflow-x-hidden'
                                 } overflow-y-auto`}
                                 style={{ userSelect: "text" }}
                                 data-demo="page-canvas"
                                 key={`page-${activePage}`}
                             >
-                                {/* Middle centering wrapper: width = pageWidth * zoomLevel, margin: 0 auto */}
                                 <div
-                                    ref={pageCenteringWrapperRef}
+                                    ref={zoomCanvasRef}
                                     style={{
-                                        margin: '0 auto',
-                                        width: getPageNaturalWidth(activePage) > 0 
-                                            ? `${getPageNaturalWidth(activePage) * zoomLevel}px` 
-                                            : 'auto',
+                                        transform: `scale(${zoomLevel})`,
+                                        transformOrigin: 'top center',
+                                        width: '100%',
                                     }}
                                 >
-                                    {/* Inner page element: transform scale applied here, keeps original width */}
                                     <div
-                                        ref={pageContentRef}
-                                        style={{
-                                            transform: `scale(${zoomLevel})`,
-                                            transition: 'transform 0.2s ease-out',
-                                            transformOrigin: 'top center',
-                                            width: getPageNaturalWidth(activePage) > 0 
-                                                ? `${getPageNaturalWidth(activePage)}px` 
-                                                : 'auto',
+                                        ref={(el) => {
+                                            if (el) pageRefs.current[activePage] = el;
                                         }}
+                                        data-page={activePage}
                                     >
                                         {renderPage(activePage, false)}
                                     </div>
@@ -1590,21 +1292,25 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                             </div>
                         </>
                     ) : (
-                        // SCROLL MODE: Vertical scroll container with all pages
+                        // SCROLL MODE: Required DOM structure per spec
                         <div
                             ref={scrollContainerRef}
-                            className={`flex-1 bg-[#0f1115] rounded-lg border border-white/5 shadow-xl overflow-y-auto ${
+                            className={`flex-1 bg-[#0f1115] rounded-lg border border-white/5 shadow-xl relative h-full ${
                                 canPanHorizontally ? 'overflow-x-auto' : 'overflow-x-hidden'
-                            }`}
+                            } overflow-y-auto`}
                             style={{ userSelect: "text" }}
                             data-demo="scroll-canvas"
                         >
-                            <div className="w-full">
+                            <div
+                                ref={zoomCanvasRef}
+                                style={{
+                                    transform: `scale(${zoomLevel})`,
+                                    transformOrigin: 'top center',
+                                    width: '100%',
+                                }}
+                            >
                                 {Array.from({ length: totalPages }, (_, i) => {
                                     const pageNum = i + 1;
-                                    const pageZoom = getPageZoom(pageNum);
-                                    const pageWidth = getPageNaturalWidth(pageNum);
-                                    const shouldRender = true; // For now, render all (can optimize with IntersectionObserver later)
                                     
                                     return (
                                         <div
@@ -1612,47 +1318,10 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                                             ref={(el) => {
                                                 if (el) pageRefs.current[pageNum] = el;
                                             }}
-                                            className="w-full py-4 border-b border-white/5 last:border-b-0"
                                             data-page={pageNum}
+                                            className="mb-6"
                                         >
-                                            {/* Outer scroll container for horizontal panning (per page) */}
-                                            <div
-                                                className={`w-full ${
-                                                    canPanHorizontally ? 'overflow-x-auto' : 'overflow-x-hidden'
-                                                }`}
-                                            >
-                                                {/* Middle centering wrapper: width = pageWidth * zoomLevel, margin: 0 auto */}
-                                                <div
-                                                    style={{
-                                                        margin: '0 auto',
-                                                        width: pageWidth > 0 
-                                                            ? `${pageWidth * pageZoom}px` 
-                                                            : 'auto',
-                                                    }}
-                                                >
-                                                    {/* Inner page element: transform scale applied here, keeps original width */}
-                                                    <div
-                                                        style={{
-                                                            transform: `scale(${pageZoom})`,
-                                                            transition: 'transform 0.2s ease-out',
-                                                            transformOrigin: 'top center',
-                                                            width: pageWidth > 0 
-                                                                ? `${pageWidth}px` 
-                                                                : 'auto',
-                                                        }}
-                                                    >
-                                                        {shouldRender ? (
-                                                            <div className="w-full">
-                                                                {renderPage(pageNum, true)}
-                                                            </div>
-                                                        ) : (
-                                                            <div className="w-full h-[800px] flex items-center justify-center text-muted text-sm">
-                                                                Loading page {pageNum}...
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
+                                            {renderPage(pageNum, true)}
                                         </div>
                                     );
                                 })}
@@ -1663,7 +1332,8 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
             </div>
 
             {/* RIGHT SIDEBAR */}
-            <div className={`${sidebarCollapsed ? 'w-0 md:w-0' : 'w-full md:w-[400px]'} transition-all duration-300 ease-in-out bg-[#1a1d24] flex flex-col ${sidebarCollapsed ? 'border-l-0' : 'border-l border-white/5'} overflow-hidden`}>
+            {isSidePanelOpen && (
+                <aside className="w-[360px] border-l border-white/10 bg-[#1a1d24] flex flex-col overflow-hidden">
                 {/* AI Tools Section - Collapsible */}
                 <div className="border-b border-white/5">
                     <button
@@ -1915,7 +1585,8 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                         </div>
                     </div>
                 )}
-            </div>
+                </aside>
+            )}
             {showFlashcardsModal && (
                 <GenerateFlashcardsModal
                     open={true}
@@ -1948,21 +1619,6 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                 }}
             />
             
-            {/* SIDEBAR TOGGLE HOVER ZONE */}
-            <div className={`fixed top-0 bottom-0 z-40 transition-all duration-300 group ${sidebarCollapsed ? 'right-0 w-12' : 'right-0 md:right-[400px] w-12'}`}>
-                {/* SIDEBAR TOGGLE BUTTON */}
-                <button
-                    onClick={() => setSidebarCollapsed((x) => !x)}
-                    className={`absolute top-1/2 -translate-y-1/2 z-50 w-10 h-10 min-w-[44px] min-h-[44px] rounded-l-lg flex items-center justify-center transition-opacity duration-200 opacity-0 group-hover:opacity-100 hover:bg-neutral-800 ${sidebarCollapsed ? 'right-2' : 'right-2'}`}
-                    aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-                >
-                    {sidebarCollapsed ? (
-                        <ChevronLeft size={20} />
-                    ) : (
-                        <ChevronRight size={20} />
-                    )}
-                </button>
-            </div>
         </div>
     );
 };
