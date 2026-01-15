@@ -10,7 +10,7 @@ import DemoAstraChat from "./DemoAstraChat";
 import {
     ArrowLeft,
     ArrowRight,
-    Sparkles,
+    Brain,
     FileText,
     Zap,
     HelpCircle,
@@ -1238,7 +1238,7 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                                     style={{
                                         transform: `scale(${zoomLevel})`,
                                         transition: 'transform 0.2s ease-out',
-                                        transformOrigin: 'center center',
+                                        transformOrigin: 'top center',
                                     }}
                                 >
                                     {renderPage(activePage, false)}
@@ -1253,33 +1253,41 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                             style={{ userSelect: "text" }}
                             data-demo="scroll-canvas"
                         >
-                            <div className="w-full">
-                                {Array.from({ length: totalPages }, (_, i) => {
-                                    const pageNum = i + 1;
-                                    // Lazy rendering: only render visible pages + buffer
-                                    const shouldRender = true; // For now, render all (can optimize with IntersectionObserver later)
-                                    
-                                    return (
-                                        <div
-                                            key={pageNum}
-                                            ref={(el) => {
-                                                if (el) pageRefs.current[pageNum] = el;
-                                            }}
-                                            className="w-full flex items-center justify-center py-4 border-b border-white/5 last:border-b-0"
-                                            data-page={pageNum}
-                                        >
-                                            {shouldRender ? (
-                                                <div className="w-full max-w-4xl px-4">
-                                                    {renderPage(pageNum, true)}
-                                                </div>
-                                            ) : (
-                                                <div className="w-full h-[800px] flex items-center justify-center text-muted text-sm">
-                                                    Loading page {pageNum}...
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })}
+                            <div
+                                style={{
+                                    transform: `scale(${zoomLevel})`,
+                                    transition: 'transform 0.2s ease-out',
+                                    transformOrigin: 'top center',
+                                }}
+                            >
+                                <div className="w-full">
+                                    {Array.from({ length: totalPages }, (_, i) => {
+                                        const pageNum = i + 1;
+                                        // Lazy rendering: only render visible pages + buffer
+                                        const shouldRender = true; // For now, render all (can optimize with IntersectionObserver later)
+                                        
+                                        return (
+                                            <div
+                                                key={pageNum}
+                                                ref={(el) => {
+                                                    if (el) pageRefs.current[pageNum] = el;
+                                                }}
+                                                className="w-full flex items-center justify-center py-4 border-b border-white/5 last:border-b-0"
+                                                data-page={pageNum}
+                                            >
+                                                {shouldRender ? (
+                                                    <div className="w-full max-w-4xl px-4">
+                                                        {renderPage(pageNum, true)}
+                                                    </div>
+                                                ) : (
+                                                    <div className="w-full h-[800px] flex items-center justify-center text-muted text-sm">
+                                                        Loading page {pageNum}...
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         </div>
                     )}
@@ -1295,7 +1303,9 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                         className="w-full p-3 flex items-center justify-between bg-gradient-to-r from-teal/10 to-transparent bg-[#0f1115] border-l-4 border-teal hover:bg-teal/10 hover:border-teal/60 transition-colors"
                     >
                         <div className="text-left flex items-center gap-2">
-                            <Sparkles size={20} className="flex-shrink-0" />
+                            <div className="p-3 rounded-lg border border-white/10">
+                                <Brain size={22} />
+                            </div>
                             <div>
                                 <h3 className="text-xs font-semibold text-white uppercase tracking-wider">AI Tools</h3>
                                 <p className="text-[10px] text-teal/60 mt-0.5">Page-aware agent • Page {activePage}</p>
@@ -1320,9 +1330,9 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                                         <button
                                             key={a.id}
                                             onClick={() => handleAction(a.id)}
-                                            className="p-3 rounded-lg hover:bg-neutral-800 transition"
+                                            className="p-3 rounded-lg border border-white/10 hover:bg-neutral-800 transition"
                                         >
-                                            <a.icon size={20} />
+                                            <a.icon size={22} />
                                         </button>
                                     ))}
                                 </div>
@@ -1373,7 +1383,7 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                                     key={a.id}
                                     onClick={() => handleAction(a.id)}
                                     disabled={isGenerating || isFailed}
-                                        className={`p-3 rounded-lg flex flex-col items-center gap-2 text-sm transition relative ${
+                                        className={`p-3 rounded-lg border border-white/10 flex flex-col items-center gap-2 text-sm transition relative ${
                                         activeAction === a.id
                                             ? "bg-neutral-800"
                                             : isGenerating || isFailed
@@ -1382,7 +1392,7 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                                     }`}
                                     >
                                         {dataDemo && <span data-demo={dataDemo} className="hidden" />}
-                                    <a.icon size={20} />
+                                    <a.icon size={22} />
                                     <span>{a.label}</span>
                                     {isGenerating && (
                                         <span className="text-xs text-muted mt-1">Generating...</span>
