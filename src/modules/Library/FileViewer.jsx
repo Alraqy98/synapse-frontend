@@ -136,9 +136,28 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
     const [zoomLevel, setZoomLevel] = useState(1);
     const [isZoomedBeyondFit, setIsZoomedBeyondFit] = useState(false); // Track if content exceeds container
 
+    // Page state (must be declared before useEffect that uses them)
+    const [activePage, setActivePage] = useState(pageNumber !== null && pageNumber !== undefined ? pageNumber : (initialPage || 1));
+    const [pageImageForTutor, setPageImageForTutor] = useState(null);
+    const [renderedImageUrl, setRenderedImageUrl] = useState(null); // Store rendered image URL per page
+    const [isRendering, setIsRendering] = useState(false);
+    const [totalPages, setTotalPages] = useState(1); // PDF.js determined page count
+    const [isLoadingPageCount, setIsLoadingPageCount] = useState(false);
+
+    // Page data (must be declared before useEffect that uses it)
+    const pages = file.page_contents || [];
+
     // Refs for zoom overflow detection (must be declared before useEffect that uses them)
     const pageContainerRef = useRef(null); // Ref for page mode container
     const pageContentRef = useRef(null); // Ref for page mode content wrapper
+    const pdfCanvasRef = useRef(null);
+    const scrollContainerRef = useRef(null);
+    const pageRefs = useRef({}); // Store refs for each page in scroll mode
+    
+    // Use refs for stable tracking that doesn't reset on re-renders
+    const renderAttemptedRef = useRef(new Set()); // Track render attempts per page: `${file.id}:${page}`
+    const imageLoadFailedRef = useRef(new Set()); // Track image load failures: `${file.id}:${page}`
+    const renderedImageUrlsRef = useRef(new Map()); // Store rendered image URLs: `${file.id}:${page}` -> URL
 
     const handleZoomIn = () => {
         setZoomLevel((prev) => Math.min(prev + 0.25, 3));
@@ -302,25 +321,6 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
             }
         };
     }, [zoomLevel, viewMode, activePage, file?.id]);
-
-    // Page renderer
-    // Initialize activePage from pageNumber prop or initialPage
-    const [activePage, setActivePage] = useState(pageNumber !== null && pageNumber !== undefined ? pageNumber : (initialPage || 1));
-    const [pageImageForTutor, setPageImageForTutor] = useState(null);
-    const [renderedImageUrl, setRenderedImageUrl] = useState(null); // Store rendered image URL per page
-    const [isRendering, setIsRendering] = useState(false);
-    const [totalPages, setTotalPages] = useState(1); // PDF.js determined page count
-    const [isLoadingPageCount, setIsLoadingPageCount] = useState(false);
-    const pdfCanvasRef = useRef(null);
-    const scrollContainerRef = useRef(null);
-    const pageRefs = useRef({}); // Store refs for each page in scroll mode
-    
-    // Use refs for stable tracking that doesn't reset on re-renders
-    const renderAttemptedRef = useRef(new Set()); // Track render attempts per page: `${file.id}:${page}`
-    const imageLoadFailedRef = useRef(new Set()); // Track image load failures: `${file.id}:${page}`
-    const renderedImageUrlsRef = useRef(new Map()); // Store rendered image URLs: `${file.id}:${page}` -> URL
-
-    const pages = file.page_contents || [];
     
     // Verification: Log page_contents availability for vision pipeline
     useEffect(() => {
