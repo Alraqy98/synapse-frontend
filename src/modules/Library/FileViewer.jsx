@@ -3,7 +3,7 @@
 // FileViewer.jsx — PNG-based PDF Viewer + Chat + Tools (FINAL PATCHED)
 // -------------------------------------------------------------
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDemo } from "../../modules/demo/DemoContext";
 import DemoAstraChat from "./DemoAstraChat";
@@ -324,50 +324,32 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
     }, [zoomLevel, viewMode, activePage, file?.id]);
 
     // Preserve visual center when transitioning from fit to zoomed mode
-    useEffect(() => {
-        let rafId1 = null;
-        let rafId2 = null;
-
+    // useLayoutEffect runs synchronously after DOM mutations, before paint
+    // This ensures scrollLeft is set before any visual update and won't be overridden
+    useLayoutEffect(() => {
         // Only act on transition from false → true
         if (!prevIsZoomedBeyondFitRef.current && isZoomedBeyondFit) {
-            // Use double requestAnimationFrame to ensure layout is fully committed
-            // First RAF: wait for style/layout changes (justify-start, transformOrigin) to be applied
-            // Second RAF: ensure layout is fully calculated and scrollWidth is accurate
-            rafId1 = requestAnimationFrame(() => {
-                rafId2 = requestAnimationFrame(() => {
-                    if (viewMode === 'page' && pageContainerRef.current) {
-                        // Page mode: center the scrollable container
-                        const container = pageContainerRef.current;
-                        const scrollWidth = container.scrollWidth;
-                        const clientWidth = container.clientWidth;
-                        if (scrollWidth > clientWidth) {
-                            container.scrollLeft = (scrollWidth - clientWidth) / 2;
-                        }
-                    } else if (viewMode === 'scroll' && scrollContainerRef.current) {
-                        // Scroll mode: center horizontally (but preserve vertical scroll)
-                        const container = scrollContainerRef.current;
-                        const scrollWidth = container.scrollWidth;
-                        const clientWidth = container.clientWidth;
-                        if (scrollWidth > clientWidth) {
-                            container.scrollLeft = (scrollWidth - clientWidth) / 2;
-                        }
-                    }
-                });
-            });
+            if (viewMode === 'page' && pageContainerRef.current) {
+                // Page mode: center the scrollable container
+                const container = pageContainerRef.current;
+                const scrollWidth = container.scrollWidth;
+                const clientWidth = container.clientWidth;
+                if (scrollWidth > clientWidth) {
+                    container.scrollLeft = (scrollWidth - clientWidth) / 2;
+                }
+            } else if (viewMode === 'scroll' && scrollContainerRef.current) {
+                // Scroll mode: center horizontally (but preserve vertical scroll)
+                const container = scrollContainerRef.current;
+                const scrollWidth = container.scrollWidth;
+                const clientWidth = container.clientWidth;
+                if (scrollWidth > clientWidth) {
+                    container.scrollLeft = (scrollWidth - clientWidth) / 2;
+                }
+            }
         }
 
         // Update ref for next comparison (always update, regardless of transition)
         prevIsZoomedBeyondFitRef.current = isZoomedBeyondFit;
-
-        // Cleanup RAFs if component unmounts or dependencies change
-        return () => {
-            if (rafId1 !== null) {
-                cancelAnimationFrame(rafId1);
-            }
-            if (rafId2 !== null) {
-                cancelAnimationFrame(rafId2);
-            }
-        };
     }, [isZoomedBeyondFit, viewMode]);
     
     // Verification: Log page_contents availability for vision pipeline
