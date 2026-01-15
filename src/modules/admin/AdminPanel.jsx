@@ -1,90 +1,100 @@
 // src/modules/admin/AdminPanel.jsx
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { RefreshCw } from "lucide-react";
 import {
   getAdminOverview,
   getAdminFilesMetrics,
   getAdminContentMetrics,
-  sendAdminNotification,
 } from "./apiAdmin";
 
 const AdminPanel = ({ profile }) => {
+  const navigate = useNavigate();
   const [overview, setOverview] = useState(null);
   const [filesMetrics, setFilesMetrics] = useState(null);
   const [contentMetrics, setContentMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
-  // Notification form state
-  const [notificationTitle, setNotificationTitle] = useState("");
-  const [notificationDescription, setNotificationDescription] = useState("");
-  const [sendingNotification, setSendingNotification] = useState(false);
-  const [notificationMessage, setNotificationMessage] = useState(null);
+  // Reusable function to fetch dashboard data
+  const fetchDashboardData = async (isRefresh = false) => {
+    try {
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      setError(null);
+
+      // Fetch all metrics in parallel
+      const [overviewData, filesData, contentData] = await Promise.all([
+        getAdminOverview().catch(() => null),
+        getAdminFilesMetrics().catch(() => null),
+        getAdminContentMetrics().catch(() => null),
+      ]);
+
+      setOverview(overviewData);
+      setFilesMetrics(filesData);
+      setContentMetrics(contentData);
+      setLastUpdated(new Date());
+    } catch (err) {
+      console.error("Failed to fetch admin metrics:", err);
+      setError(err.message || "Failed to load admin metrics");
+    } finally {
+      if (isRefresh) {
+        setRefreshing(false);
+      } else {
+        setLoading(false);
+      }
+    }
+  };
 
   // Fetch all metrics on mount
   useEffect(() => {
-    const fetchMetrics = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        // Fetch all metrics in parallel
-        const [overviewData, filesData, contentData] = await Promise.all([
-          getAdminOverview().catch(() => null),
-          getAdminFilesMetrics().catch(() => null),
-          getAdminContentMetrics().catch(() => null),
-        ]);
-
-        setOverview(overviewData);
-        setFilesMetrics(filesData);
-        setContentMetrics(contentData);
-      } catch (err) {
-        console.error("Failed to fetch admin metrics:", err);
-        setError(err.message || "Failed to load admin metrics");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchMetrics();
+    fetchDashboardData();
   }, []);
 
-  // Handle notification send
-  const handleSendNotification = async (e) => {
-    e.preventDefault();
+  // Format relative time helper
+  const formatRelativeTime = (date) => {
+    if (!date) return "—";
+    const now = new Date();
+    const diffMs = now - date;
+    const diffSecs = Math.floor(diffMs / 1000);
+    const diffMins = Math.floor(diffSecs / 60);
 
-    if (!notificationTitle.trim()) {
-      setNotificationMessage({ type: "error", text: "Title is required" });
-      return;
-    }
-
-    try {
-      setSendingNotification(true);
-      setNotificationMessage(null);
-
-      await sendAdminNotification({
-        type: "admin",
-        title: notificationTitle.trim(),
-        description: notificationDescription.trim() || null,
-      });
-
-      setNotificationMessage({ type: "success", text: "Notification sent successfully" });
-      setNotificationTitle("");
-      setNotificationDescription("");
-    } catch (err) {
-      console.error("Failed to send notification:", err);
-      setNotificationMessage({
-        type: "error",
-        text: err.response?.data?.error || err.message || "Failed to send notification",
-      });
-    } finally {
-      setSendingNotification(false);
-    }
+    if (diffSecs < 10) return "just now";
+    if (diffSecs < 60) return `${diffSecs} seconds ago`;
+    if (diffMins === 1) return "1 minute ago";
+    if (diffMins < 60) return `${diffMins} minutes ago`;
+    return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
   };
 
   // Format number helper
   const formatNumber = (num) => {
     if (num === null || num === undefined) return "—";
     return new Intl.NumberFormat().format(num);
+  };
+
+  // Determine metric card visual state
+  const getMetricCardStyle = (metricType) => {
+    const hasFailedRenders = (filesMetrics?.render?.failed ?? 0) > 0;
+    const hasFailedOCR = (filesMetrics?.ocr?.failed ?? 0) > 0;
+    const hasHighPending = (filesMetrics?.render?.pending ?? 0) > 10;
+
+    // Red accent for failed states
+    if (hasFailedRenders || hasFailedOCR) {
+      return "border-red-500/30 hover:border-red-500/50";
+    }
+    
+    // Amber accent for high pending
+    if (hasHighPending) {
+      return "border-yellow-500/30 hover:border-yellow-500/50";
+    }
+    
+    // Normal state
+    return "border-white/10 hover:border-white/20";
   };
 
   if (loading) {
@@ -114,46 +124,81 @@ const AdminPanel = ({ profile }) => {
     <div className="flex-1 overflow-y-auto p-6">
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-white mb-2">Admin Panel</h1>
-          <p className="text-sm text-muted">System metrics and notifications</p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-white mb-2">Admin Panel</h1>
+            <p className="text-sm text-muted">System metrics and notifications</p>
+            {lastUpdated && (
+              <p className="text-xs text-muted mt-1">
+                Last updated: {formatRelativeTime(lastUpdated)}
+              </p>
+            )}
+          </div>
+          <button
+            onClick={() => fetchDashboardData(true)}
+            disabled={refreshing || loading}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-teal/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <RefreshCw 
+              size={16} 
+              className={refreshing ? "animate-spin" : ""}
+            />
+            <span className="text-sm text-white">
+              {refreshing ? "Refreshing..." : "Refresh"}
+            </span>
+          </button>
         </div>
 
         {/* A. Overview Section */}
         <div>
           <h2 className="text-xl font-semibold text-white mb-4">Overview</h2>
-          <div className="rounded-2xl border border-white/10 bg-black/40 p-6">
+          <div className={`rounded-2xl border ${getMetricCardStyle()} bg-black/40 p-6 transition-colors`}>
             <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-              <div className="text-center">
+              <button
+                onClick={() => navigate("/admin/users")}
+                className="text-center p-4 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+              >
                 <div className="text-3xl font-bold text-white mb-2">
                   {formatNumber(overview?.total_users)}
                 </div>
                 <div className="text-sm text-muted">Total verified users</div>
-              </div>
-              <div className="text-center">
+              </button>
+              <button
+                onClick={() => navigate("/admin/files")}
+                className="text-center p-4 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+              >
                 <div className="text-3xl font-bold text-white mb-2">
                   {formatNumber(overview?.total_files)}
                 </div>
                 <div className="text-sm text-muted">Total files</div>
-              </div>
-              <div className="text-center">
+              </button>
+              <button
+                onClick={() => navigate("/admin/content?type=summaries")}
+                className="text-center p-4 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+              >
                 <div className="text-3xl font-bold text-white mb-2">
                   {formatNumber(overview?.total_summaries)}
                 </div>
                 <div className="text-sm text-muted">Total summaries</div>
-              </div>
-              <div className="text-center">
+              </button>
+              <button
+                onClick={() => navigate("/admin/content?type=mcq")}
+                className="text-center p-4 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+              >
                 <div className="text-3xl font-bold text-white mb-2">
                   {formatNumber(overview?.total_mcq_decks)}
                 </div>
                 <div className="text-sm text-muted">Total MCQ decks</div>
-              </div>
-              <div className="text-center">
+              </button>
+              <button
+                onClick={() => navigate("/admin/content?type=flashcards")}
+                className="text-center p-4 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+              >
                 <div className="text-3xl font-bold text-white mb-2">
                   {formatNumber(overview?.total_flashcard_decks)}
                 </div>
                 <div className="text-sm text-muted">Total flashcard decks</div>
-              </div>
+              </button>
             </div>
           </div>
         </div>
@@ -279,62 +324,19 @@ const AdminPanel = ({ profile }) => {
           </div>
         </div>
 
-        {/* D. Admin Notification Form */}
+        {/* D. Send Notification */}
         <div>
-          <h2 className="text-xl font-semibold text-white mb-4">Send Notification</h2>
+          <h2 className="text-xl font-semibold text-white mb-4">Notifications</h2>
           <div className="rounded-2xl border border-white/10 bg-black/40 p-6">
-            <form onSubmit={handleSendNotification} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-white mb-2">
-                  Title <span className="text-red-400">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={notificationTitle}
-                  onChange={(e) => setNotificationTitle(e.target.value)}
-                  className="w-full px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white placeholder-muted focus:outline-none focus:border-teal/50"
-                  placeholder="Notification title"
-                  required
-                  disabled={sendingNotification}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-white mb-2">
-                  Description (optional)
-                </label>
-                <textarea
-                  value={notificationDescription}
-                  onChange={(e) => setNotificationDescription(e.target.value)}
-                  rows={4}
-                  className="w-full px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white placeholder-muted focus:outline-none focus:border-teal/50 resize-none"
-                  placeholder="Notification description"
-                  disabled={sendingNotification}
-                />
-              </div>
-
-              {notificationMessage && (
-                <div
-                  className={`p-3 rounded-xl ${
-                    notificationMessage.type === "success"
-                      ? "bg-teal/20 border border-teal/30 text-teal"
-                      : "bg-red-500/20 border border-red-500/30 text-red-400"
-                  }`}
-                >
-                  <div className="text-sm">{notificationMessage.text}</div>
-                </div>
-              )}
-
-              <div className="flex justify-end">
-                <button
-                  type="submit"
-                  disabled={sendingNotification || !notificationTitle.trim()}
-                  className="px-6 py-2 rounded-xl bg-teal text-black font-semibold hover:bg-teal/90 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                >
-                  {sendingNotification ? "Sending..." : "Send to all users"}
-                </button>
-              </div>
-            </form>
+            <p className="text-sm text-muted mb-4">
+              Send announcements and notifications to all users
+            </p>
+            <button
+              onClick={() => navigate("/admin/notifications")}
+              className="px-6 py-2 rounded-xl bg-teal text-black font-semibold hover:bg-teal/90 transition-colors"
+            >
+              Send notification
+            </button>
           </div>
         </div>
       </div>
