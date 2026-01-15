@@ -816,7 +816,7 @@ const SynapseOS = () => {
     { icon: Brain, label: "Tutor", to: "/tutor" },
     { icon: Zap, label: "Flashcards", to: "/flashcards" },
     { icon: CheckSquare, label: "MCQ", to: "/mcq", dataDemo: "nav-mcqs" },
-    { icon: BookOpen, label: "Summaries", to: "/summaries" },
+    { icon: FileText, label: "Summaries", to: "/summaries" },
     { icon: Activity, label: "OSCE", to: "/osce" },
     { icon: Mic, label: "Oral Exam", to: "/oral" },
     { icon: Calendar, label: "Planner", to: "/planner" },
