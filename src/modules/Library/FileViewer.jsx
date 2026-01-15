@@ -139,12 +139,12 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
     
     // Get zoom level for a specific page (defaults to 1)
     const getPageZoom = (pageNum) => pageZoomLevels.get(pageNum) || 1;
-    
-    // Get current active page zoom level
-    const zoomLevel = getPageZoom(activePage);
 
     // Page state (must be declared before useEffect that uses them)
     const [activePage, setActivePage] = useState(pageNumber !== null && pageNumber !== undefined ? pageNumber : (initialPage || 1));
+    
+    // Get current active page zoom level (must be declared after activePage)
+    const zoomLevel = getPageZoom(activePage);
     const [pageImageForTutor, setPageImageForTutor] = useState(null);
     const [renderedImageUrl, setRenderedImageUrl] = useState(null); // Store rendered image URL per page
     const [isRendering, setIsRendering] = useState(false);
