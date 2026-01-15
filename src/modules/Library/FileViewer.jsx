@@ -1295,7 +1295,7 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                         className="w-full p-3 flex items-center justify-between bg-gradient-to-r from-teal/10 to-transparent bg-[#0f1115] border-l-4 border-teal hover:bg-teal/10 hover:border-teal/60 transition-colors"
                     >
                         <div className="text-left flex items-center gap-2">
-                            <Sparkles size={22} className="text-teal flex-shrink-0" />
+                            <Sparkles size={20} className="flex-shrink-0" />
                             <div>
                                 <h3 className="text-xs font-semibold text-white uppercase tracking-wider">AI Tools</h3>
                                 <p className="text-[10px] text-teal/60 mt-0.5">Page-aware agent • Page {activePage}</p>
@@ -1320,9 +1320,9 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                                         <button
                                             key={a.id}
                                             onClick={() => handleAction(a.id)}
-                                            className="p-2 rounded-lg bg-[#0f1115] border border-white/10 hover:bg-white/5"
+                                            className="p-3 rounded-lg hover:bg-neutral-800 transition"
                                         >
-                                            <a.icon size={22} />
+                                            <a.icon size={20} />
                                         </button>
                                     ))}
                                 </div>
@@ -1373,20 +1373,16 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                                     key={a.id}
                                     onClick={() => handleAction(a.id)}
                                     disabled={isGenerating || isFailed}
-                                        className={`p-3 rounded-xl flex flex-col items-center gap-2 text-sm border transition relative ${
+                                        className={`p-3 rounded-lg flex flex-col items-center gap-2 text-sm transition relative ${
                                         activeAction === a.id
-                                            ? "bg-teal/10 border-teal text-teal"
-                                            : isClickable
-                                            ? "bg-[#0f1115] border-teal/40 hover:bg-teal/5 hover:border-teal/60 cursor-pointer"
-                                            : isGenerating
-                                            ? "bg-[#0f1115] border-white/10 opacity-60 cursor-not-allowed"
-                                            : isFailed
-                                            ? "bg-[#0f1115] border-red-500/20 opacity-60 cursor-not-allowed"
-                                            : "bg-[#0f1115] border-white/10 hover:bg-white/5"
+                                            ? "bg-neutral-800"
+                                            : isGenerating || isFailed
+                                            ? "opacity-60 cursor-not-allowed"
+                                            : "hover:bg-neutral-800 cursor-pointer"
                                     }`}
                                     >
                                         {dataDemo && <span data-demo={dataDemo} className="hidden" />}
-                                    <a.icon size={22} />
+                                    <a.icon size={20} />
                                     <span>{a.label}</span>
                                     {isGenerating && (
                                         <span className="text-xs text-muted mt-1">Generating...</span>
@@ -1569,18 +1565,21 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                 }}
             />
             
-            {/* SIDEBAR TOGGLE BUTTON */}
-            <button
-                onClick={() => setSidebarCollapsed((x) => !x)}
-                className={`fixed top-1/2 -translate-y-1/2 z-50 w-10 h-10 min-w-[44px] min-h-[44px] bg-[#1a1d24] border border-white/10 hover:bg-teal/10 hover:border-teal rounded-l-lg flex items-center justify-center transition-all duration-300 ${sidebarCollapsed ? 'right-0' : 'left-0 md:left-auto md:right-[400px]'}`}
-                aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            >
-                {sidebarCollapsed ? (
-                    <ChevronLeft size={20} className="text-white" />
-                ) : (
-                    <ChevronRight size={20} className="text-white" />
-                )}
-            </button>
+            {/* SIDEBAR TOGGLE HOVER ZONE */}
+            <div className={`fixed top-0 bottom-0 z-40 transition-all duration-300 group ${sidebarCollapsed ? 'right-0 w-12' : 'right-0 md:right-[400px] w-12'}`}>
+                {/* SIDEBAR TOGGLE BUTTON */}
+                <button
+                    onClick={() => setSidebarCollapsed((x) => !x)}
+                    className={`absolute top-1/2 -translate-y-1/2 z-50 w-10 h-10 min-w-[44px] min-h-[44px] rounded-l-lg flex items-center justify-center transition-opacity duration-200 opacity-0 group-hover:opacity-100 hover:bg-neutral-800 ${sidebarCollapsed ? 'right-2' : 'right-2'}`}
+                    aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                >
+                    {sidebarCollapsed ? (
+                        <ChevronLeft size={20} />
+                    ) : (
+                        <ChevronRight size={20} />
+                    )}
+                </button>
+            </div>
         </div>
     );
 };
