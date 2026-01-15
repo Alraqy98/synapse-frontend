@@ -198,6 +198,9 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
     useEffect(() => {
         if (viewMode !== 'scroll' || !scrollContainerRef.current) return;
 
+        const container = scrollContainerRef.current;
+        if (!container) return;
+
         const observer = new IntersectionObserver(
             (entries) => {
                 let maxRatio = 0;
@@ -205,7 +208,7 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
 
                 entries.forEach((entry) => {
                     const pageNum = Number(entry.target.dataset.page);
-                    if (entry.intersectionRatio > maxRatio) {
+                    if (!isNaN(pageNum) && entry.intersectionRatio > maxRatio) {
                         maxRatio = entry.intersectionRatio;
                         visiblePage = pageNum;
                     }
@@ -224,17 +227,39 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                 }
             },
             {
-                root: scrollContainerRef.current,
-                threshold: [0.25, 0.5, 0.75],
+                root: container,
+                threshold: [0.2, 0.4, 0.6],
             }
         );
 
-        Object.values(pageRefs.current).forEach((el) => {
-            if (el) observer.observe(el);
-        });
+        // Observe all page elements with data-page attribute
+        // Query directly from DOM to ensure we get all pages, including async-rendered ones
+        const observePages = () => {
+            // Use a Set to avoid observing the same element twice
+            const observedElements = new Set();
+            
+            // Query DOM directly for all elements with data-page attribute
+            const pageElements = container.querySelectorAll('[data-page]');
+            pageElements.forEach((el) => {
+                const pageNum = el.dataset.page;
+                if (pageNum && !observedElements.has(el)) {
+                    observer.observe(el);
+                    observedElements.add(el);
+                }
+            });
+        };
 
-        return () => observer.disconnect();
-    }, [viewMode, activePage, file?.id]);
+        // Observe immediately and after delays to catch async renders
+        observePages();
+        const timeoutId1 = setTimeout(observePages, 100);
+        const timeoutId2 = setTimeout(observePages, 500);
+
+        return () => {
+            clearTimeout(timeoutId1);
+            clearTimeout(timeoutId2);
+            observer.disconnect();
+        };
+    }, [viewMode, totalPages, file?.id]);
 
     // Horizontal scrollbar - based on DOM measurements only
     useLayoutEffect(() => {
