@@ -13,7 +13,7 @@ import {
     Brain,
     FileText,
     Zap,
-    HelpCircle,
+    CheckSquare,
     Send,
     ChevronDown,
     ChevronUp,
@@ -1360,7 +1360,7 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                             { 
                                 id: "quiz", 
                                 label: "Quiz Me", 
-                                icon: HelpCircle,
+                                icon: CheckSquare,
                                 status: getMCQStatus(),
                                 item: relatedMCQ
                             },
