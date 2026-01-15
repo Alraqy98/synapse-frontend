@@ -134,7 +134,8 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
 
     // Zoom state
     const [zoomLevel, setZoomLevel] = useState(1);
-    const [isZoomedBeyondFit, setIsZoomedBeyondFit] = useState(false); // Track if content exceeds container
+    const [isZoomedBeyondFit, setIsZoomedBeyondFit] = useState(false); // Track if content exceeds container (for center preservation)
+    const [canPanHorizontally, setCanPanHorizontally] = useState(false); // Track actual horizontal overflow for scrollbar control
 
     // Page state (must be declared before useEffect that uses them)
     const [activePage, setActivePage] = useState(pageNumber !== null && pageNumber !== undefined ? pageNumber : (initialPage || 1));
@@ -365,6 +366,37 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
         // Update ref for next comparison (always update, regardless of transition)
         prevIsZoomedBeyondFitRef.current = isZoomedBeyondFit;
     }, [isZoomedBeyondFit, viewMode]);
+
+    // Measure actual horizontal overflow for scrollbar control
+    // Use real DOM measurements to determine if horizontal scrolling is needed
+    useLayoutEffect(() => {
+        const measureOverflow = () => {
+            if (viewMode === 'page' && pageContainerRef.current) {
+                const container = pageContainerRef.current;
+                const scrollWidth = container.scrollWidth;
+                const clientWidth = container.clientWidth;
+                // Add 1px tolerance to avoid subpixel jitter
+                const hasOverflow = scrollWidth > clientWidth + 1;
+                setCanPanHorizontally(hasOverflow);
+            } else if (viewMode === 'scroll' && scrollContainerRef.current) {
+                const container = scrollContainerRef.current;
+                const scrollWidth = container.scrollWidth;
+                const clientWidth = container.clientWidth;
+                // Add 1px tolerance to avoid subpixel jitter
+                const hasOverflow = scrollWidth > clientWidth + 1;
+                setCanPanHorizontally(hasOverflow);
+            } else {
+                setCanPanHorizontally(false);
+            }
+        };
+
+        // Measure immediately
+        measureOverflow();
+
+        // Also measure on window resize
+        window.addEventListener('resize', measureOverflow);
+        return () => window.removeEventListener('resize', measureOverflow);
+    }, [viewMode, zoomLevel, activePage, file?.id]);
     
     // Verification: Log page_contents availability for vision pipeline
     useEffect(() => {
@@ -1435,7 +1467,7 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                             <div
                                 ref={pageContainerRef}
                                 className={`flex-1 bg-[#0f1115] rounded-lg border border-white/5 shadow-xl flex items-center justify-center ${
-                                    isZoomedBeyondFit ? 'overflow-auto' : 'overflow-hidden'
+                                    canPanHorizontally ? 'overflow-auto' : 'overflow-hidden'
                                 }`}
                                 style={{ userSelect: "text" }}
                                 data-demo="page-canvas"
@@ -1460,7 +1492,7 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                         <div
                             ref={scrollContainerRef}
                             className={`flex-1 bg-[#0f1115] rounded-lg border border-white/5 shadow-xl overflow-y-auto ${
-                                isZoomedBeyondFit ? 'overflow-x-auto' : 'overflow-x-hidden'
+                                canPanHorizontally ? 'overflow-x-auto' : 'overflow-x-hidden'
                             }`}
                             style={{ userSelect: "text" }}
                             data-demo="scroll-canvas"
