@@ -10,7 +10,7 @@ import api from "../../lib/api";
  */
 export const getAdminOverview = async () => {
   try {
-    const res = await api.get("/admin/metrics/overview");
+    const res = await api.get("/api/admin/metrics/overview");
     const data = res.data;
     
     // Map backend fields to frontend-friendly keys
@@ -47,7 +47,7 @@ export const getAdminOverview = async () => {
  */
 export const getAdminFilesMetrics = async () => {
   try {
-    const res = await api.get("/admin/metrics/files");
+    const res = await api.get("/api/admin/metrics/files");
     const data = res.data;
     
     // Transform flat backend fields into nested objects
@@ -93,7 +93,7 @@ export const getAdminFilesMetrics = async () => {
  */
 export const getAdminContentMetrics = async () => {
   try {
-    const res = await api.get("/admin/metrics/content");
+    const res = await api.get("/api/admin/metrics/content");
     const data = res.data;
     
     // Map backend fields into grouped frontend shape
