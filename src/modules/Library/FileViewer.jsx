@@ -1299,7 +1299,12 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                 {/* AI Tools Section - Collapsible */}
                 <div className="border-b border-white/5">
                     <button
-                        onClick={() => setAiToolsCollapsed((x) => !x)}
+                        type="button"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setAiToolsCollapsed((x) => !x);
+                        }}
                         className="w-full p-3 flex items-center justify-between bg-gradient-to-r from-teal/10 to-transparent bg-[#0f1115] border-l-4 border-teal hover:bg-teal/10 hover:border-teal/60 transition-colors"
                     >
                         <div className="text-left flex items-center gap-2">
