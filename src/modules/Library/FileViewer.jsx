@@ -1232,7 +1232,7 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                                 className="flex-1 bg-[#0f1115] rounded-lg border border-white/5 shadow-xl overflow-hidden flex items-center justify-center"
                                 style={{ userSelect: "text" }}
                                 data-demo="page-canvas"
-                                key={`page-${activePage}-${sidebarCollapsed}`}
+                                key={`page-${activePage}`}
                             >
                                 <div
                                     style={{
