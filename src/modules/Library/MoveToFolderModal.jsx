@@ -65,7 +65,7 @@ const MoveToFolderModal = ({ item, items, onClose, onSuccess }) => {
     const [selectedFolder, setSelectedFolder] = useState(null); // null = root
 
     const isBulk = item?.isBulk === true;
-    const itemIds = isBulk ? (item.ids || []) : [item.id || item];
+    const itemIds = isBulk ? (item?.ids || []) : [item?.id || item || null].filter(Boolean);
     const itemCount = itemIds.length;
 
     useEffect(() => {
@@ -85,6 +85,7 @@ const MoveToFolderModal = ({ item, items, onClose, onSuccess }) => {
                             return selectedItem && (f.id === selectedItem.id || isDescendantOf(f.id, selectedItem.id, parentMap));
                         });
                     } else {
+                        if (!item?.id) return true;
                         if (f.id === item.id) return false;
                         return !isDescendantOf(f.id, item.id, parentMap);
                     }
@@ -108,6 +109,10 @@ const MoveToFolderModal = ({ item, items, onClose, onSuccess }) => {
                 // Bulk move handled by parent
                 onSuccess?.(selectedFolder ?? null);
             } else {
+                if (!item?.id) {
+                    alert("Invalid item");
+                    return;
+                }
                 await moveToFolder(item.id, selectedFolder ?? null);
                 onSuccess?.();
             }
@@ -134,7 +139,7 @@ const MoveToFolderModal = ({ item, items, onClose, onSuccess }) => {
                 <h2 className="text-lg font-semibold text-white mb-4 break-words leading-tight">
                     {isBulk 
                         ? `Move ${itemCount} ${itemCount === 1 ? 'file' : 'files'}`
-                        : `Move "${item.title || item.id}"`
+                        : `Move "${item?.title || item?.id || 'item'}"`
                     }
                 </h2>
 

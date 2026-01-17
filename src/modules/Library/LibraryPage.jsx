@@ -469,8 +469,8 @@ const LibraryPage = () => {
     const confirmDelete = async () => {
         if (!deleteTarget) return;
         
-        const isBulk = typeof deleteTarget === 'object' && deleteTarget.isBulk;
-        const ids = isBulk ? deleteTarget.ids : [deleteTarget];
+        const isBulk = typeof deleteTarget === 'object' && deleteTarget?.isBulk === true;
+        const ids = isBulk ? (deleteTarget?.ids || []) : [deleteTarget].filter(Boolean);
         
         try {
             if (isBulk) {
@@ -534,9 +534,9 @@ const LibraryPage = () => {
     };
 
     const handleBulkMoveSuccess = async (folderId) => {
-        if (!moveTarget || !moveTarget.isBulk) return;
+        if (!moveTarget || !moveTarget?.isBulk) return;
         
-        const ids = moveTarget.ids || [];
+        const ids = moveTarget?.ids || [];
         try {
             const result = await bulkMoveItems(ids, folderId);
             const successCount = result.success_ids?.length || 0;
@@ -821,7 +821,7 @@ const LibraryPage = () => {
                     item={moveTarget}
                     items={items}
                     onClose={() => setMoveTarget(null)}
-                    onSuccess={moveTarget.isBulk ? handleBulkMoveSuccess : async () => {
+                    onSuccess={moveTarget?.isBulk ? handleBulkMoveSuccess : async () => {
                         setMoveTarget(null);
                         await loadItems(activeFilter, currentFolder?.id || null);
                     }}
@@ -845,7 +845,7 @@ const LibraryPage = () => {
                 open={deleteTarget !== null}
                 onConfirm={confirmDelete}
                 onCancel={() => setDeleteTarget(null)}
-                itemCount={typeof deleteTarget === 'object' && deleteTarget.isBulk ? deleteTarget.ids.length : 1}
+                itemCount={typeof deleteTarget === 'object' && deleteTarget?.isBulk === true ? (deleteTarget?.ids?.length || 1) : 1}
             />
         </div>
     );
