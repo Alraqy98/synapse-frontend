@@ -288,6 +288,35 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
             document.removeEventListener("mousedown", handleClick);
         };
     }, []);
+
+    // CollapsibleSection component (defined at component level to prevent remounts)
+    const CollapsibleSection = ({ title, icon, children }) => {
+        const [open, setOpen] = useState(false);
+
+        return (
+            <div 
+                className="rounded-2xl border border-white/10 bg-black/40 hover:border-white/15 transition-colors"
+                style={{ userSelect: 'text', pointerEvents: 'auto' }}
+            >
+                <div
+                    className="p-6 cursor-pointer flex items-center justify-between"
+                    onClick={() => setOpen(o => !o)}
+                    style={{ pointerEvents: 'auto' }}
+                >
+                    <h2 className="text-xl font-bold text-white flex items-center gap-2" style={{ userSelect: 'text', pointerEvents: 'auto' }}>
+                        {icon}
+                        <span style={{ userSelect: 'text', pointerEvents: 'auto' }}>{title}</span>
+                    </h2>
+                    {open ? <ChevronUp size={20} className="text-muted" /> : <ChevronDown size={20} className="text-muted" />}
+                </div>
+                {open && (
+                    <div className="px-6 pb-6" style={{ userSelect: 'text', pointerEvents: 'auto' }}>
+                        {children}
+                    </div>
+                )}
+            </div>
+        );
+    };
     
     // HARD RENDER GUARD - Must be before ANY summary property access in the main return
     // This prevents crashes when summary is null during initial render or after errors
@@ -933,35 +962,6 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
         );
     };
 
-    // CollapsibleSection component
-    const CollapsibleSection = ({ title, icon, children }) => {
-        const [open, setOpen] = useState(false);
-
-        return (
-            <div 
-                className="rounded-2xl border border-white/10 bg-black/40 hover:border-white/15 transition-colors"
-                style={{ userSelect: 'text', pointerEvents: 'auto' }}
-            >
-                <div
-                    className="p-6 cursor-pointer flex items-center justify-between"
-                    onClick={() => setOpen(o => !o)}
-                    style={{ pointerEvents: 'auto' }}
-                >
-                    <h2 className="text-xl font-bold text-white flex items-center gap-2" style={{ userSelect: 'text', pointerEvents: 'auto' }}>
-                        {icon}
-                        <span style={{ userSelect: 'text', pointerEvents: 'auto' }}>{title}</span>
-                    </h2>
-                    {open ? <ChevronUp size={20} className="text-muted" /> : <ChevronDown size={20} className="text-muted" />}
-                </div>
-                {open && (
-                    <div className="px-6 pb-6" style={{ userSelect: 'text', pointerEvents: 'auto' }}>
-                        {children}
-                    </div>
-                )}
-            </div>
-        );
-    };
-
     const renderContent = () => {
         if (!summary) return null;
 
@@ -1003,7 +1003,7 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                             
                             return (
                                 <CollapsibleSection
-                                    key={idx}
+                                    key={`section-${safeHeading}-${idx}`}
                                     title={safeHeading}
                                     icon={sectionIcon}
                                 >
