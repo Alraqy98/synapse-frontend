@@ -71,6 +71,10 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
     const navigate = useNavigate();
     const { isDemo, currentStep } = useDemo() || {};
     
+    // Detect if file is an image (not a PDF)
+    const isImageFile = file?.type === "image" || 
+                       (file?.mime_type && file.mime_type.startsWith("image/"));
+    
     // Log context for debugging
     useEffect(() => {
         console.log("[ASTRA CONTEXT] FileViewer props:", { fileId, pageNumber, fileIdFromFile: file?.id });
@@ -347,6 +351,13 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                 return;
             }
 
+            // Skip PDF.js for image files - use fallback immediately
+            if (isImageFile) {
+                const fallbackCount = pages.length || file.page_count || file.total_pages || 1;
+                setTotalPages(fallbackCount);
+                return;
+            }
+
             // Check if file is likely a PDF (by mime_type or extension)
             const isLikelyPDF = file.mime_type === 'application/pdf' || 
                                (file.title && file.title.toLowerCase().endsWith('.pdf'));
@@ -376,7 +387,7 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
         };
 
         loadPageCount();
-    }, [file.id, file.signed_url, file.mime_type, file.title, pages.length, file.page_count, file.total_pages]);
+    }, [file.id, file.signed_url, file.mime_type, file.title, pages.length, file.page_count, file.total_pages, isImageFile]);
 
     // Reset refs and state when file changes
     useEffect(() => {
@@ -1089,8 +1100,8 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
             );
         }
 
-        // Priority (c): Use PDF.js fallback with signed_url
-        if (file.signed_url) {
+        // Priority (c): Use PDF.js fallback with signed_url (skip for image files)
+        if (file.signed_url && !isImageFile) {
             return (
                 <div className="w-full">
                     <PdfJsPage
