@@ -50,7 +50,8 @@ const LibraryGrid = ({
                         onRename={onRename}
                         onToggleDone={onToggleDone}
                         selectionMode={selectionMode}
-                        isSelected={selectedIds.has(item.id)}
+                        isSelected={selectedIds?.has(item.id) ?? false}
+                        selectedIds={selectedIds}
                         onToggleSelect={onToggleSelect}
                     />
                 ))}

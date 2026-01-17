@@ -23,6 +23,10 @@ const LibraryCard = ({
     onChangeCategory,
     onRename,
     onToggleDone,
+    selectionMode,
+    isSelected: isSelectedProp,
+    selectedIds,
+    onToggleSelect,
 }) => {
     const [menuOpen, setMenuOpen] = useState(false);
     const menuRef = useRef(null);
@@ -31,6 +35,9 @@ const LibraryCard = ({
         item.is_folder === true ||
         item.type === "folder" ||
         item.kind === "folder";
+
+    // Compute isSelected: folders are never selected, use prop if provided, otherwise check selectedIds
+    const isSelected = isFolder ? false : (isSelectedProp ?? (selectedIds?.has(item.id) ?? false));
 
     const folderColor = item.color || "#f7c948"; // fallback yellow
 
