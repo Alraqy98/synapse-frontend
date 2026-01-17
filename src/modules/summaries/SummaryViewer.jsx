@@ -1392,6 +1392,7 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                         </div>
                     </div>
                 </div>
+                )
             )}
 
             {/* Selection Bubble */}
