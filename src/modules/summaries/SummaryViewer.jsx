@@ -15,6 +15,8 @@ import {
     AlertTriangle,
     BookOpen,
     List,
+    ChevronRight,
+    ChevronLeft,
 } from "lucide-react";
 import { apiSummaries } from "./apiSummaries";
 import {
@@ -40,6 +42,7 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
     const [copiedFeedback, setCopiedFeedback] = useState(false);
     const [isGeneratingCode, setIsGeneratingCode] = useState(false);
     const [codeError, setCodeError] = useState(null);
+    const [isSidePanelOpen, setIsSidePanelOpen] = useState(true);
 
     // Chat state
     // Initialize sessionId ONCE from localStorage (single source of truth)
@@ -1226,13 +1229,21 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                             </p>
                         )}
                     </div>
-                    <div className="relative">
+                    <div className="flex items-center gap-2">
                         <button
-                            onClick={() => setShowMenu(!showMenu)}
+                            onClick={() => setIsSidePanelOpen(v => !v)}
                             className="p-2 hover:bg-white/5 rounded-lg transition"
+                            title={isSidePanelOpen ? "Collapse sidebar" : "Expand sidebar"}
                         >
-                            <MoreHorizontal size={20} />
+                            {isSidePanelOpen ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
                         </button>
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowMenu(!showMenu)}
+                                className="p-2 hover:bg-white/5 rounded-lg transition"
+                            >
+                                <MoreHorizontal size={20} />
+                            </button>
                         {showMenu && (
                             <div className="absolute right-0 top-10 w-48 bg-void border border-white/10 rounded-xl shadow-xl z-50 overflow-hidden">
                                 <div className="p-1 space-y-0.5">
@@ -1303,6 +1314,7 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                                 </div>
                             </div>
                         )}
+                        </div>
                     </div>
                 </div>
 
@@ -1318,10 +1330,11 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
             </div>
 
             {/* RIGHT SIDEBAR - Ask Astra */}
-            {isDemo ? (
-                <DemoSummaryChat summary={summary} />
-            ) : (
-                <div className="w-[400px] bg-[#1a1d24] flex flex-col border-l border-white/5 overflow-hidden">
+            {isSidePanelOpen && (
+                isDemo ? (
+                    <DemoSummaryChat summary={summary} />
+                ) : (
+                    <div className="w-[400px] bg-[#1a1d24] flex flex-col border-l border-white/5 overflow-hidden">
                     <div className="p-6 border-b border-white/5">
                         <div className="flex items-center gap-2 mb-2">
                             <Sparkles size={18} className="text-teal" />
