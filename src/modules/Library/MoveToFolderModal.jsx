@@ -141,7 +141,7 @@ const MoveToFolderModal = ({ item, items, onClose, onSuccess }) => {
                 <h2 className="text-lg font-semibold text-white mb-4 break-words leading-tight">
                     {isBulk 
                         ? `Move ${itemCount} ${itemCount === 1 ? 'file' : 'files'}`
-                        : `Move "${item?.title || item?.id || 'item'}"`
+                        : "Move file"
                     }
                 </h2>
 

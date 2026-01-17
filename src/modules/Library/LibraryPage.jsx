@@ -536,9 +536,9 @@ const LibraryPage = () => {
     const handleBulkMoveSuccess = async (folderId) => {
         if (!moveTarget || !moveTarget?.isBulk) return;
         
-        // Validate folderId is provided (null means root, which is valid as empty string)
+        // Validate folderId is provided (null is valid for root)
         if (folderId === undefined) {
-            alert("Please select a destination folder");
+            alert("Please select a destination");
             return;
         }
         
@@ -549,9 +549,8 @@ const LibraryPage = () => {
         }
         
         try {
-            // Convert null (root) to empty string for backend
-            const targetParentId = folderId ?? "";
-            const result = await bulkMoveItems(ids, targetParentId);
+            // folderId can be null (root) or a string (folder ID)
+            const result = await bulkMoveItems(ids, folderId);
             const successCount = result.success_ids?.length || 0;
             const failCount = result.failed_ids?.length || 0;
             
