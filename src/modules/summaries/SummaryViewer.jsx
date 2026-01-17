@@ -17,6 +17,8 @@ import {
     List,
     ChevronRight,
     ChevronLeft,
+    ChevronDown,
+    ChevronUp,
 } from "lucide-react";
 import { apiSummaries } from "./apiSummaries";
 import {
@@ -931,6 +933,35 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
         );
     };
 
+    // CollapsibleSection component
+    const CollapsibleSection = ({ title, icon, children }) => {
+        const [open, setOpen] = useState(false);
+
+        return (
+            <div 
+                className="rounded-2xl border border-white/10 bg-black/40 hover:border-white/15 transition-colors"
+                style={{ userSelect: 'text', pointerEvents: 'auto' }}
+            >
+                <div
+                    className="p-6 cursor-pointer flex items-center justify-between"
+                    onClick={() => setOpen(o => !o)}
+                    style={{ pointerEvents: 'auto' }}
+                >
+                    <h2 className="text-xl font-bold text-white flex items-center gap-2" style={{ userSelect: 'text', pointerEvents: 'auto' }}>
+                        {icon}
+                        <span style={{ userSelect: 'text', pointerEvents: 'auto' }}>{title}</span>
+                    </h2>
+                    {open ? <ChevronUp size={20} className="text-muted" /> : <ChevronDown size={20} className="text-muted" />}
+                </div>
+                {open && (
+                    <div className="px-6 pb-6" style={{ userSelect: 'text', pointerEvents: 'auto' }}>
+                        {children}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     const renderContent = () => {
         if (!summary) return null;
 
@@ -971,17 +1002,13 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
                             const sectionIcon = getSectionIcon(safeHeading);
                             
                             return (
-                                <div 
-                                    key={idx} 
-                                    className="rounded-2xl border border-white/10 bg-black/40 p-6 hover:border-white/15 transition-colors"
-                                    style={{ userSelect: 'text', pointerEvents: 'auto' }}
+                                <CollapsibleSection
+                                    key={idx}
+                                    title={safeHeading}
+                                    icon={sectionIcon}
                                 >
-                                    <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2" style={{ userSelect: 'text', pointerEvents: 'auto' }}>
-                                        {sectionIcon}
-                                        <span style={{ userSelect: 'text', pointerEvents: 'auto' }}>{safeHeading}</span>
-                                    </h2>
                                     {renderStructuredContent(safeContent)}
-                                </div>
+                                </CollapsibleSection>
                             );
                         })}
                     </div>
