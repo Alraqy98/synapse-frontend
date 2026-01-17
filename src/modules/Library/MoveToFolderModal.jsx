@@ -107,6 +107,8 @@ const MoveToFolderModal = ({ item, items, onClose, onSuccess }) => {
         try {
             if (isBulk) {
                 // Bulk move handled by parent
+                // selectedFolder can be null (root) or a folder ID string
+                // Pass null explicitly for root, or the folder ID string
                 onSuccess?.(selectedFolder ?? null);
             } else {
                 if (!item?.id) {

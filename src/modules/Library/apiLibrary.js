@@ -461,7 +461,7 @@ export const bulkMoveItems = async (ids, folderId) => {
         },
         body: JSON.stringify({ 
             ids,
-            new_parent_id: folderId ?? null,
+            target_parent_id: folderId ?? "",
         }),
     });
 
