@@ -433,6 +433,43 @@ export const deleteItem = async (id) => {
 };
 
 // ------------------------------------------------------
+// BULK DELETE ITEMS
+// ------------------------------------------------------
+export const bulkDeleteItems = async (ids) => {
+    const res = await fetch(`${API_BASE}/library/bulk-delete`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeaders(),
+        },
+        body: JSON.stringify({ ids }),
+    });
+
+    const data = await handleJson(res);
+    return data; // { success_ids: [], failed_ids: [], errors: {} }
+};
+
+// ------------------------------------------------------
+// BULK MOVE ITEMS
+// ------------------------------------------------------
+export const bulkMoveItems = async (ids, folderId) => {
+    const res = await fetch(`${API_BASE}/library/bulk-move`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeaders(),
+        },
+        body: JSON.stringify({ 
+            ids,
+            new_parent_id: folderId ?? null,
+        }),
+    });
+
+    const data = await handleJson(res);
+    return data; // { success_ids: [], failed_ids: [], errors: {} }
+};
+
+// ------------------------------------------------------
 // TUTOR RESOURCES
 // ------------------------------------------------------
 export const getTutorResources = async ({

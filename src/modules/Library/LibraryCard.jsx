@@ -79,7 +79,20 @@ const LibraryCard = ({
        ACTION HANDLERS
     --------------------------- */
     const handleOpen = () => {
-        onOpen?.(item);
+        if (selectionMode && !isFolder) {
+            // In selection mode, toggle selection instead of opening
+            onToggleSelect?.(item.id);
+        } else {
+            onOpen?.(item);
+        }
+    };
+
+    const handleCardClick = (e) => {
+        // Don't toggle if clicking on menu or done marker
+        if (e.target.closest('.menu-container') || e.target.closest('.done-marker')) {
+            return;
+        }
+        handleOpen();
     };
 
     const handleDelete = () => {
@@ -108,17 +121,42 @@ const LibraryCard = ({
     return (
         <div
             data-demo="demo-file-card"
+            onClick={handleCardClick}
             className={`
-                group bg-[#1a1d24] border border-white/5 rounded-2xl p-4
+                group bg-[#1a1d24] border rounded-2xl p-4
                 hover:border-teal/40 transition-all hover:shadow-[0_0_35px_rgba(0,200,180,0.12)]
                 flex flex-col cursor-pointer relative
                 ${item.is_done ? "opacity-75" : ""}
+                ${isSelected ? "border-teal bg-teal/10" : "border-white/5"}
             `}
         >
-            {/* DONE MARKER - Top-left (files only) */}
-            {!isFolder && (
+            {/* SELECTION CHECKBOX - Top-left (files only, selection mode only) */}
+            {selectionMode && !isFolder && (
                 <div
-                    className="absolute top-2 left-2 z-10"
+                    className="absolute top-2 left-2 z-20 done-marker"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleSelect?.(item.id);
+                    }}
+                >
+                    <div
+                        className={`
+                            w-6 h-6 rounded border-2 flex items-center justify-center transition-colors cursor-pointer
+                            ${isSelected
+                                ? "bg-teal border-teal"
+                                : "border-gray-600 bg-transparent hover:border-teal-400"
+                            }
+                        `}
+                    >
+                        {isSelected && <Check className="w-4 h-4 text-black" />}
+                    </div>
+                </div>
+            )}
+
+            {/* DONE MARKER - Top-left (files only, when not in selection mode) */}
+            {!selectionMode && !isFolder && (
+                <div
+                    className="absolute top-2 left-2 z-10 done-marker"
                     onClick={(e) => {
                         e.stopPropagation();
                         onToggleDone?.(item.id, !item.is_done);
@@ -149,7 +187,7 @@ const LibraryCard = ({
                     {getIcon()}
                 </div>
 
-                <div className="relative" ref={menuRef}>
+                <div className="relative menu-container" ref={menuRef}>
                     <button
                         className="p-1 text-muted hover:text-white rounded hover:bg-white/10 transition"
                         onClick={(e) => {
@@ -218,7 +256,6 @@ const LibraryCard = ({
             {/* TITLE */}
             <h3
                 className="font-medium text-white truncate mb-2 text-sm"
-                onClick={handleOpen}
                 title={item.title}
             >
                 {item.title}
@@ -240,20 +277,22 @@ const LibraryCard = ({
             </div>
 
             {/* PRIMARY ACTION BUTTON */}
-            <button
-                onClick={(e) => {
-                    e.stopPropagation();
-                    handleOpen();
-                }}
-                className="
-                    w-full flex items-center justify-center gap-2 py-2 rounded-xl
-                    bg-teal/10 text-teal hover:bg-teal hover:text-black
-                    transition-colors text-sm font-medium
-                "
-            >
-                <Eye size={14} />
-                {isFolder ? "Open Folder" : "Open"}
-            </button>
+            {!selectionMode && (
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpen();
+                    }}
+                    className="
+                        w-full flex items-center justify-center gap-2 py-2 rounded-xl
+                        bg-teal/10 text-teal hover:bg-teal hover:text-black
+                        transition-colors text-sm font-medium
+                    "
+                >
+                    <Eye size={14} />
+                    {isFolder ? "Open Folder" : "Open"}
+                </button>
+            )}
         </div>
     );
 };

@@ -59,10 +59,14 @@ const isDescendantOf = (candidateId, ancestorId, parentMap) => {
     return false;
 };
 
-const MoveToFolderModal = ({ item, onClose, onSuccess }) => {
+const MoveToFolderModal = ({ item, items, onClose, onSuccess }) => {
     const [folders, setFolders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedFolder, setSelectedFolder] = useState(null); // null = root
+
+    const isBulk = item?.isBulk === true;
+    const itemIds = isBulk ? (item.ids || []) : [item.id || item];
+    const itemCount = itemIds.length;
 
     useEffect(() => {
         const load = async () => {
@@ -71,9 +75,19 @@ const MoveToFolderModal = ({ item, onClose, onSuccess }) => {
 
                 const parentMap = buildParentMap(all);
 
+                // For bulk, filter out any folders that are descendants of any selected item
+                // For single item, filter out descendants of that item
                 const filtered = all.filter((f) => {
-                    if (f.id === item.id) return false;
-                    return !isDescendantOf(f.id, item.id, parentMap);
+                    if (isBulk) {
+                        // In bulk mode, exclude folders that are descendants of any selected item
+                        return !itemIds.some(id => {
+                            const selectedItem = items?.find(i => i.id === id);
+                            return selectedItem && (f.id === selectedItem.id || isDescendantOf(f.id, selectedItem.id, parentMap));
+                        });
+                    } else {
+                        if (f.id === item.id) return false;
+                        return !isDescendantOf(f.id, item.id, parentMap);
+                    }
                 });
 
                 const withDepth = computeDepths(filtered, parentMap);
@@ -86,12 +100,17 @@ const MoveToFolderModal = ({ item, onClose, onSuccess }) => {
             }
         };
         load();
-    }, [item]);
+    }, [item, isBulk, itemIds, items]);
 
     const handleSubmit = async () => {
         try {
-            await moveToFolder(item.id, selectedFolder ?? null);
-            onSuccess?.();
+            if (isBulk) {
+                // Bulk move handled by parent
+                onSuccess?.(selectedFolder ?? null);
+            } else {
+                await moveToFolder(item.id, selectedFolder ?? null);
+                onSuccess?.();
+            }
         } catch (err) {
             console.error("Move failed:", err);
             alert("Failed to move item");
@@ -113,7 +132,10 @@ const MoveToFolderModal = ({ item, onClose, onSuccess }) => {
                 </button>
 
                 <h2 className="text-lg font-semibold text-white mb-4 break-words leading-tight">
-                    Move “{item.title}”
+                    {isBulk 
+                        ? `Move ${itemCount} ${itemCount === 1 ? 'file' : 'files'}`
+                        : `Move "${item.title || item.id}"`
+                    }
                 </h2>
 
                 {/* Folder list */}
@@ -166,7 +188,7 @@ const MoveToFolderModal = ({ item, onClose, onSuccess }) => {
                     className="mt-5 w-full py-2 rounded-xl bg-teal/20 text-teal hover:bg-teal hover:text-black transition font-medium"
                     onClick={handleSubmit}
                 >
-                    Move File
+                    {isBulk ? `Move ${itemCount} ${itemCount === 1 ? 'File' : 'Files'}` : 'Move File'}
                 </button>
             </div>
         </div>

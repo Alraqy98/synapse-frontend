@@ -20,6 +20,8 @@ import {
     getItemById,
     createLibraryFolder,
     updateFileStatus,
+    bulkDeleteItems,
+    bulkMoveItems,
 } from "./apiLibrary";
 import {
     generateSlug,
@@ -55,6 +57,10 @@ const LibraryPage = () => {
     
     // Sorting state - persists across folder navigation
     const [sortMode, setSortMode] = useState("date_newest");
+
+    // Bulk selection state
+    const [selectedIds, setSelectedIds] = useState(new Set());
+    const [selectionMode, setSelectionMode] = useState(false);
 
     // Ref to track polling state without causing re-renders
     const pollingIntervalRef = useRef(null);
@@ -462,12 +468,48 @@ const LibraryPage = () => {
 
     const confirmDelete = async () => {
         if (!deleteTarget) return;
+        
+        const isBulk = typeof deleteTarget === 'object' && deleteTarget.isBulk;
+        const ids = isBulk ? deleteTarget.ids : [deleteTarget];
+        
         try {
-            await deleteItem(deleteTarget);
-            await loadItems(activeFilter, currentFolder?.id || null);
+            if (isBulk) {
+                const result = await bulkDeleteItems(ids);
+                const successCount = result.success_ids?.length || 0;
+                const failCount = result.failed_ids?.length || 0;
+                
+                // Optimistically remove successful deletes
+                setItems(prev => prev.filter(item => !result.success_ids?.includes(item.id)));
+                setSelectedIds(prev => {
+                    const next = new Set(prev);
+                    result.success_ids?.forEach(id => next.delete(id));
+                    return next;
+                });
+                
+                // Show feedback
+                if (failCount > 0) {
+                    const failedItems = items.filter(item => result.failed_ids?.includes(item.id));
+                    const failedNames = failedItems.map(i => i.title).join(', ');
+                    alert(`${successCount} deleted, ${failCount} failed: ${failedNames}`);
+                    // Keep failed items selected
+                } else {
+                    // Clear selection if all succeeded
+                    if (successCount === ids.length) {
+                        setSelectedIds(new Set());
+                        setSelectionMode(false);
+                    }
+                }
+                
+                // Reload to ensure consistency
+                await loadItems(activeFilter, currentFolder?.id || null);
+            } else {
+                await deleteItem(deleteTarget);
+                await loadItems(activeFilter, currentFolder?.id || null);
+            }
             setDeleteTarget(null);
-        } catch {
-            alert("Failed to delete");
+        } catch (err) {
+            console.error("Delete failed:", err);
+            alert(isBulk ? "Failed to delete some items" : "Failed to delete");
             setDeleteTarget(null);
         }
     };
@@ -488,7 +530,54 @@ const LibraryPage = () => {
     // MOVE TO FOLDER
     // ----------------------------------------------
     const handleMoveToFolder = (item) => {
-        setMoveTarget(item);
+        setMoveTarget(typeof item === 'string' ? { id: item } : item);
+    };
+
+    const handleBulkMoveSuccess = async (folderId) => {
+        if (!moveTarget || !moveTarget.isBulk) return;
+        
+        const ids = moveTarget.ids || [];
+        try {
+            const result = await bulkMoveItems(ids, folderId);
+            const successCount = result.success_ids?.length || 0;
+            const failCount = result.failed_ids?.length || 0;
+            
+            // Optimistically update parent_id for successful moves
+            setItems(prev => prev.map(item => {
+                if (result.success_ids?.includes(item.id)) {
+                    return { ...item, parent_id: folderId };
+                }
+                return item;
+            }));
+            
+            // Remove successful items from selection
+            setSelectedIds(prev => {
+                const next = new Set(prev);
+                result.success_ids?.forEach(id => next.delete(id));
+                return next;
+            });
+            
+            // Show feedback
+            if (failCount > 0) {
+                const failedItems = items.filter(item => result.failed_ids?.includes(item.id));
+                const failedNames = failedItems.map(i => i.title).join(', ');
+                alert(`${successCount} moved, ${failCount} failed: ${failedNames}`);
+            } else {
+                // Clear selection if all succeeded
+                if (successCount === ids.length) {
+                    setSelectedIds(new Set());
+                    setSelectionMode(false);
+                }
+            }
+            
+            // Reload to ensure consistency
+            await loadItems(activeFilter, currentFolder?.id || null);
+            setMoveTarget(null);
+        } catch (err) {
+            console.error("Bulk move failed:", err);
+            alert("Failed to move some items");
+            setMoveTarget(null);
+        }
     };
 
     // ----------------------------------------------
@@ -503,6 +592,44 @@ const LibraryPage = () => {
     // ----------------------------------------------
     const handleChangeCategory = (item) => {
         setCategoryTarget(item);
+    };
+
+    // ----------------------------------------------
+    // BULK SELECTION HANDLERS
+    // ----------------------------------------------
+    const handleToggleSelect = (id) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) {
+                next.delete(id);
+            } else {
+                next.add(id);
+            }
+            return next;
+        });
+    };
+
+    const handleClearSelection = () => {
+        setSelectedIds(new Set());
+        setSelectionMode(false);
+    };
+
+    const handleEnterSelectionMode = () => {
+        setSelectionMode(true);
+        setSelectedIds(new Set());
+    };
+
+    // Get selected items (files only)
+    const getSelectedFiles = () => {
+        return items.filter(item => selectedIds.has(item.id) && !item.is_folder);
+    };
+
+    // Check if selection contains folders
+    const selectionContainsFolders = () => {
+        return Array.from(selectedIds).some(id => {
+            const item = items.find(i => i.id === id);
+            return item?.is_folder === true;
+        });
     };
 
     // ----------------------------------------------
@@ -538,8 +665,8 @@ const LibraryPage = () => {
             />
 
             <div className="flex-1 flex flex-col">
-                {/* Breadcrumbs */}
-                <div className="h-12 flex items-center px-6 border-b border-white/5 bg-[#0f1115] text-xs">
+                {/* Breadcrumbs + Selection Mode Toggle */}
+                <div className="h-12 flex items-center justify-between px-6 border-b border-white/5 bg-[#0f1115] text-xs">
                     <nav className="flex items-center gap-1 text-muted">
                         {breadcrumbs.map((crumb, idx) => {
                             const isLast = idx === breadcrumbs.length - 1;
@@ -564,6 +691,21 @@ const LibraryPage = () => {
                             );
                         })}
                     </nav>
+                    {!selectionMode ? (
+                        <button
+                            onClick={handleEnterSelectionMode}
+                            className="px-3 py-1.5 text-xs bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-white transition"
+                        >
+                            Select
+                        </button>
+                    ) : (
+                        <button
+                            onClick={handleClearSelection}
+                            className="px-3 py-1.5 text-xs bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-white transition"
+                        >
+                            Cancel
+                        </button>
+                    )}
                 </div>
 
                 {/* Sorting Control */}
@@ -585,6 +727,47 @@ const LibraryPage = () => {
                     </div>
                 </div>
 
+                {/* Bulk Action Toolbar */}
+                {selectedIds.size > 0 && (
+                    <div className="h-14 flex items-center justify-between px-6 border-b border-teal/20 bg-teal/5">
+                        <div className="text-sm text-white">
+                            {selectedIds.size} {selectedIds.size === 1 ? 'file' : 'files'} selected
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => {
+                                    if (selectionContainsFolders()) {
+                                        alert("Folders are not supported yet for bulk actions.");
+                                        return;
+                                    }
+                                    setMoveTarget({ ids: Array.from(selectedIds), isBulk: true });
+                                }}
+                                className="px-4 py-2 text-xs bg-teal/20 text-teal hover:bg-teal hover:text-black rounded-lg transition font-medium"
+                            >
+                                Move ({selectedIds.size})
+                            </button>
+                            <button
+                                onClick={() => {
+                                    if (selectionContainsFolders()) {
+                                        alert("Folders are not supported yet for bulk actions.");
+                                        return;
+                                    }
+                                    setDeleteTarget({ ids: Array.from(selectedIds), isBulk: true });
+                                }}
+                                className="px-4 py-2 text-xs bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white rounded-lg transition font-medium"
+                            >
+                                Delete ({selectedIds.size})
+                            </button>
+                            <button
+                                onClick={handleClearSelection}
+                                className="px-4 py-2 text-xs bg-white/5 text-white hover:bg-white/10 rounded-lg transition"
+                            >
+                                Clear
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 <LibraryGrid
                     items={sortedItems}
                     onOpen={handleOpen}
@@ -595,6 +778,9 @@ const LibraryPage = () => {
                     onChangeCategory={handleChangeCategory}
                     onToggleDone={handleToggleDone}
                     isLoading={isLoading || isOpening}
+                    selectionMode={selectionMode}
+                    selectedIds={selectedIds}
+                    onToggleSelect={handleToggleSelect}
                 />
             </div>
 
@@ -633,10 +819,11 @@ const LibraryPage = () => {
             {moveTarget && (
                 <MoveToFolderModal
                     item={moveTarget}
+                    items={items}
                     onClose={() => setMoveTarget(null)}
-                    onSuccess={() => {
-                        loadItems(activeFilter, currentFolder?.id || null);
+                    onSuccess={moveTarget.isBulk ? handleBulkMoveSuccess : async () => {
                         setMoveTarget(null);
+                        await loadItems(activeFilter, currentFolder?.id || null);
                     }}
                 />
             )}
@@ -658,6 +845,7 @@ const LibraryPage = () => {
                 open={deleteTarget !== null}
                 onConfirm={confirmDelete}
                 onCancel={() => setDeleteTarget(null)}
+                itemCount={typeof deleteTarget === 'object' && deleteTarget.isBulk ? deleteTarget.ids.length : 1}
             />
         </div>
     );

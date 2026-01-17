@@ -12,6 +12,9 @@ const LibraryGrid = ({
     onRename,            // NEW
     onToggleDone,        // NEW
     isLoading,
+    selectionMode,
+    selectedIds,
+    onToggleSelect,
 }) => {
     if (isLoading) {
         return (
@@ -42,10 +45,13 @@ const LibraryGrid = ({
                         onOpen={onOpen}
                         onDelete={onDelete}
                         onMove={onMove}
-                        onMoveToFolder={onMoveToFolder}     // NEW
-                        onChangeCategory={onChangeCategory} // NEW
-                        onRename={onRename}                 // NEW
-                        onToggleDone={onToggleDone}         // NEW
+                        onMoveToFolder={onMoveToFolder}
+                        onChangeCategory={onChangeCategory}
+                        onRename={onRename}
+                        onToggleDone={onToggleDone}
+                        selectionMode={selectionMode}
+                        isSelected={selectedIds.has(item.id)}
+                        onToggleSelect={onToggleSelect}
                     />
                 ))}
             </div>
