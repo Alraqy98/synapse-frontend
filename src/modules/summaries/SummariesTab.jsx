@@ -6,7 +6,6 @@ import { Search, Plus, MoreHorizontal, Upload } from "lucide-react";
 import { apiSummaries } from "./apiSummaries";
 import SummaryCard from "./SummaryCard";
 import GenerateSummaryModal from "./GenerateSummaryModal";
-import SummaryViewer from "./SummaryViewer";
 import { isValidCodeFormat } from "./utils/summaryCode";
 import SummaryFailurePopup from "../../components/SummaryFailurePopup";
 
@@ -57,10 +56,7 @@ const sanitizeErrorMessage = (errorMsg) => {
 };
 
 export default function SummariesTab() {
-    const { summaryId: urlSummaryId } = useParams();
     const navigate = useNavigate();
-    const [view, setView] = useState("list");
-    const [summaryId, setSummaryId] = useState(null);
     const [summaries, setSummaries] = useState([]);
     const [loading, setLoading] = useState(true);
     const [initialLoadDone, setInitialLoadDone] = useState(false);
@@ -74,17 +70,7 @@ export default function SummariesTab() {
     const [isImporting, setIsImporting] = useState(false);
     const [failurePopup, setFailurePopup] = useState({ isOpen: false, isProcessing: false, onRetry: null });
 
-    // Handle deep link from URL
-    useEffect(() => {
-        if (urlSummaryId && urlSummaryId !== summaryId) {
-            setSummaryId(urlSummaryId);
-            setView("viewer");
-        } else if (!urlSummaryId && view === "viewer") {
-            // URL changed to remove summaryId, reset to list
-            setView("list");
-            setSummaryId(null);
-        }
-    }, [urlSummaryId]);
+    // Deep links are now handled by routing - no need for local state
 
     // Load summaries (matching MCQ pattern exactly)
     const loadSummaries = async () => {
@@ -177,8 +163,8 @@ export default function SummariesTab() {
         const summary = summaries.find(s => s.id === id);
         if (summary?.generating || summary?.status === "generating") return;
         
-        setSummaryId(id);
-        setView("viewer");
+        // Navigate to dedicated route instead of modal view
+        navigate(`/summaries/${id}`);
     };
 
     // Filtered and sorted summaries
@@ -234,28 +220,7 @@ export default function SummariesTab() {
 
     return (
         <div className="h-full w-full">
-            {view === "viewer" ? (
-                <SummaryViewer
-                    summaryId={summaryId}
-                    goBack={() => {
-                        setView("list");
-                        setSummaryId(null);
-                        navigate("/summaries", { replace: true });
-                        // Do NOT reload summaries - keep state intact (matching MCQ pattern)
-                    }}
-                    onRename={handleRename}
-                    onDelete={async (id) => {
-                        setSummaries((prev) => prev.filter((s) => s.id !== id));
-                        try {
-                            await apiSummaries.deleteSummary(id);
-                        } catch (err) {
-                            console.error("Delete failed", err);
-                            loadSummaries();
-                        }
-                    }}
-                />
-            ) : (
-                <>
+            <>
                     <div className="max-w-7xl mx-auto px-6 pb-28">
                         <div className="rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-xl p-8">
                             {/* HEADER */}
@@ -375,7 +340,7 @@ export default function SummariesTab() {
                     <GenerateSummaryModal
                         open={openModal}
                         onClose={() => setOpenModal(false)}
-                        onCreated={({ jobId, title, file_name }) => {
+                        onCreated={({ jobId, summaryId, title, file_name }) => {
                             setOpenModal(false);
                             
                             // Create generating placeholder (matching MCQ pattern)
@@ -389,6 +354,12 @@ export default function SummariesTab() {
                             
                             // Add to top of list - polling will start automatically via useEffect
                             setSummaries(prev => [generatingSummary, ...prev]);
+                            
+                            // If summaryId is available (completed summary), navigate to it
+                            // Otherwise, user will see generating placeholder and can navigate when ready
+                            if (summaryId) {
+                                navigate(`/summaries/${summaryId}`);
+                            }
                         }}
                     />
 
@@ -500,8 +471,7 @@ export default function SummariesTab() {
                         onRetry={failurePopup.onRetry || (() => setFailurePopup({ isOpen: false, isProcessing: false, onRetry: null }))}
                         isProcessing={failurePopup.isProcessing}
                     />
-                </>
-            )}
+            </>
         </div>
     );
 }

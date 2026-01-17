@@ -1,6 +1,7 @@
 // src/modules/summaries/SummaryViewer.jsx
 import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import {
     ArrowLeft,
     Send,
@@ -31,8 +32,16 @@ import MessageBubble from "../Tutor/MessageBubble";
 import { useDemo } from "../demo/DemoContext";
 import DemoSummaryChat from "./DemoSummaryChat";
 
-export default function SummaryViewer({ summaryId, goBack, onRename, onDelete }) {
+export default function SummaryViewer({ summaryId: propSummaryId, goBack: propGoBack, onRename: propOnRename, onDelete: propOnDelete }) {
     const { isDemo, currentStep } = useDemo() || {};
+    const params = useParams();
+    const navigate = useNavigate();
+    
+    // Use route params if available, otherwise fall back to props (for backward compatibility)
+    const summaryId = params.summaryId || propSummaryId;
+    const goBack = propGoBack || (() => navigate("/summaries", { replace: true }));
+    const onRename = propOnRename || (() => {});
+    const onDelete = propOnDelete || (() => {});
     const [summary, setSummary] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -290,8 +299,29 @@ export default function SummaryViewer({ summaryId, goBack, onRename, onDelete })
     }, []);
 
     // CollapsibleSection component (defined at component level to prevent remounts)
+    // State persists per summaryId - resets only when summaryId changes
+    const sectionStatesRef = useRef({});
+    const currentSummaryIdRef = useRef(summaryId);
+    
+    // Reset section states when summaryId changes
+    useEffect(() => {
+        if (currentSummaryIdRef.current !== summaryId) {
+            sectionStatesRef.current = {};
+            currentSummaryIdRef.current = summaryId;
+        }
+    }, [summaryId]);
+    
     const CollapsibleSection = ({ title, icon, children }) => {
-        const [open, setOpen] = useState(false);
+        const sectionKey = `${summaryId}-${title}`;
+        const [open, setOpen] = useState(() => {
+            // Initialize from ref if exists, otherwise false
+            return sectionStatesRef.current[sectionKey] || false;
+        });
+        
+        // Sync state to ref
+        useEffect(() => {
+            sectionStatesRef.current[sectionKey] = open;
+        }, [open, sectionKey]);
 
         return (
             <div 

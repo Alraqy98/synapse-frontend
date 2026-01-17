@@ -63,6 +63,7 @@ import ReviewScreen from "./modules/flashcards/ReviewScreen";
 
 // SUMMARIES
 import SummariesTab from "./modules/summaries/SummariesTab";
+import SummaryViewerPage from "./modules/summaries/SummaryViewerPage";
 
 // COMPONENTS
 import SidebarItem from "./components/SidebarItem";
@@ -1113,7 +1114,7 @@ const SynapseOS = () => {
             } />
             <Route path="/summaries/:summaryId" element={
               <div className="flex-1 overflow-y-auto p-6">
-                <SummariesModule />
+                <SummaryViewerPage />
               </div>
             } />
             <Route path="/osce" element={
