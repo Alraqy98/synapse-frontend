@@ -22,6 +22,7 @@ import {
     updateFileStatus,
     bulkDeleteItems,
     bulkMoveItems,
+    uploadLibraryFile,
 } from "./apiLibrary";
 import {
     generateSlug,
@@ -49,6 +50,10 @@ const LibraryPage = () => {
 
     const [isLoading, setIsLoading] = useState(false);
     const [isOpening, setIsOpening] = useState(false);
+
+    // Drag-and-drop state
+    const [isDragOver, setIsDragOver] = useState(false);
+    const dragCounterRef = useRef(0);
 
     const [currentFolder, setCurrentFolder] = useState(null);
     const [breadcrumbs, setBreadcrumbs] = useState([
@@ -665,6 +670,88 @@ const LibraryPage = () => {
     };
 
     // ----------------------------------------------
+    // DRAG-AND-DROP UPLOAD HANDLERS
+    // ----------------------------------------------
+    const handleDragEnter = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Only handle file drops, ignore other drag types
+        if (!e.dataTransfer.types.includes('Files')) {
+            return;
+        }
+        
+        dragCounterRef.current++;
+        if (dragCounterRef.current === 1) {
+            setIsDragOver(true);
+        }
+    };
+
+    const handleDragLeave = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        dragCounterRef.current--;
+        if (dragCounterRef.current === 0) {
+            setIsDragOver(false);
+        }
+    };
+
+    const handleDragOver = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+    };
+
+    const handleDrop = async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        setIsDragOver(false);
+        dragCounterRef.current = 0;
+        
+        // Extract files from drop event
+        const files = Array.from(e.dataTransfer.files);
+        
+        // Guardrails: ignore empty drops and non-file drops
+        if (files.length === 0) {
+            return;
+        }
+        
+        // Filter out directories (folders) - only upload files
+        const fileList = files.filter(file => {
+            // Browser File API doesn't expose isDirectory directly
+            // Check if file size is 0 and name suggests it might be a directory
+            // Most browsers won't include directories in dataTransfer.files anyway
+            return file.size > 0 || file.type !== '';
+        });
+        
+        if (fileList.length === 0) {
+            return;
+        }
+        
+        // Get current folder context for parent_id
+        const parentFolderId = currentFolder?.id || null;
+        
+        // Upload each file using the same upload logic as the modal
+        // Use default category "Lecture" (same as modal default)
+        const uploadPromises = fileList.map(async (file) => {
+            try {
+                await uploadLibraryFile(file, "Lecture", parentFolderId);
+            } catch (error) {
+                console.error(`Failed to upload ${file.name}:`, error);
+                // Show error for failed uploads
+                alert(`Failed to upload ${file.name}: ${error.message || 'Unknown error'}`);
+            }
+        });
+        
+        // Wait for all uploads to complete
+        await Promise.allSettled(uploadPromises);
+        
+        // Reload library items to show newly uploaded files
+        await loadItems(activeFilter, currentFolder?.id || null);
+    };
+
+    // ----------------------------------------------
     // GRID MODE (Library browsing only)
     // ----------------------------------------------
     return (
@@ -676,7 +763,25 @@ const LibraryPage = () => {
                 onCreateFolder={() => setShowFolderModal(true)}
             />
 
-            <div className="flex-1 flex flex-col">
+            <div 
+                className="flex-1 flex flex-col relative"
+                onDragEnter={handleDragEnter}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+            >
+                {/* Drag-and-drop overlay */}
+                {isDragOver && (
+                    <div className="absolute inset-0 z-50 bg-teal/10 border-2 border-dashed border-teal/50 rounded-lg flex items-center justify-center pointer-events-none">
+                        <div className="text-center">
+                            <p className="text-xl font-semibold text-teal mb-2">Drop files to upload</p>
+                            <p className="text-sm text-muted">
+                                {currentFolder ? `Files will be uploaded to "${currentFolder.title}"` : "Files will be uploaded to root"}
+                            </p>
+                        </div>
+                    </div>
+                )}
+
                 {/* Breadcrumbs + Selection Mode Toggle */}
                 <div className="h-12 flex items-center justify-between px-6 border-b border-white/5 bg-[#0f1115] text-xs">
                     <nav className="flex items-center gap-1 text-muted">
