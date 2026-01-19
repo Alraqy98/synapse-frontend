@@ -2,7 +2,7 @@
 // Annotation canvas overlay for pages
 // Phase 2A: Read-only rendering + local drawing (no backend save)
 
-import React, { useRef, useEffect, useLayoutEffect, useState } from "react";
+import React, { useRef, useEffect, useLayoutEffect } from "react";
 
 /**
  * AnnotationCanvas - Canvas overlay for rendering and drawing annotations
@@ -26,6 +26,9 @@ const AnnotationCanvas = ({ pageRef, zoomLevel, strokes, isAnnotating = false, o
     const resizeObserverRef = useRef(null);
     const isDrawingRef = useRef(false);
     const currentStrokeRef = useRef(null);
+    const primaryPointerIdRef = useRef(null);
+    const rafIdRef = useRef(null);
+    const pendingStrokesRef = useRef([]); // Strokes completed but not yet in props
 
     // Render strokes to canvas
     const renderStrokes = () => {
@@ -75,9 +78,14 @@ const AnnotationCanvas = ({ pageRef, zoomLevel, strokes, isAnnotating = false, o
         // This ensures 1 CSS pixel = 1 logical unit, but we render at DPR resolution
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-        // Render all strokes (from backend + local)
-        if (strokes && Array.isArray(strokes) && strokes.length > 0) {
-            strokes.forEach((stroke) => {
+        // Render all strokes (from backend + local + pending)
+        const allStrokesToRender = [
+            ...(strokes && Array.isArray(strokes) ? strokes : []),
+            ...pendingStrokesRef.current,
+        ];
+
+        if (allStrokesToRender.length > 0) {
+            allStrokesToRender.forEach((stroke) => {
                 if (!stroke.points || !Array.isArray(stroke.points) || stroke.points.length === 0) {
                     return;
                 }
@@ -135,10 +143,27 @@ const AnnotationCanvas = ({ pageRef, zoomLevel, strokes, isAnnotating = false, o
         }
     };
 
-    // Re-render when strokes or zoom change
+    // Re-render when strokes change (immediate)
     useEffect(() => {
+        // Remove strokes from pending that are now in props
+        if (strokes && Array.isArray(strokes)) {
+            pendingStrokesRef.current = pendingStrokesRef.current.filter(
+                (pending) => !strokes.some((s) => s === pending)
+            );
+        }
         renderStrokes();
-    }, [strokes, zoomLevel, pageRef]);
+    }, [strokes, pageRef]);
+
+    // Throttled render for zoom changes
+    useEffect(() => {
+        if (rafIdRef.current) {
+            cancelAnimationFrame(rafIdRef.current);
+        }
+        rafIdRef.current = requestAnimationFrame(() => {
+            renderStrokes();
+            rafIdRef.current = null;
+        });
+    }, [zoomLevel]);
 
     // Observe page size changes and re-render
     useLayoutEffect(() => {
@@ -152,9 +177,15 @@ const AnnotationCanvas = ({ pageRef, zoomLevel, strokes, isAnnotating = false, o
         // Initial render
         renderStrokes();
 
-        // Observe resize (handles zoom, window resize, etc.)
+        // Observe resize (handles window resize, page size changes)
         const resizeObserver = new ResizeObserver(() => {
-            renderStrokes();
+            if (rafIdRef.current) {
+                cancelAnimationFrame(rafIdRef.current);
+            }
+            rafIdRef.current = requestAnimationFrame(() => {
+                renderStrokes();
+                rafIdRef.current = null;
+            });
         });
 
         resizeObserver.observe(targetEl);
@@ -189,6 +220,18 @@ const AnnotationCanvas = ({ pageRef, zoomLevel, strokes, isAnnotating = false, o
     const handlePointerDown = (e) => {
         if (!isAnnotating) return;
 
+        // For touch: only handle primary pointer (first finger)
+        // Allow secondary pointers (second finger) to pass through for scroll
+        if (e.pointerType === "touch") {
+            if (primaryPointerIdRef.current === null) {
+                // This is the primary pointer
+                primaryPointerIdRef.current = e.pointerId;
+            } else if (e.pointerId !== primaryPointerIdRef.current) {
+                // This is a secondary pointer - allow scroll
+                return;
+            }
+        }
+
         e.preventDefault();
         e.stopPropagation();
 
@@ -214,6 +257,11 @@ const AnnotationCanvas = ({ pageRef, zoomLevel, strokes, isAnnotating = false, o
     const handlePointerMove = (e) => {
         if (!isAnnotating || !isDrawingRef.current) return;
 
+        // For touch: only handle primary pointer
+        if (e.pointerType === "touch" && e.pointerId !== primaryPointerIdRef.current) {
+            return;
+        }
+
         e.preventDefault();
         e.stopPropagation();
 
@@ -229,6 +277,11 @@ const AnnotationCanvas = ({ pageRef, zoomLevel, strokes, isAnnotating = false, o
     const handlePointerUp = (e) => {
         if (!isAnnotating || !isDrawingRef.current) return;
 
+        // For touch: only handle primary pointer
+        if (e.pointerType === "touch" && e.pointerId !== primaryPointerIdRef.current) {
+            return;
+        }
+
         e.preventDefault();
         e.stopPropagation();
 
@@ -238,20 +291,37 @@ const AnnotationCanvas = ({ pageRef, zoomLevel, strokes, isAnnotating = false, o
         }
 
         const stroke = currentStrokeRef.current;
-        if (stroke && stroke.points.length > 0 && onStrokeComplete) {
-            // Finalize stroke
-            onStrokeComplete(stroke);
+        if (stroke && stroke.points.length > 0) {
+            // Add to pending strokes immediately (prevent flicker)
+            pendingStrokesRef.current.push(stroke);
+            
+            // Call callback to update parent cache
+            if (onStrokeComplete) {
+                onStrokeComplete(stroke);
+            }
         }
 
         // Reset drawing state
         isDrawingRef.current = false;
         currentStrokeRef.current = null;
+        
+        // Clear primary pointer if this was it
+        if (e.pointerType === "touch" && e.pointerId === primaryPointerIdRef.current) {
+            primaryPointerIdRef.current = null;
+        }
+
+        // Redraw with pending stroke included
         renderStrokes();
     };
 
     // Handle pointer cancel - cancel stroke
     const handlePointerCancel = (e) => {
         if (!isAnnotating || !isDrawingRef.current) return;
+
+        // For touch: only handle primary pointer
+        if (e.pointerType === "touch" && e.pointerId !== primaryPointerIdRef.current) {
+            return;
+        }
 
         e.preventDefault();
         e.stopPropagation();
@@ -264,6 +334,12 @@ const AnnotationCanvas = ({ pageRef, zoomLevel, strokes, isAnnotating = false, o
         // Cancel stroke (don't call onStrokeComplete)
         isDrawingRef.current = false;
         currentStrokeRef.current = null;
+        
+        // Clear primary pointer if this was it
+        if (e.pointerType === "touch" && e.pointerId === primaryPointerIdRef.current) {
+            primaryPointerIdRef.current = null;
+        }
+        
         renderStrokes();
     };
 
@@ -272,6 +348,9 @@ const AnnotationCanvas = ({ pageRef, zoomLevel, strokes, isAnnotating = false, o
         return () => {
             if (resizeObserverRef.current) {
                 resizeObserverRef.current.disconnect();
+            }
+            if (rafIdRef.current) {
+                cancelAnimationFrame(rafIdRef.current);
             }
         };
     }, []);
