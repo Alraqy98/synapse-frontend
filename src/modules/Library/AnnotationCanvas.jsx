@@ -26,7 +26,7 @@ const AnnotationCanvas = ({ pageRef, zoomLevel, strokes, isAnnotating = false, o
     const resizeObserverRef = useRef(null);
     const isDrawingRef = useRef(false);
     const currentStrokeRef = useRef(null);
-    const primaryPointerIdRef = useRef(null);
+    const activeDrawingPointerIdRef = useRef(null);
     const rafIdRef = useRef(null);
     const pendingStrokesRef = useRef([]); // Strokes completed but not yet in props
 
@@ -307,23 +307,21 @@ const AnnotationCanvas = ({ pageRef, zoomLevel, strokes, isAnnotating = false, o
     const handlePointerDown = (e) => {
         if (!isAnnotating) return;
 
-        // For touch: only handle primary pointer (first finger)
-        // Allow secondary pointers (second finger) to pass through for scroll
+        // Only allow pen (or mouse) input - reject touch completely
         if (e.pointerType === "touch") {
-            if (primaryPointerIdRef.current === null) {
-                // This is the primary pointer
-                primaryPointerIdRef.current = e.pointerId;
-            } else if (e.pointerId !== primaryPointerIdRef.current) {
-                // This is a secondary pointer - allow scroll
-                return;
-            }
+            return; // Let browser handle scrolling
         }
 
-        // DO NOT preventDefault here - allows browser gesture arbitration
+        // Only allow pen input (optionally mouse for desktop)
+        if (e.pointerType !== "pen" && e.pointerType !== "mouse") {
+            return;
+        }
+
         const canvas = canvasRef.current;
         if (!canvas) return;
 
         canvas.setPointerCapture(e.pointerId);
+        activeDrawingPointerIdRef.current = e.pointerId;
         isDrawingRef.current = true;
 
         const normalized = screenToNormalized(e.clientX, e.clientY);
@@ -342,8 +340,13 @@ const AnnotationCanvas = ({ pageRef, zoomLevel, strokes, isAnnotating = false, o
     const handlePointerMove = (e) => {
         if (!isAnnotating || !isDrawingRef.current) return;
 
-        // For touch: only handle primary pointer
-        if (e.pointerType === "touch" && e.pointerId !== primaryPointerIdRef.current) {
+        // Only handle active drawing pointer
+        if (e.pointerId !== activeDrawingPointerIdRef.current) {
+            return;
+        }
+
+        // Only allow pen input
+        if (e.pointerType !== "pen" && e.pointerType !== "mouse") {
             return;
         }
 
@@ -372,8 +375,8 @@ const AnnotationCanvas = ({ pageRef, zoomLevel, strokes, isAnnotating = false, o
     const handlePointerUp = (e) => {
         if (!isAnnotating || !isDrawingRef.current) return;
 
-        // For touch: only handle primary pointer
-        if (e.pointerType === "touch" && e.pointerId !== primaryPointerIdRef.current) {
+        // Only handle active drawing pointer
+        if (e.pointerId !== activeDrawingPointerIdRef.current) {
             return;
         }
 
@@ -399,11 +402,7 @@ const AnnotationCanvas = ({ pageRef, zoomLevel, strokes, isAnnotating = false, o
         // Reset drawing state
         isDrawingRef.current = false;
         currentStrokeRef.current = null;
-        
-        // Clear primary pointer if this was it
-        if (e.pointerType === "touch" && e.pointerId === primaryPointerIdRef.current) {
-            primaryPointerIdRef.current = null;
-        }
+        activeDrawingPointerIdRef.current = null;
 
         // Redraw with pending stroke included
         renderStrokes();
@@ -413,8 +412,8 @@ const AnnotationCanvas = ({ pageRef, zoomLevel, strokes, isAnnotating = false, o
     const handlePointerCancel = (e) => {
         if (!isAnnotating || !isDrawingRef.current) return;
 
-        // For touch: only handle primary pointer
-        if (e.pointerType === "touch" && e.pointerId !== primaryPointerIdRef.current) {
+        // Only handle active drawing pointer
+        if (e.pointerId !== activeDrawingPointerIdRef.current) {
             return;
         }
 
@@ -429,11 +428,7 @@ const AnnotationCanvas = ({ pageRef, zoomLevel, strokes, isAnnotating = false, o
         // Cancel stroke (don't call onStrokeComplete)
         isDrawingRef.current = false;
         currentStrokeRef.current = null;
-        
-        // Clear primary pointer if this was it
-        if (e.pointerType === "touch" && e.pointerId === primaryPointerIdRef.current) {
-            primaryPointerIdRef.current = null;
-        }
+        activeDrawingPointerIdRef.current = null;
         
         renderStrokes();
     };
