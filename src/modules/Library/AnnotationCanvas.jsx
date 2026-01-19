@@ -85,7 +85,9 @@ const AnnotationCanvas = ({ pageRef, zoomLevel, strokes, isAnnotating = false, o
         ];
 
         if (allStrokesToRender.length > 0) {
-            allStrokesToRender.forEach((stroke) => {
+            let prevStrokeEnd = null;
+            
+            allStrokesToRender.forEach((stroke, strokeIndex) => {
                 if (!stroke.points || !Array.isArray(stroke.points) || stroke.points.length === 0) {
                     return;
                 }
@@ -96,14 +98,30 @@ const AnnotationCanvas = ({ pageRef, zoomLevel, strokes, isAnnotating = false, o
                 ctx.lineCap = "round";
                 ctx.lineJoin = "round";
 
-                // Begin path
-                ctx.beginPath();
-
                 // Convert normalized coordinates (0-1) to canvas coordinates
                 const firstPoint = stroke.points[0];
-                const canvasX = firstPoint.x * cssWidth;
-                const canvasY = firstPoint.y * cssHeight;
-                ctx.moveTo(canvasX, canvasY);
+                const startX = firstPoint.x * cssWidth;
+                const startY = firstPoint.y * cssHeight;
+
+                // Visual connector: bridge gap from previous stroke if close enough
+                if (prevStrokeEnd && strokeIndex > 0) {
+                    const lineWidth = stroke.width || 2;
+                    const threshold = lineWidth * 1.5;
+                    const dx = startX - prevStrokeEnd.x;
+                    const dy = startY - prevStrokeEnd.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < threshold) {
+                        ctx.beginPath();
+                        ctx.moveTo(prevStrokeEnd.x, prevStrokeEnd.y);
+                        ctx.lineTo(startX, startY);
+                        ctx.stroke();
+                    }
+                }
+
+                // Begin path
+                ctx.beginPath();
+                ctx.moveTo(startX, startY);
 
                 // Draw line to each subsequent point
                 for (let i = 1; i < stroke.points.length; i++) {
@@ -123,15 +141,21 @@ const AnnotationCanvas = ({ pageRef, zoomLevel, strokes, isAnnotating = false, o
                 
                 // Start cap
                 ctx.beginPath();
-                ctx.arc(firstPoint.x * cssWidth, firstPoint.y * cssHeight, capRadius, 0, Math.PI * 2);
+                ctx.arc(startX, startY, capRadius, 0, Math.PI * 2);
                 ctx.fill();
                 
                 // End cap
                 if (stroke.points.length > 1) {
                     const lastPoint = stroke.points[stroke.points.length - 1];
+                    prevStrokeEnd = {
+                        x: lastPoint.x * cssWidth,
+                        y: lastPoint.y * cssHeight,
+                    };
                     ctx.beginPath();
-                    ctx.arc(lastPoint.x * cssWidth, lastPoint.y * cssHeight, capRadius, 0, Math.PI * 2);
+                    ctx.arc(prevStrokeEnd.x, prevStrokeEnd.y, capRadius, 0, Math.PI * 2);
                     ctx.fill();
+                } else {
+                    prevStrokeEnd = { x: startX, y: startY };
                 }
             });
         }
@@ -144,11 +168,38 @@ const AnnotationCanvas = ({ pageRef, zoomLevel, strokes, isAnnotating = false, o
             ctx.lineCap = "round";
             ctx.lineJoin = "round";
 
-            ctx.beginPath();
             const firstPoint = currentStroke.points[0];
-            const canvasX = firstPoint.x * cssWidth;
-            const canvasY = firstPoint.y * cssHeight;
-            ctx.moveTo(canvasX, canvasY);
+            const startX = firstPoint.x * cssWidth;
+            const startY = firstPoint.y * cssHeight;
+
+            // Visual connector: bridge gap from last completed stroke if close enough
+            const allStrokesToRender = [
+                ...(strokes && Array.isArray(strokes) ? strokes : []),
+                ...pendingStrokesRef.current,
+            ];
+            if (allStrokesToRender.length > 0) {
+                const lastCompleted = allStrokesToRender[allStrokesToRender.length - 1];
+                if (lastCompleted && lastCompleted.points && lastCompleted.points.length > 0) {
+                    const lastPoint = lastCompleted.points[lastCompleted.points.length - 1];
+                    const prevEndX = lastPoint.x * cssWidth;
+                    const prevEndY = lastPoint.y * cssHeight;
+                    const lineWidth = currentStroke.width || 2;
+                    const threshold = lineWidth * 1.5;
+                    const dx = startX - prevEndX;
+                    const dy = startY - prevEndY;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < threshold) {
+                        ctx.beginPath();
+                        ctx.moveTo(prevEndX, prevEndY);
+                        ctx.lineTo(startX, startY);
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
 
             for (let i = 1; i < currentStroke.points.length; i++) {
                 const point = currentStroke.points[i];
@@ -166,7 +217,7 @@ const AnnotationCanvas = ({ pageRef, zoomLevel, strokes, isAnnotating = false, o
             
             // Start cap
             ctx.beginPath();
-            ctx.arc(firstPoint.x * cssWidth, firstPoint.y * cssHeight, capRadius, 0, Math.PI * 2);
+            ctx.arc(startX, startY, capRadius, 0, Math.PI * 2);
             ctx.fill();
             
             // End cap (if more than one point)
@@ -268,9 +319,7 @@ const AnnotationCanvas = ({ pageRef, zoomLevel, strokes, isAnnotating = false, o
             }
         }
 
-        e.preventDefault();
-        e.stopPropagation();
-
+        // DO NOT preventDefault here - allows browser gesture arbitration
         const canvas = canvasRef.current;
         if (!canvas) return;
 
