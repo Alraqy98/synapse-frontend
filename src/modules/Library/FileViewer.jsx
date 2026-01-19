@@ -25,6 +25,7 @@ import {
     ZoomIn,
     ZoomOut,
     RotateCcw,
+    Pen,
 } from "lucide-react";
 
 import GenerateFlashcardsModal from "../flashcards/GenerateFlashcardsModal";
@@ -43,6 +44,8 @@ import {
 import MessageBubble from "../Tutor/MessageBubble";
 import PdfJsPage from "./PdfJsPage";
 import { getPdfDoc } from "./pdfCache";
+import AnnotationCanvas from "./AnnotationCanvas";
+import { getAnnotations } from "./apiLibrary";
 
 
 const API_URL = import.meta.env.VITE_API_URL
@@ -162,6 +165,12 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
     const renderAttemptedRef = useRef(new Set()); // Track render attempts per page: `${file.id}:${page}`
     const imageLoadFailedRef = useRef(new Set()); // Track image load failures: `${file.id}:${page}`
     const renderedImageUrlsRef = useRef(new Map()); // Store rendered image URLs: `${file.id}:${page}` -> URL
+    
+    // Annotation state (read-only rendering + local drawing)
+    const annotationsRef = useRef(new Map()); // pageNum -> { strokes: Array | null, loading: boolean }
+    const annotationLoadingRef = useRef(new Set()); // Track pages currently loading annotations
+    const localStrokesRef = useRef(new Map()); // pageNum -> Array<stroke> (local-only strokes, not saved)
+    const [isAnnotating, setIsAnnotating] = useState(false); // Annotation mode toggle
 
     // Side panel state
     const [isSidePanelOpen, setIsSidePanelOpen] = useState(true);
@@ -203,6 +212,85 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
         zoomRef.current = 1;
         setZoomLevel(1);
     };
+
+    // Load annotations helper function
+    const loadAnnotationsForPage = async (pageNum) => {
+        if (!file?.id || !pageNum) return;
+
+        // Skip if already loaded or currently loading
+        if (annotationsRef.current.has(pageNum) || annotationLoadingRef.current.has(pageNum)) {
+            return;
+        }
+
+        annotationLoadingRef.current.add(pageNum);
+
+        try {
+            const data = await getAnnotations(file.id, pageNum);
+            annotationsRef.current.set(pageNum, {
+                strokes: data.strokes,
+                loading: false,
+            });
+            // Force re-render by updating activePage state (triggers component re-render)
+            setActivePage((prev) => prev);
+        } catch (err) {
+            console.warn(`Failed to load annotations for page ${pageNum}:`, err);
+            annotationsRef.current.set(pageNum, {
+                strokes: null,
+                loading: false,
+            });
+        } finally {
+            annotationLoadingRef.current.delete(pageNum);
+        }
+    };
+
+    // Load annotations for active page in page mode
+    useEffect(() => {
+        if (viewMode === "page" && file?.id && activePage) {
+            loadAnnotationsForPage(activePage);
+        }
+    }, [viewMode, file?.id, activePage]);
+
+    // Load annotations when page becomes visible (scroll mode only)
+    useEffect(() => {
+        if (viewMode !== "scroll" || !file?.id) return;
+
+        const rootEl = scrollContainerRef.current;
+        if (!rootEl) return;
+
+        // IntersectionObserver for annotation loading
+        const annotationObserver = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting) {
+                        const pageNum = Number(entry.target.getAttribute("data-page"));
+                        if (pageNum) {
+                            loadAnnotationsForPage(pageNum);
+                        }
+                    }
+                });
+            },
+            {
+                root: rootEl,
+                threshold: 0.1, // Load when 10% visible
+            }
+        );
+
+        const observePages = () => {
+            rootEl.querySelectorAll("[data-page]").forEach((el) => {
+                annotationObserver.observe(el);
+            });
+        };
+
+        observePages();
+        const raf = requestAnimationFrame(observePages);
+        const t = setTimeout(observePages, 200);
+
+        return () => {
+            cancelAnimationFrame(raf);
+            clearTimeout(t);
+            annotationObserver.disconnect();
+        };
+    }, [viewMode, file?.id, totalPages]);
 
     // Page tracking - center-to-center distance (independent of zoom)
     useEffect(() => {
@@ -399,6 +487,11 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
         renderAttemptedRef.current = new Set();
         imageLoadFailedRef.current = new Set();
         renderedImageUrlsRef.current = new Map();
+        // Clear annotation cache on file change
+        annotationsRef.current = new Map();
+        annotationLoadingRef.current = new Set();
+        localStrokesRef.current = new Map();
+        setIsAnnotating(false); // Reset annotation mode
     }, [file.id, pageNumber, initialPage]);
 
     // =====================================================================
@@ -1050,9 +1143,23 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
         // Get rendered URL for this page
         const cachedRenderedUrl = renderedImageUrlsRef.current.get(pageKey);
 
+        // Get annotations for this page (from ref cache)
+        const pageAnnotations = annotationsRef.current.get(pageNum);
+        const backendStrokes = pageAnnotations?.strokes || null;
+        
+        // Merge backend strokes with local strokes
+        const localStrokes = localStrokesRef.current.get(pageNum) || [];
+        const allStrokes = backendStrokes 
+            ? [...backendStrokes, ...localStrokes]
+            : localStrokes.length > 0 
+                ? localStrokes 
+                : null;
+
+        // Render page content
+        let pageContent;
         if (isDemo) {
             if (imageUrl) {
-                return (
+                pageContent = (
                     <img
                         src={imageUrl}
                         alt={`Page ${pageNum}`}
@@ -1060,17 +1167,16 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                         loading="lazy"
                     />
                 );
+            } else {
+                pageContent = (
+                    <div className="text-muted text-sm opacity-50">
+                        Demo page {pageNum}
+                    </div>
+                );
             }
-            return (
-                <div className="text-muted text-sm opacity-50">
-                    Demo page {pageNum}
-                </div>
-            );
-        }
-
-        // Priority (a): Use rendered PNG URL if present and not failed
-        if (cachedRenderedUrl && !imageFailed) {
-            return (
+        } else if (cachedRenderedUrl && !imageFailed) {
+            // Priority (a): Use rendered PNG URL if present and not failed
+            pageContent = (
                 <img
                     src={cachedRenderedUrl}
                     alt={`Page ${pageNum}`}
@@ -1082,11 +1188,9 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                     }}
                 />
             );
-        }
-
-        // Priority (b): Use image_url from page_contents if available and not failed
-        if (imageUrl && !imageFailed) {
-            return (
+        } else if (imageUrl && !imageFailed) {
+            // Priority (b): Use image_url from page_contents if available and not failed
+            pageContent = (
                 <img
                     src={imageUrl}
                     alt={`Page ${pageNum}`}
@@ -1098,11 +1202,9 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                     }}
                 />
             );
-        }
-
-        // Priority (c): Use PDF.js fallback with signed_url (skip for image files)
-        if (file.signed_url && !isImageFile) {
-            return (
+        } else if (file.signed_url && !isImageFile) {
+            // Priority (c): Use PDF.js fallback with signed_url (skip for image files)
+            pageContent = (
                 <div className="w-full">
                     <PdfJsPage
                         pdfUrl={file.signed_url}
@@ -1111,12 +1213,33 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                     />
                 </div>
             );
+        } else {
+            // Fallback
+            pageContent = (
+                <div className="text-muted text-sm opacity-50">
+                    Page {pageNum} unavailable
+                </div>
+            );
         }
 
-        // Fallback
+        // Wrap in relative container with annotation overlay
+        // Note: pageRef will be set by the parent div's ref callback
         return (
-            <div className="text-muted text-sm opacity-50">
-                Page {pageNum} unavailable
+            <div className="relative" style={{ width: "100%", height: "auto" }}>
+                {pageContent}
+                <AnnotationCanvas
+                    pageRef={pageRefs.current[pageNum] ? { current: pageRefs.current[pageNum] } : null}
+                    zoomLevel={zoomLevel}
+                    strokes={allStrokes}
+                    isAnnotating={isAnnotating}
+                    onStrokeComplete={(stroke) => {
+                        // Append to local strokes cache (in-memory only, not saved)
+                        const existing = localStrokesRef.current.get(pageNum) || [];
+                        localStrokesRef.current.set(pageNum, [...existing, stroke]);
+                        // Force re-render by updating activePage state
+                        setActivePage((prev) => prev);
+                    }}
+                />
             </div>
         );
     };
@@ -1224,6 +1347,20 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                                     <ZoomIn size={14} />
                                 </button>
                             </div>
+                        {/* Annotation Mode Toggle */}
+                        <button
+                            onClick={() => setIsAnnotating(!isAnnotating)}
+                            className={`px-3 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                                isAnnotating
+                                    ? 'bg-teal/20 text-teal border border-teal/30'
+                                    : 'bg-black/40 border border-white/10 text-muted hover:text-white'
+                            }`}
+                            title={isAnnotating ? "Exit annotation mode" : "Enter annotation mode"}
+                        >
+                            <Pen size={14} />
+                            {isAnnotating ? "Annotating" : "Annotate"}
+                        </button>
+
                         {/* View Mode Toggle */}
                         <div className="flex items-center gap-2 bg-black/40 rounded-lg border border-white/10 p-1">
                             <button
@@ -1351,6 +1488,7 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                                             if (el) pageRefs.current[activePage] = el;
                                         }}
                                         data-page={activePage}
+                                        className="relative"
                                     >
                                         {renderPage(activePage, false)}
                                     </div>

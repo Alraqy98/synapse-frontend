@@ -529,3 +529,31 @@ export const getRootItems = async (category = "All") => {
 export const getChildren = async (folderId, category = "All") => {
     return await getLibraryItems(category, folderId);
 };
+
+// ------------------------------------------------------
+// GET ANNOTATIONS FOR A PAGE
+// GET /library/annotations?file_id=UUID&page=INT
+// Returns: { strokes: Array | null }
+// ------------------------------------------------------
+export const getAnnotations = async (fileId, page) => {
+    if (!fileId || !page) {
+        return { strokes: null };
+    }
+
+    const res = await fetch(
+        `${API_BASE}/library/annotations?file_id=${fileId}&page=${page}`,
+        {
+            headers: { ...getAuthHeaders() },
+        }
+    );
+
+    // Handle 404 gracefully (no annotations exist yet)
+    if (res.status === 404) {
+        return { strokes: null };
+    }
+
+    const data = await handleJson(res);
+    return {
+        strokes: data.strokes || null,
+    };
+};
