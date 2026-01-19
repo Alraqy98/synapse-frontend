@@ -115,6 +115,24 @@ const AnnotationCanvas = ({ pageRef, zoomLevel, strokes, isAnnotating = false, o
 
                 // Stroke the path
                 ctx.stroke();
+
+                // Draw endpoint caps (visual bridge for crossing strokes)
+                const lineWidth = stroke.width || 2;
+                const capRadius = lineWidth / 2;
+                ctx.fillStyle = stroke.color || "#000000";
+                
+                // Start cap
+                ctx.beginPath();
+                ctx.arc(firstPoint.x * cssWidth, firstPoint.y * cssHeight, capRadius, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // End cap
+                if (stroke.points.length > 1) {
+                    const lastPoint = stroke.points[stroke.points.length - 1];
+                    ctx.beginPath();
+                    ctx.arc(lastPoint.x * cssWidth, lastPoint.y * cssHeight, capRadius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
             });
         }
 
@@ -140,6 +158,24 @@ const AnnotationCanvas = ({ pageRef, zoomLevel, strokes, isAnnotating = false, o
             }
 
             ctx.stroke();
+
+            // Draw endpoint caps for in-progress stroke
+            const lineWidth = currentStroke.width || 2;
+            const capRadius = lineWidth / 2;
+            ctx.fillStyle = currentStroke.color || "#000000";
+            
+            // Start cap
+            ctx.beginPath();
+            ctx.arc(firstPoint.x * cssWidth, firstPoint.y * cssHeight, capRadius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // End cap (if more than one point)
+            if (currentStroke.points.length > 1) {
+                const lastPoint = currentStroke.points[currentStroke.points.length - 1];
+                ctx.beginPath();
+                ctx.arc(lastPoint.x * cssWidth, lastPoint.y * cssHeight, capRadius, 0, Math.PI * 2);
+                ctx.fill();
+            }
         }
     };
 
@@ -267,9 +303,19 @@ const AnnotationCanvas = ({ pageRef, zoomLevel, strokes, isAnnotating = false, o
 
         const normalized = screenToNormalized(e.clientX, e.clientY);
         
-        if (currentStrokeRef.current) {
-            currentStrokeRef.current.points.push(normalized);
-            renderStrokes();
+        if (currentStrokeRef.current && currentStrokeRef.current.points.length > 0) {
+            // Point filtering: ignore points too close to previous point
+            const MIN_DISTANCE = 0.002; // Normalized coordinate threshold
+            const lastPoint = currentStrokeRef.current.points[currentStrokeRef.current.points.length - 1];
+            const dx = normalized.x - lastPoint.x;
+            const dy = normalized.y - lastPoint.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            // Only add point if it's far enough from the last point
+            if (distance >= MIN_DISTANCE) {
+                currentStrokeRef.current.points.push(normalized);
+                renderStrokes();
+            }
         }
     };
 
