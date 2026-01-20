@@ -324,6 +324,11 @@ const AnnotationCanvas = ({ pageRef, zoomLevel, strokes, isAnnotating = false, o
         activeDrawingPointerIdRef.current = e.pointerId;
         isDrawingRef.current = true;
 
+        // Disable global text selection while pen is drawing (Safari/iPad)
+        if (e.pointerType === "pen") {
+            document.body.style.webkitUserSelect = "none";
+        }
+
         const normalized = screenToNormalized(e.clientX, e.clientY);
         
         // Start new stroke
@@ -404,6 +409,9 @@ const AnnotationCanvas = ({ pageRef, zoomLevel, strokes, isAnnotating = false, o
         currentStrokeRef.current = null;
         activeDrawingPointerIdRef.current = null;
 
+        // Re-enable global text selection (Safari/iPad)
+        document.body.style.webkitUserSelect = "";
+
         // Redraw with pending stroke included
         renderStrokes();
     };
@@ -429,9 +437,40 @@ const AnnotationCanvas = ({ pageRef, zoomLevel, strokes, isAnnotating = false, o
         isDrawingRef.current = false;
         currentStrokeRef.current = null;
         activeDrawingPointerIdRef.current = null;
+
+        // Re-enable global text selection (Safari/iPad)
+        document.body.style.webkitUserSelect = "";
         
         renderStrokes();
     };
+
+    // Attach Safari/iPad gesture suppression listeners (dblclick, contextmenu)
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+
+        const handleDblClick = (event) => {
+            // Only suppress when annotating (pen mode)
+            if (!isAnnotating) return;
+            event.preventDefault();
+            event.stopPropagation();
+        };
+
+        const handleContextMenu = (event) => {
+            // Only suppress when annotating (pen mode)
+            if (!isAnnotating) return;
+            event.preventDefault();
+            event.stopPropagation();
+        };
+
+        canvas.addEventListener("dblclick", handleDblClick);
+        canvas.addEventListener("contextmenu", handleContextMenu);
+
+        return () => {
+            canvas.removeEventListener("dblclick", handleDblClick);
+            canvas.removeEventListener("contextmenu", handleContextMenu);
+        };
+    }, [isAnnotating]);
 
     // Cleanup on unmount
     useEffect(() => {
@@ -442,6 +481,8 @@ const AnnotationCanvas = ({ pageRef, zoomLevel, strokes, isAnnotating = false, o
             if (rafIdRef.current) {
                 cancelAnimationFrame(rafIdRef.current);
             }
+            // Ensure global selection is restored
+            document.body.style.webkitUserSelect = "";
         };
     }, []);
 
@@ -458,6 +499,10 @@ const AnnotationCanvas = ({ pageRef, zoomLevel, strokes, isAnnotating = false, o
                 left: 0,
                 width: "100%",
                 height: "100%",
+                // Disable text selection / callouts on Safari/iPad
+                userSelect: "none",
+                WebkitUserSelect: "none",
+                WebkitTouchCallout: "none",
                 pointerEvents: isAnnotating ? "auto" : "none",
                 touchAction: isAnnotating ? "none" : "auto",
             }}
