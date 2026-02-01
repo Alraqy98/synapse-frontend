@@ -62,6 +62,118 @@ function PremiumDropdown({ label, value, setValue, options }) {
     );
 }
 
+function FolderDropdown({ value, onChange, folders, onCreateFolder }) {
+    const [open, setOpen] = useState(false);
+    const [creating, setCreating] = useState(false);
+    const [newName, setNewName] = useState("");
+
+    useEffect(() => {
+        function handleClickOutside() {
+            setOpen(false);
+            setCreating(false);
+        }
+        if (open) {
+            window.addEventListener("click", handleClickOutside);
+        }
+        return () => window.removeEventListener("click", handleClickOutside);
+    }, [open]);
+
+    const selectedLabel = (() => {
+        if (value === "null") return "Uncategorized";
+        const match = folders.find((f) => f.id === value);
+        return match?.name || "Select folder";
+    })();
+
+    const handleCreate = async () => {
+        const trimmed = newName.trim();
+        if (!trimmed || !onCreateFolder) {
+            setCreating(false);
+            setNewName("");
+            return;
+        }
+        try {
+            const created = await onCreateFolder(trimmed);
+            if (created?.id) {
+                onChange(created.id);
+            }
+        } finally {
+            setCreating(false);
+            setNewName("");
+            setOpen(false);
+        }
+    };
+
+    return (
+        <div className="relative" onClick={(e) => e.stopPropagation()}>
+            <label className="text-sm text-muted">Folder</label>
+            <button
+                type="button"
+                className="w-full mt-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-left"
+                onClick={() => setOpen((prev) => !prev)}
+            >
+                {selectedLabel}
+            </button>
+            {open && (
+                <div className="absolute left-0 right-0 mt-2 bg-void border border-white/10 rounded-xl shadow-xl z-50 overflow-hidden">
+                    <div className="p-1 space-y-0.5">
+                        <button
+                            className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-white/10"
+                            onClick={() => {
+                                onChange("null");
+                                setOpen(false);
+                            }}
+                        >
+                            Uncategorized
+                        </button>
+                        {folders.map((folder) => (
+                            <button
+                                key={folder.id}
+                                className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-white/10"
+                                onClick={() => {
+                                    onChange(folder.id);
+                                    setOpen(false);
+                                }}
+                            >
+                                {folder.name}
+                            </button>
+                        ))}
+                        <div className="border-t border-white/10 my-1" />
+                        {!creating ? (
+                            <button
+                                className="w-full text-left px-3 py-2 text-sm text-teal hover:bg-white/10"
+                                onClick={() => setCreating(true)}
+                            >
+                                + New Folder
+                            </button>
+                        ) : (
+                            <div className="px-3 py-2">
+                                <input
+                                    autoFocus
+                                    className="w-full px-2 py-1 rounded-md bg-black/40 border border-white/10 text-sm"
+                                    placeholder="Folder name"
+                                    value={newName}
+                                    onChange={(e) => setNewName(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                            e.preventDefault();
+                                            handleCreate();
+                                        }
+                                        if (e.key === "Escape") {
+                                            setCreating(false);
+                                            setNewName("");
+                                        }
+                                    }}
+                                    onBlur={handleCreate}
+                                />
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 // ------------------------------------------------------------
 // UUID helper
 // ------------------------------------------------------------
@@ -77,6 +189,8 @@ export default function GenerateMCQModal({
     onClose,
     onCreated,
     presetFileId = null,
+    folders: initialFolders = [],
+    onFolderCreated,
 }) {
     if (!open) return null;
 
@@ -94,6 +208,9 @@ export default function GenerateMCQModal({
 
     const [loadingTree, setLoadingTree] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    const [folders, setFolders] = useState(initialFolders);
+    const [selectedFolderId, setSelectedFolderId] = useState("null");
+    const [loadingFolders, setLoadingFolders] = useState(false);
 
     // ------------------------------------------------------------
     // Load file data for presetFileId
@@ -112,6 +229,25 @@ export default function GenerateMCQModal({
             }
         })();
     }, [open, presetFileId]);
+
+    useEffect(() => {
+        if (!open) return;
+        setSelectedFolderId("null");
+        if (initialFolders?.length) {
+            setFolders(initialFolders);
+        }
+        (async () => {
+            try {
+                setLoadingFolders(true);
+                const list = await apiMCQ.getMCQFolders();
+                setFolders(list || []);
+            } catch (err) {
+                console.error("Failed to load MCQ folders:", err);
+            } finally {
+                setLoadingFolders(false);
+            }
+        })();
+    }, [open]);
 
     // ------------------------------------------------------------
     // Poll selected files for readiness (every 4 seconds)
@@ -348,7 +484,8 @@ export default function GenerateMCQModal({
             title,
             difficulty,
             question_count_target: Number(count),
-            file_ids: selectedFiles
+            file_ids: selectedFiles,
+            mcq_folder_id: selectedFolderId === "null" ? null : selectedFolderId,
         };
 
         try {
@@ -446,6 +583,26 @@ export default function GenerateMCQModal({
                             { value: 45, label: "45" }
                         ]}
                     />
+                </div>
+
+                {/* Folder */}
+                <div className="mb-4">
+                    <FolderDropdown
+                        value={selectedFolderId}
+                        onChange={setSelectedFolderId}
+                        folders={folders}
+                        onCreateFolder={async (name) => {
+                            const created = await apiMCQ.createMCQFolder(name);
+                            if (created?.id) {
+                                setFolders((prev) => [...prev, created]);
+                                onFolderCreated?.(created);
+                            }
+                            return created;
+                        }}
+                    />
+                    {loadingFolders && (
+                        <div className="text-xs text-muted mt-1">Loading folders…</div>
+                    )}
                 </div>
 
                 {/* FILE PICKER */}

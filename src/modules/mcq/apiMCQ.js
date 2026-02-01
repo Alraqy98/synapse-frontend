@@ -23,6 +23,30 @@ export const getMCQDecks = async () => {
     return res.data?.decks || [];
 };
 
+// ===============================================================
+// MCQ FOLDERS
+// ===============================================================
+
+export const getMCQFolders = async () => {
+    const demoRes = demoApiIntercept({
+        method: "GET",
+        url: "/ai/mcq/folders",
+    });
+    if (demoRes.handled) {
+        return demoRes.data?.folders || [];
+    }
+
+    const res = await api.get("/ai/mcq/folders");
+    if (Array.isArray(res.data)) return res.data;
+    return res.data?.folders || [];
+};
+
+export const createMCQFolder = async (name) => {
+    if (!name?.trim()) throw new Error("Folder name required");
+    const res = await api.post("/ai/mcq/folders", { name: name.trim() });
+    return res.data?.folder || res.data;
+};
+
 /**
  * Get MCQ decks for a specific file (file-scoped query)
  * Uses Supabase direct query to filter by file_ids array containing the file ID
@@ -269,6 +293,12 @@ export const renameMCQDeck = async (deck_id, title) => {
     return res.data?.deck;
 };
 
+export const updateMCQDeck = async (deck_id, payload) => {
+    if (!deck_id) throw new Error("Deck ID missing (updateMCQDeck)");
+    const res = await api.patch(`/ai/mcq/decks/${deck_id}`, payload);
+    return res.data?.deck;
+};
+
 // Delete deck
 export const deleteMCQDeck = async (deck_id) => {
     if (!deck_id) throw new Error("Deck ID missing (deleteMCQDeck)");
@@ -313,7 +343,10 @@ export const apiMCQ = {
     createMCQDeck,
     getMCQDeck,
     getMCQQuestions,
+    getMCQFolders,
+    createMCQFolder,
     renameMCQDeck,
+    updateMCQDeck,
     deleteMCQDeck,
     shareDeck,
     importMcqDeck,

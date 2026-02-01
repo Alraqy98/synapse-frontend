@@ -21,3 +21,4 @@ const FollowUpPrompt = ({ followUpQuestion, onSendFollowUp }) => {
 
 export default FollowUpPrompt;
 
+

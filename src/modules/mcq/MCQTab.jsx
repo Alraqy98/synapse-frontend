@@ -6,11 +6,147 @@ import { apiMCQ } from "./apiMCQ";
 import GenerateMCQModal from "./GenerateMCQModal";
 import MCQDeckView from "./MCQDeckView";
 import UnifiedCard from "../../components/UnifiedCard";
-import { Search, Plus, Upload, Share2 } from "lucide-react";
+import { Search, Plus, Upload, Folder } from "lucide-react";
 import { isValidCodeFormat } from "../summaries/utils/summaryCode";
 import { sanitizeErrorMessage } from "../utils/errorSanitizer";
 import { useDemo } from "../demo/DemoContext";
 import { DEMO_MCQ_DECK_ID } from "../demo/demoData/demoMcq";
+
+function FolderDropdown({
+    label,
+    value,
+    onChange,
+    folders,
+    includeAll = false,
+    allowCreate = false,
+    onCreateFolder,
+}) {
+    const [open, setOpen] = useState(false);
+    const [creating, setCreating] = useState(false);
+    const [newName, setNewName] = useState("");
+
+    useEffect(() => {
+        function handleClickOutside() {
+            setOpen(false);
+            setCreating(false);
+        }
+        if (open) {
+            window.addEventListener("click", handleClickOutside);
+        }
+        return () => window.removeEventListener("click", handleClickOutside);
+    }, [open]);
+
+    const selectedLabel = (() => {
+        if (value === "all") return "All MCQs";
+        if (value === "null") return "Uncategorized";
+        const match = folders.find((f) => f.id === value);
+        return match?.name || "Select folder";
+    })();
+
+    const handleCreate = async () => {
+        const trimmed = newName.trim();
+        if (!trimmed || !onCreateFolder) {
+            setCreating(false);
+            setNewName("");
+            return;
+        }
+        try {
+            const created = await onCreateFolder(trimmed);
+            if (created?.id) {
+                onChange(created.id);
+            }
+        } finally {
+            setCreating(false);
+            setNewName("");
+            setOpen(false);
+        }
+    };
+
+    return (
+        <div className="relative" onClick={(e) => e.stopPropagation()}>
+            {label && <div className="text-xs text-muted mb-1">{label}</div>}
+            <button
+                type="button"
+                className="px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-sm text-white min-w-[180px] text-left"
+                onClick={() => setOpen((prev) => !prev)}
+            >
+                {selectedLabel}
+            </button>
+            {open && (
+                <div className="absolute left-0 right-0 mt-2 bg-void border border-white/10 rounded-xl shadow-xl z-50 overflow-hidden">
+                    <div className="p-1 space-y-0.5">
+                        {includeAll && (
+                            <button
+                                className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-white/10"
+                                onClick={() => {
+                                    onChange("all");
+                                    setOpen(false);
+                                }}
+                            >
+                                All MCQs
+                            </button>
+                        )}
+                        <button
+                            className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-white/10"
+                            onClick={() => {
+                                onChange("null");
+                                setOpen(false);
+                            }}
+                        >
+                            Uncategorized
+                        </button>
+                        {folders.map((folder) => (
+                            <button
+                                key={folder.id}
+                                className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-white/10"
+                                onClick={() => {
+                                    onChange(folder.id);
+                                    setOpen(false);
+                                }}
+                            >
+                                {folder.name}
+                            </button>
+                        ))}
+                        {allowCreate && (
+                            <>
+                                <div className="border-t border-white/10 my-1" />
+                                {!creating ? (
+                                    <button
+                                        className="w-full text-left px-3 py-2 text-sm text-teal hover:bg-white/10"
+                                        onClick={() => setCreating(true)}
+                                    >
+                                        + New Folder
+                                    </button>
+                                ) : (
+                                    <div className="px-3 py-2">
+                                        <input
+                                            autoFocus
+                                            className="w-full px-2 py-1 rounded-md bg-black/40 border border-white/10 text-sm"
+                                            placeholder="Folder name"
+                                            value={newName}
+                                            onChange={(e) => setNewName(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter") {
+                                                    e.preventDefault();
+                                                    handleCreate();
+                                                }
+                                                if (e.key === "Escape") {
+                                                    setCreating(false);
+                                                    setNewName("");
+                                                }
+                                            }}
+                                            onBlur={handleCreate}
+                                        />
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
 
 export default function MCQTab() {
     const { deckId: urlDeckId } = useParams();
@@ -33,6 +169,9 @@ export default function MCQTab() {
     const [importCode, setImportCode] = useState("");
     const [importError, setImportError] = useState(null);
     const [isImporting, setIsImporting] = useState(false);
+    const [folders, setFolders] = useState([]);
+    const [selectedFolderId, setSelectedFolderId] = useState("all");
+    const [folderAssignDeck, setFolderAssignDeck] = useState(null);
 
     // --------------------------------------------------
     // Fetch decks
@@ -54,6 +193,26 @@ export default function MCQTab() {
     useEffect(() => {
         loadDecks();
     }, []);
+
+    const loadFolders = async () => {
+        try {
+            const list = await apiMCQ.getMCQFolders();
+            setFolders(list || []);
+        } catch (err) {
+            console.error("Failed to load MCQ folders:", err);
+        } finally {
+        }
+    };
+
+    useEffect(() => {
+        loadFolders();
+    }, []);
+
+    useEffect(() => {
+        if (openModal) {
+            loadFolders();
+        }
+    }, [openModal]);
 
     useEffect(() => {
         if (!decks.length) return;
@@ -101,8 +260,43 @@ export default function MCQTab() {
             list.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
         }
 
+        if (selectedFolderId === "null") {
+            list = list.filter((d) => !d.mcq_folder_id);
+        } else if (selectedFolderId !== "all") {
+            list = list.filter((d) => d.mcq_folder_id === selectedFolderId);
+        }
+
         return list;
-    }, [decks, search, sort]);
+    }, [decks, search, sort, selectedFolderId]);
+
+    const handleAssignFolder = async (deck, folderId) => {
+        const nextFolderId = folderId === "null" ? null : folderId;
+        const previousFolderId = deck.mcq_folder_id ?? null;
+
+        setDecks((prev) =>
+            prev.map((d) =>
+                d.id === deck.id ? { ...d, mcq_folder_id: nextFolderId } : d
+            )
+        );
+
+        try {
+            await apiMCQ.updateMCQDeck(deck.id, { mcq_folder_id: nextFolderId });
+        } catch (err) {
+            console.error("Failed to update MCQ folder:", err);
+            setDecks((prev) =>
+                prev.map((d) =>
+                    d.id === deck.id ? { ...d, mcq_folder_id: previousFolderId } : d
+                )
+            );
+        }
+    };
+
+    const handleCreateFolder = async (name) => {
+        const created = await apiMCQ.createMCQFolder(name);
+        if (!created?.id) return null;
+        setFolders((prev) => [...prev, created]);
+        return created;
+    };
 
     // --------------------------------------------------
     // Rename / Delete
@@ -204,7 +398,25 @@ export default function MCQTab() {
                                     <option value="oldest">Oldest</option>
                                 </select>
 
-                                <div className="flex gap-2 ml-auto">
+                            <div className="flex items-center gap-2">
+                                <FolderDropdown
+                                    label="Folder"
+                                    value={selectedFolderId}
+                                    onChange={setSelectedFolderId}
+                                    folders={folders}
+                                    includeAll
+                                    allowCreate
+                                    onCreateFolder={async (name) => {
+                                        const created = await handleCreateFolder(name);
+                                        if (created?.id) {
+                                            setSelectedFolderId(created.id);
+                                        }
+                                        return created;
+                                    }}
+                                />
+                            </div>
+
+                            <div className="flex gap-2 ml-auto">
                                     <button 
                                         className="btn btn-secondary gap-2"
                                         onClick={() => setShowImport(true)}
@@ -282,6 +494,13 @@ export default function MCQTab() {
                                                         loadDecks();
                                                     });
                                                 }}
+                                                overflowActions={[
+                                                    {
+                                                        label: "Move to folder",
+                                                        icon: Folder,
+                                                        onClick: () => setFolderAssignDeck(deck),
+                                                    },
+                                                ]}
                                                 itemId={deck.id}
                                                 shareItem={apiMCQ.shareDeck}
                                             />
@@ -368,10 +587,55 @@ export default function MCQTab() {
                         </div>
                     )}
 
+                    {/* ================= ASSIGN FOLDER ================= */}
+                    {folderAssignDeck && (
+                        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center">
+                            <div className="w-full max-w-md rounded-2xl bg-black border border-white/10 p-6">
+                                <h3 className="text-lg font-semibold text-white mb-2">
+                                    Move to folder
+                                </h3>
+                                <p className="text-sm text-muted mb-4">
+                                    {folderAssignDeck.title}
+                                </p>
+                                <FolderDropdown
+                                    value={folderAssignDeck.mcq_folder_id ?? "null"}
+                                    onChange={(value) => {
+                                        handleAssignFolder(folderAssignDeck, value);
+                                        setFolderAssignDeck(null);
+                                    }}
+                                    folders={folders}
+                                    allowCreate
+                                    onCreateFolder={async (name) => {
+                                        const created = await handleCreateFolder(name);
+                                        if (created?.id) {
+                                            handleAssignFolder(folderAssignDeck, created.id);
+                                            setFolderAssignDeck(null);
+                                        }
+                                        return created;
+                                    }}
+                                />
+                                <div className="flex justify-end gap-2 mt-6">
+                                    <button
+                                        className="btn btn-secondary"
+                                        onClick={() => setFolderAssignDeck(null)}
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     <GenerateMCQModal
                         open={openModal}
                         onClose={() => setOpenModal(false)}
                         onCreated={loadDecks}
+                        folders={folders}
+                        onFolderCreated={(folder) => {
+                            if (folder?.id) {
+                                setFolders((prev) => [...prev, folder]);
+                            }
+                        }}
                     />
 
                     {/* Import Modal - Portal to document.body for viewport centering */}
