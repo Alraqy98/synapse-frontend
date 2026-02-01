@@ -625,6 +625,25 @@ const SynapseOS = () => {
     return () => clearInterval(interval);
   }, [isAuthenticated]);
 
+  // TEMP: Test Supabase JWT reaching Postgres
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const testWhoami = async () => {
+      try {
+        const { data, error } = await supabase.rpc("whoami");
+        console.log("[WHOAMI TEST] Result:", data);
+        if (error) {
+          console.error("[WHOAMI TEST] Error:", error);
+        }
+      } catch (err) {
+        console.error("[WHOAMI TEST] Exception:", err);
+      }
+    };
+
+    testWhoami();
+  }, [isAuthenticated]);
+
   // Close notifications dropdown when clicking outside
   useEffect(() => {
     if (!notificationsOpen) return;

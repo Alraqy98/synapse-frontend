@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from "react";
+import SourceAttribution from "../../components/SourceAttribution";
 
 export default function CardViewer({ card, onGrade }) {
     const [flipped, setFlipped] = useState(false);
-    const [showRef, setShowRef] = useState(false);
 
     useEffect(() => {
         setFlipped(false);
-        setShowRef(false);
     }, [card?.id]);
 
     if (!card) return null;
@@ -62,13 +61,6 @@ export default function CardViewer({ card, onGrade }) {
         l.startsWith("•") ? l : `• ${l}`
     );
 
-    // ------------------------------
-    // Clean reference rendering
-    // ------------------------------
-    const refPage = card.reference_page || null;
-    const refTitle = card.source_file_title || null;
-    const refFallback = card.source_file_id || null;
-
     const label = flipped ? "ANSWER" : "QUESTION";
 
     return (
@@ -111,45 +103,17 @@ export default function CardViewer({ card, onGrade }) {
                     </div>
                 )}
 
-                <button
-                    type="button"
-                    className="
-                        absolute bottom-4 right-4 w-7 h-7 rounded-full
-                        border border-white/20 flex items-center justify-center
-                        text-xs text-white/70 bg-black/40 hover:border-teal hover:text-teal
-                        transition backdrop-blur-sm
-                    "
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        setShowRef((v) => !v);
-                    }}
+                <div
+                    className="absolute bottom-4 right-4"
+                    onClick={(e) => e.stopPropagation()}
                 >
-                    i
-                </button>
-
-                {showRef && (
-                    <div
-                        className="
-                            absolute bottom-16 right-4
-                            max-w-xs text-[11px] text-muted
-                            bg-black/80 border border-white/15
-                            rounded-xl px-3 py-2 shadow-xl backdrop-blur
-                        "
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div className="text-white/90 space-y-1">
-                            {refPage && <div><strong>Page:</strong> {refPage}</div>}
-
-                            {refTitle ? (
-                                <div><strong>File:</strong> {refTitle}</div>
-                            ) : refFallback ? (
-                                <div><strong>File:</strong> {refFallback}</div>
-                            ) : (
-                                <div>No reference available.</div>
-                            )}
-                        </div>
-                    </div>
-                )}
+                    <SourceAttribution
+                        sourceFileId={card.source_file_id}
+                        sourceFileTitle={card.source_file_title}
+                        sourcePageNumbers={card.source_page_numbers}
+                        position="top"
+                    />
+                </div>
             </div>
 
             {/* Grading Buttons - Only show when flipped AND onGrade is provided */}

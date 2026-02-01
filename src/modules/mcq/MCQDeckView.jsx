@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { apiMCQ } from "./apiMCQ";
 import { Send, ArrowLeft, Clock3, CheckCircle2, XCircle } from "lucide-react";
 import MCQEntryModal from "./MCQEntryModal";
 import { useDemo } from "../demo/DemoContext";
 import { DEMO_MCQ_DECK_ID } from "../demo/demoData/demoMcq";
+import SourceAttribution from "../../components/SourceAttribution";
 
 const LETTERS = ["A", "B", "C", "D", "E"];
 
@@ -739,8 +741,17 @@ export default function MCQDeckView({ deckId, goBack }) {
                     </div>
                 </div>
                 <div className="flex items-start justify-between gap-6 mb-3">
-                    <div className="text-[1.35rem] font-semibold leading-relaxed" data-demo="mcq-question-text">
-                        {q.question}
+                    <div className="flex-1 flex items-start gap-3">
+                        <div className="text-[1.35rem] font-semibold leading-relaxed flex-1" data-demo="mcq-question-text">
+                            {q.question}
+                        </div>
+                        <SourceAttribution
+                            sourceFileId={q.source_file_id}
+                            sourceFileTitle={q.source_file_title}
+                            sourcePageNumbers={q.source_page_numbers}
+                            className="mt-1 shrink-0"
+                            position="bottom"
+                        />
                     </div>
                     <button className="btn btn-secondary shrink-0">
                         <Send size={16} /> Astra

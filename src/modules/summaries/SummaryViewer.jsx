@@ -31,6 +31,7 @@ import {
 import MessageBubble from "../Tutor/MessageBubble";
 import { useDemo } from "../demo/DemoContext";
 import DemoSummaryChat from "./DemoSummaryChat";
+import SourceAttribution from "../../components/SourceAttribution";
 
 export default function SummaryViewer({ summaryId: propSummaryId, goBack: propGoBack, onRename: propOnRename, onDelete: propOnDelete }) {
     const { isDemo, currentStep } = useDemo() || {};
@@ -998,9 +999,18 @@ export default function SummaryViewer({ summaryId: propSummaryId, goBack: propGo
         return (
             <div className="prose prose-invert max-w-none" style={{ userSelect: 'text', pointerEvents: 'auto' }}>
                 {/* Title */}
-                <h1 className="text-3xl font-bold text-white mb-3" style={{ userSelect: 'text', pointerEvents: 'auto' }}>
-                    {summary.title}
-                </h1>
+                <div className="flex items-start gap-3 mb-3">
+                    <h1 className="text-3xl font-bold text-white flex-1" style={{ userSelect: 'text', pointerEvents: 'auto' }}>
+                        {summary.title}
+                    </h1>
+                    <SourceAttribution
+                        sourceFileId={summary.source_file_id}
+                        sourceFileTitle={summary.source_file_title}
+                        sourcePageNumbers={summary.source_page_numbers}
+                        className="mt-2 shrink-0"
+                        position="bottom"
+                    />
+                </div>
 
                 {/* Context Note */}
                 {(summary.academic_stage ||
