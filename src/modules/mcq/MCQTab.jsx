@@ -18,13 +18,17 @@ function FolderDropdown({
     onChange,
     folders,
     includeAll = false,
-    onManageFolders,
+    allowCreate = false,
+    onCreateFolder,
 }) {
     const [open, setOpen] = useState(false);
+    const [creating, setCreating] = useState(false);
+    const [newName, setNewName] = useState("");
 
     useEffect(() => {
         function handleClickOutside() {
             setOpen(false);
+            setCreating(false);
         }
         if (open) {
             window.addEventListener("click", handleClickOutside);
@@ -34,10 +38,28 @@ function FolderDropdown({
 
     const selectedLabel = (() => {
         if (value === "all") return "All MCQs";
-        if (value === "null") return "Uncategorized";
         const match = folders.find((f) => f.id === value);
-        return match?.name || "Select folder";
+        return match?.name || "All MCQs";
     })();
+
+    const handleCreate = async () => {
+        const trimmed = newName.trim();
+        if (!trimmed || !onCreateFolder) {
+            setCreating(false);
+            setNewName("");
+            return;
+        }
+        try {
+            const created = await onCreateFolder(trimmed);
+            if (created?.id) {
+                onChange(created.id);
+            }
+        } finally {
+            setCreating(false);
+            setNewName("");
+            setOpen(false);
+        }
+    };
 
     return (
         <div className="relative" onClick={(e) => e.stopPropagation()}>
@@ -63,15 +85,6 @@ function FolderDropdown({
                                 All MCQs
                             </button>
                         )}
-                        <button
-                            className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-white/10"
-                            onClick={() => {
-                                onChange("null");
-                                setOpen(false);
-                            }}
-                        >
-                            Uncategorized
-                        </button>
                         {folders.map((folder) => (
                             <button
                                 key={folder.id}
@@ -84,16 +97,40 @@ function FolderDropdown({
                                 {folder.name}
                             </button>
                         ))}
-                        <div className="border-t border-white/10 my-1" />
-                        <button
-                            className="w-full text-left px-3 py-2 text-sm text-muted hover:bg-white/10"
-                            onClick={() => {
-                                setOpen(false);
-                                onManageFolders && onManageFolders();
-                            }}
-                        >
-                            Manage folders
-                        </button>
+                        {allowCreate && (
+                            <>
+                                <div className="border-t border-white/10 my-1" />
+                                {!creating ? (
+                                    <button
+                                        className="w-full text-left px-3 py-2 text-sm text-teal hover:bg-white/10"
+                                        onClick={() => setCreating(true)}
+                                    >
+                                        + New Folder
+                                    </button>
+                                ) : (
+                                    <div className="px-3 py-2">
+                                        <input
+                                            autoFocus
+                                            className="w-full px-2 py-1 rounded-md bg-black/40 border border-white/10 text-sm"
+                                            placeholder="Folder name"
+                                            value={newName}
+                                            onChange={(e) => setNewName(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter") {
+                                                    e.preventDefault();
+                                                    handleCreate();
+                                                }
+                                                if (e.key === "Escape") {
+                                                    setCreating(false);
+                                                    setNewName("");
+                                                }
+                                            }}
+                                            onBlur={handleCreate}
+                                        />
+                                    </div>
+                                )}
+                            </>
+                        )}
                     </div>
                 </div>
             )}
@@ -125,18 +162,16 @@ export default function MCQTab() {
     const [folders, setFolders] = useState([]);
     const [selectedFolderId, setSelectedFolderId] = useState("all");
     const [folderAssignDeck, setFolderAssignDeck] = useState(null);
-    const [manageFoldersOpen, setManageFoldersOpen] = useState(false);
     const [creatingFolder, setCreatingFolder] = useState(false);
     const [newFolderName, setNewFolderName] = useState("");
-    const [editingFolders, setEditingFolders] = useState({});
 
     // --------------------------------------------------
     // Fetch decks
     // --------------------------------------------------
-    const loadDecks = async () => {
+    const loadDecks = async (folderId = null) => {
         try {
             if (!initialLoadDone) setLoading(true);
-            const decks = await apiMCQ.getMCQDecks();
+            const decks = await apiMCQ.getMCQDecks(folderId);
             setDecks(decks || []);
         } catch (err) {
             console.error("Failed to load MCQ decks:", err);
@@ -150,6 +185,14 @@ export default function MCQTab() {
     useEffect(() => {
         loadDecks();
     }, []);
+
+    useEffect(() => {
+        if (selectedFolderId === "all") {
+            loadDecks();
+        } else {
+            loadDecks(selectedFolderId);
+        }
+    }, [selectedFolderId]);
 
     const loadFolders = async () => {
         try {
@@ -217,17 +260,11 @@ export default function MCQTab() {
             list.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
         }
 
-        if (selectedFolderId === "null") {
-            list = list.filter((d) => !d.mcq_folder_id);
-        } else if (selectedFolderId !== "all") {
-            list = list.filter((d) => d.mcq_folder_id === selectedFolderId);
-        }
-
         return list;
-    }, [decks, search, sort, selectedFolderId]);
+    }, [decks, search, sort]);
 
     const handleAssignFolder = async (deck, folderId) => {
-        const nextFolderId = folderId === "null" ? null : folderId;
+        const nextFolderId = folderId === "all" ? null : folderId;
         const previousFolderId = deck.mcq_folder_id ?? null;
 
         setDecks((prev) =>
@@ -257,54 +294,6 @@ export default function MCQTab() {
         return created;
     };
 
-    const handleRenameFolder = async (folderId, name) => {
-        const trimmed = name.trim();
-        if (!trimmed) return;
-        const previous = folders.find((f) => f.id === folderId);
-        setFolders((prev) =>
-            prev.map((f) => (f.id === folderId ? { ...f, name: trimmed } : f))
-        );
-        try {
-            await apiMCQ.renameMCQFolder(folderId, trimmed);
-        } catch (err) {
-            console.error("Failed to rename folder:", err);
-            if (previous) {
-                setFolders((prev) =>
-                    prev.map((f) => (f.id === folderId ? previous : f))
-                );
-            }
-        }
-    };
-
-    const handleDeleteFolder = async (folderId) => {
-        const folder = folders.find((f) => f.id === folderId);
-        if (!folder) return;
-        const confirmed = window.confirm(
-            `Delete "${folder.name}"? All decks will be moved to Uncategorized.`
-        );
-        if (!confirmed) return;
-
-        const previousFolders = folders;
-        const previousDecks = decks;
-
-        setFolders((prev) => prev.filter((f) => f.id !== folderId));
-        setDecks((prev) =>
-            prev.map((d) =>
-                d.mcq_folder_id === folderId ? { ...d, mcq_folder_id: null } : d
-            )
-        );
-        if (selectedFolderId === folderId) {
-            setSelectedFolderId("null");
-        }
-
-        try {
-            await apiMCQ.deleteMCQFolder(folderId);
-        } catch (err) {
-            console.error("Failed to delete folder:", err);
-            setFolders(previousFolders);
-            setDecks(previousDecks);
-        }
-    };
 
     // --------------------------------------------------
     // Rename / Delete
@@ -413,7 +402,14 @@ export default function MCQTab() {
                                     onChange={setSelectedFolderId}
                                     folders={folders}
                                     includeAll
-                                    onManageFolders={() => setManageFoldersOpen(true)}
+                                    allowCreate
+                                    onCreateFolder={async (name) => {
+                                        const created = await handleCreateFolder(name);
+                                        if (created?.id) {
+                                            setSelectedFolderId(created.id);
+                                        }
+                                        return created;
+                                    }}
                                 />
                             </div>
 
@@ -616,16 +612,13 @@ export default function MCQTab() {
                                     {folderAssignDeck.title}
                                 </p>
                                 <FolderDropdown
-                                    value={folderAssignDeck.mcq_folder_id ?? "null"}
+                                    value={folderAssignDeck.mcq_folder_id ?? "all"}
                                     onChange={(value) => {
                                         handleAssignFolder(folderAssignDeck, value);
                                         setFolderAssignDeck(null);
                                     }}
                                     folders={folders}
-                                    onManageFolders={() => {
-                                        setFolderAssignDeck(null);
-                                        setManageFoldersOpen(true);
-                                    }}
+                                    includeAll
                                 />
                                 <div className="mt-4">
                                     {!creatingFolder ? (
@@ -680,81 +673,6 @@ export default function MCQTab() {
                                         }}
                                     >
                                         Cancel
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* ================= MANAGE FOLDERS ================= */}
-                    {manageFoldersOpen && (
-                        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center">
-                            <div className="w-full max-w-lg rounded-2xl bg-black border border-white/10 p-6">
-                                <h3 className="text-lg font-semibold text-white mb-4">
-                                    Manage folders
-                                </h3>
-                                <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
-                                    {folders.length === 0 && (
-                                        <div className="text-sm text-muted">
-                                            No folders yet.
-                                        </div>
-                                    )}
-                                    {folders.map((folder) => (
-                                        <div
-                                            key={folder.id}
-                                            className="flex items-center gap-2"
-                                        >
-                                            <input
-                                                className="flex-1 px-3 py-2 rounded-md bg-black/40 border border-white/10 text-sm"
-                                                value={editingFolders[folder.id] ?? folder.name}
-                                                onChange={(e) =>
-                                                    setEditingFolders((prev) => ({
-                                                        ...prev,
-                                                        [folder.id]: e.target.value,
-                                                    }))
-                                                }
-                                                onBlur={() =>
-                                                    handleRenameFolder(
-                                                        folder.id,
-                                                        editingFolders[folder.id] ?? folder.name
-                                                    )
-                                                }
-                                                onKeyDown={(e) => {
-                                                    if (e.key === "Enter") {
-                                                        e.preventDefault();
-                                                        handleRenameFolder(
-                                                            folder.id,
-                                                            editingFolders[folder.id] ?? folder.name
-                                                        );
-                                                    }
-                                                }}
-                                            />
-                                            <button
-                                                className="btn btn-secondary"
-                                                onClick={() =>
-                                                    handleRenameFolder(
-                                                        folder.id,
-                                                        editingFolders[folder.id] ?? folder.name
-                                                    )
-                                                }
-                                            >
-                                                Rename
-                                            </button>
-                                            <button
-                                                className="btn btn-danger"
-                                                onClick={() => handleDeleteFolder(folder.id)}
-                                            >
-                                                Delete
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                                <div className="flex justify-end gap-2 mt-6">
-                                    <button
-                                        className="btn btn-secondary"
-                                        onClick={() => setManageFoldersOpen(false)}
-                                    >
-                                        Close
                                     </button>
                                 </div>
                             </div>

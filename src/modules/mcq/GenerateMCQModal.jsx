@@ -62,7 +62,7 @@ function PremiumDropdown({ label, value, setValue, options }) {
     );
 }
 
-function FolderDropdown({ value, onChange, folders }) {
+function FolderDropdown({ value, onChange, folders, includeAll = false }) {
     const [open, setOpen] = useState(false);
 
     useEffect(() => {
@@ -76,9 +76,9 @@ function FolderDropdown({ value, onChange, folders }) {
     }, [open]);
 
     const selectedLabel = (() => {
-        if (value === "null") return "Uncategorized";
+        if (value === "all") return "All MCQs";
         const match = folders.find((f) => f.id === value);
-        return match?.name || "Select folder";
+        return match?.name || "All MCQs";
     })();
 
     return (
@@ -94,15 +94,17 @@ function FolderDropdown({ value, onChange, folders }) {
             {open && (
                 <div className="absolute left-0 right-0 mt-2 bg-void border border-white/10 rounded-xl shadow-xl z-50 overflow-hidden">
                     <div className="p-1 space-y-0.5">
-                        <button
-                            className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-white/10"
-                            onClick={() => {
-                                onChange("null");
-                                setOpen(false);
-                            }}
-                        >
-                            Uncategorized
-                        </button>
+                        {includeAll && (
+                            <button
+                                className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-white/10"
+                                onClick={() => {
+                                    onChange("all");
+                                    setOpen(false);
+                                }}
+                            >
+                                All MCQs
+                            </button>
+                        )}
                         {folders.map((folder) => (
                             <button
                                 key={folder.id}
@@ -156,7 +158,7 @@ export default function GenerateMCQModal({
     const [loadingTree, setLoadingTree] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [folders, setFolders] = useState(initialFolders);
-    const [selectedFolderId, setSelectedFolderId] = useState("null");
+    const [selectedFolderId, setSelectedFolderId] = useState("all");
     const [loadingFolders, setLoadingFolders] = useState(false);
 
     // ------------------------------------------------------------
@@ -179,7 +181,7 @@ export default function GenerateMCQModal({
 
     useEffect(() => {
         if (!open) return;
-        setSelectedFolderId("null");
+        setSelectedFolderId("all");
         if (initialFolders?.length) {
             setFolders(initialFolders);
         }
@@ -432,7 +434,7 @@ export default function GenerateMCQModal({
             difficulty,
             question_count_target: Number(count),
             file_ids: selectedFiles,
-            mcq_folder_id: selectedFolderId === "null" ? null : selectedFolderId,
+            mcq_folder_id: selectedFolderId === "all" ? null : selectedFolderId,
         };
 
         try {
@@ -538,6 +540,7 @@ export default function GenerateMCQModal({
                         value={selectedFolderId}
                         onChange={setSelectedFolderId}
                         folders={folders}
+                        includeAll
                     />
                     {loadingFolders && (
                         <div className="text-xs text-muted mt-1">Loading folders…</div>

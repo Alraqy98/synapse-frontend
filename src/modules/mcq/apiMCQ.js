@@ -10,16 +10,18 @@ import { supabase } from "../../lib/supabaseClient";
 // MCQ DECKS
 // ===============================================================
 
-export const getMCQDecks = async () => {
+export const getMCQDecks = async (folderId = null) => {
+    const query = folderId ? `?folder_id=${encodeURIComponent(folderId)}` : "";
+    const url = `/ai/mcq/decks${query}`;
     const demoRes = demoApiIntercept({
         method: "GET",
-        url: "/ai/mcq/decks",
+        url,
     });
     if (demoRes.handled) {
         return demoRes.data?.decks || [];
     }
 
-    const res = await api.get("/ai/mcq/decks");
+    const res = await api.get(url);
     return res.data?.decks || [];
 };
 
