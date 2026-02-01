@@ -6,7 +6,7 @@ import { apiMCQ } from "./apiMCQ";
 import GenerateMCQModal from "./GenerateMCQModal";
 import MCQDeckView from "./MCQDeckView";
 import UnifiedCard from "../../components/UnifiedCard";
-import { Search, Plus, Upload, Folder } from "lucide-react";
+import { Search, Plus, Upload, Folder, Edit2, Copy, Trash2 } from "lucide-react";
 import { isValidCodeFormat } from "../summaries/utils/summaryCode";
 import { sanitizeErrorMessage } from "../utils/errorSanitizer";
 import { useDemo } from "../demo/DemoContext";
@@ -18,17 +18,13 @@ function FolderDropdown({
     onChange,
     folders,
     includeAll = false,
-    allowCreate = false,
-    onCreateFolder,
+    onManageFolders,
 }) {
     const [open, setOpen] = useState(false);
-    const [creating, setCreating] = useState(false);
-    const [newName, setNewName] = useState("");
 
     useEffect(() => {
         function handleClickOutside() {
             setOpen(false);
-            setCreating(false);
         }
         if (open) {
             window.addEventListener("click", handleClickOutside);
@@ -42,25 +38,6 @@ function FolderDropdown({
         const match = folders.find((f) => f.id === value);
         return match?.name || "Select folder";
     })();
-
-    const handleCreate = async () => {
-        const trimmed = newName.trim();
-        if (!trimmed || !onCreateFolder) {
-            setCreating(false);
-            setNewName("");
-            return;
-        }
-        try {
-            const created = await onCreateFolder(trimmed);
-            if (created?.id) {
-                onChange(created.id);
-            }
-        } finally {
-            setCreating(false);
-            setNewName("");
-            setOpen(false);
-        }
-    };
 
     return (
         <div className="relative" onClick={(e) => e.stopPropagation()}>
@@ -107,40 +84,16 @@ function FolderDropdown({
                                 {folder.name}
                             </button>
                         ))}
-                        {allowCreate && (
-                            <>
-                                <div className="border-t border-white/10 my-1" />
-                                {!creating ? (
-                                    <button
-                                        className="w-full text-left px-3 py-2 text-sm text-teal hover:bg-white/10"
-                                        onClick={() => setCreating(true)}
-                                    >
-                                        + New Folder
-                                    </button>
-                                ) : (
-                                    <div className="px-3 py-2">
-                                        <input
-                                            autoFocus
-                                            className="w-full px-2 py-1 rounded-md bg-black/40 border border-white/10 text-sm"
-                                            placeholder="Folder name"
-                                            value={newName}
-                                            onChange={(e) => setNewName(e.target.value)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === "Enter") {
-                                                    e.preventDefault();
-                                                    handleCreate();
-                                                }
-                                                if (e.key === "Escape") {
-                                                    setCreating(false);
-                                                    setNewName("");
-                                                }
-                                            }}
-                                            onBlur={handleCreate}
-                                        />
-                                    </div>
-                                )}
-                            </>
-                        )}
+                        <div className="border-t border-white/10 my-1" />
+                        <button
+                            className="w-full text-left px-3 py-2 text-sm text-muted hover:bg-white/10"
+                            onClick={() => {
+                                setOpen(false);
+                                onManageFolders && onManageFolders();
+                            }}
+                        >
+                            Manage folders
+                        </button>
                     </div>
                 </div>
             )}
@@ -172,6 +125,10 @@ export default function MCQTab() {
     const [folders, setFolders] = useState([]);
     const [selectedFolderId, setSelectedFolderId] = useState("all");
     const [folderAssignDeck, setFolderAssignDeck] = useState(null);
+    const [manageFoldersOpen, setManageFoldersOpen] = useState(false);
+    const [creatingFolder, setCreatingFolder] = useState(false);
+    const [newFolderName, setNewFolderName] = useState("");
+    const [editingFolders, setEditingFolders] = useState({});
 
     // --------------------------------------------------
     // Fetch decks
@@ -292,10 +249,61 @@ export default function MCQTab() {
     };
 
     const handleCreateFolder = async (name) => {
-        const created = await apiMCQ.createMCQFolder(name);
+        const trimmed = name?.trim();
+        if (!trimmed) return null;
+        const created = await apiMCQ.createMCQFolder(trimmed);
         if (!created?.id) return null;
         setFolders((prev) => [...prev, created]);
         return created;
+    };
+
+    const handleRenameFolder = async (folderId, name) => {
+        const trimmed = name.trim();
+        if (!trimmed) return;
+        const previous = folders.find((f) => f.id === folderId);
+        setFolders((prev) =>
+            prev.map((f) => (f.id === folderId ? { ...f, name: trimmed } : f))
+        );
+        try {
+            await apiMCQ.renameMCQFolder(folderId, trimmed);
+        } catch (err) {
+            console.error("Failed to rename folder:", err);
+            if (previous) {
+                setFolders((prev) =>
+                    prev.map((f) => (f.id === folderId ? previous : f))
+                );
+            }
+        }
+    };
+
+    const handleDeleteFolder = async (folderId) => {
+        const folder = folders.find((f) => f.id === folderId);
+        if (!folder) return;
+        const confirmed = window.confirm(
+            `Delete "${folder.name}"? All decks will be moved to Uncategorized.`
+        );
+        if (!confirmed) return;
+
+        const previousFolders = folders;
+        const previousDecks = decks;
+
+        setFolders((prev) => prev.filter((f) => f.id !== folderId));
+        setDecks((prev) =>
+            prev.map((d) =>
+                d.mcq_folder_id === folderId ? { ...d, mcq_folder_id: null } : d
+            )
+        );
+        if (selectedFolderId === folderId) {
+            setSelectedFolderId("null");
+        }
+
+        try {
+            await apiMCQ.deleteMCQFolder(folderId);
+        } catch (err) {
+            console.error("Failed to delete folder:", err);
+            setFolders(previousFolders);
+            setDecks(previousDecks);
+        }
     };
 
     // --------------------------------------------------
@@ -405,14 +413,7 @@ export default function MCQTab() {
                                     onChange={setSelectedFolderId}
                                     folders={folders}
                                     includeAll
-                                    allowCreate
-                                    onCreateFolder={async (name) => {
-                                        const created = await handleCreateFolder(name);
-                                        if (created?.id) {
-                                            setSelectedFolderId(created.id);
-                                        }
-                                        return created;
-                                    }}
+                                    onManageFolders={() => setManageFoldersOpen(true)}
                                 />
                             </div>
 
@@ -494,11 +495,28 @@ export default function MCQTab() {
                                                         loadDecks();
                                                     });
                                                 }}
-                                                overflowActions={[
+                                                actionsOverride={[
+                                                    {
+                                                        label: "Rename",
+                                                        icon: Edit2,
+                                                        actionKey: "rename",
+                                                    },
                                                     {
                                                         label: "Move to folder",
                                                         icon: Folder,
                                                         onClick: () => setFolderAssignDeck(deck),
+                                                    },
+                                                    {
+                                                        label: "Generate import code",
+                                                        icon: Copy,
+                                                        actionKey: "generateImportCode",
+                                                    },
+                                                    { divider: true },
+                                                    {
+                                                        label: "Delete",
+                                                        icon: Trash2,
+                                                        actionKey: "delete",
+                                                        destructive: true,
                                                     },
                                                 ]}
                                                 itemId={deck.id}
@@ -604,22 +622,139 @@ export default function MCQTab() {
                                         setFolderAssignDeck(null);
                                     }}
                                     folders={folders}
-                                    allowCreate
-                                    onCreateFolder={async (name) => {
-                                        const created = await handleCreateFolder(name);
-                                        if (created?.id) {
-                                            handleAssignFolder(folderAssignDeck, created.id);
-                                            setFolderAssignDeck(null);
-                                        }
-                                        return created;
+                                    onManageFolders={() => {
+                                        setFolderAssignDeck(null);
+                                        setManageFoldersOpen(true);
                                     }}
                                 />
+                                <div className="mt-4">
+                                    {!creatingFolder ? (
+                                        <button
+                                            className="text-sm text-teal hover:text-teal-300"
+                                            onClick={() => setCreatingFolder(true)}
+                                        >
+                                            + Create new folder
+                                        </button>
+                                    ) : (
+                                        <input
+                                            autoFocus
+                                            className="w-full px-3 py-2 rounded-md bg-black/40 border border-white/10 text-sm"
+                                            placeholder="Folder name"
+                                            value={newFolderName}
+                                            onChange={(e) => setNewFolderName(e.target.value)}
+                                            onKeyDown={async (e) => {
+                                                if (e.key === "Enter") {
+                                                    e.preventDefault();
+                                                    const created = await handleCreateFolder(newFolderName);
+                                                    if (created?.id) {
+                                                        handleAssignFolder(folderAssignDeck, created.id);
+                                                        setFolderAssignDeck(null);
+                                                    }
+                                                    setCreatingFolder(false);
+                                                    setNewFolderName("");
+                                                }
+                                                if (e.key === "Escape") {
+                                                    setCreatingFolder(false);
+                                                    setNewFolderName("");
+                                                }
+                                            }}
+                                            onBlur={async () => {
+                                                const created = await handleCreateFolder(newFolderName);
+                                                if (created?.id) {
+                                                    handleAssignFolder(folderAssignDeck, created.id);
+                                                    setFolderAssignDeck(null);
+                                                }
+                                                setCreatingFolder(false);
+                                                setNewFolderName("");
+                                            }}
+                                        />
+                                    )}
+                                </div>
                                 <div className="flex justify-end gap-2 mt-6">
                                     <button
                                         className="btn btn-secondary"
-                                        onClick={() => setFolderAssignDeck(null)}
+                                        onClick={() => {
+                                            setFolderAssignDeck(null);
+                                            setCreatingFolder(false);
+                                            setNewFolderName("");
+                                        }}
                                     >
                                         Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ================= MANAGE FOLDERS ================= */}
+                    {manageFoldersOpen && (
+                        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center">
+                            <div className="w-full max-w-lg rounded-2xl bg-black border border-white/10 p-6">
+                                <h3 className="text-lg font-semibold text-white mb-4">
+                                    Manage folders
+                                </h3>
+                                <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
+                                    {folders.length === 0 && (
+                                        <div className="text-sm text-muted">
+                                            No folders yet.
+                                        </div>
+                                    )}
+                                    {folders.map((folder) => (
+                                        <div
+                                            key={folder.id}
+                                            className="flex items-center gap-2"
+                                        >
+                                            <input
+                                                className="flex-1 px-3 py-2 rounded-md bg-black/40 border border-white/10 text-sm"
+                                                value={editingFolders[folder.id] ?? folder.name}
+                                                onChange={(e) =>
+                                                    setEditingFolders((prev) => ({
+                                                        ...prev,
+                                                        [folder.id]: e.target.value,
+                                                    }))
+                                                }
+                                                onBlur={() =>
+                                                    handleRenameFolder(
+                                                        folder.id,
+                                                        editingFolders[folder.id] ?? folder.name
+                                                    )
+                                                }
+                                                onKeyDown={(e) => {
+                                                    if (e.key === "Enter") {
+                                                        e.preventDefault();
+                                                        handleRenameFolder(
+                                                            folder.id,
+                                                            editingFolders[folder.id] ?? folder.name
+                                                        );
+                                                    }
+                                                }}
+                                            />
+                                            <button
+                                                className="btn btn-secondary"
+                                                onClick={() =>
+                                                    handleRenameFolder(
+                                                        folder.id,
+                                                        editingFolders[folder.id] ?? folder.name
+                                                    )
+                                                }
+                                            >
+                                                Rename
+                                            </button>
+                                            <button
+                                                className="btn btn-danger"
+                                                onClick={() => handleDeleteFolder(folder.id)}
+                                            >
+                                                Delete
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="flex justify-end gap-2 mt-6">
+                                    <button
+                                        className="btn btn-secondary"
+                                        onClick={() => setManageFoldersOpen(false)}
+                                    >
+                                        Close
                                     </button>
                                 </div>
                             </div>
@@ -631,11 +766,6 @@ export default function MCQTab() {
                         onClose={() => setOpenModal(false)}
                         onCreated={loadDecks}
                         folders={folders}
-                        onFolderCreated={(folder) => {
-                            if (folder?.id) {
-                                setFolders((prev) => [...prev, folder]);
-                            }
-                        }}
                     />
 
                     {/* Import Modal - Portal to document.body for viewport centering */}

@@ -42,6 +42,7 @@ export default function UnifiedCard({
     shareItem,
     overflowActions = [],
     dataDemo,
+    actionsOverride = null,
 }) {
     const [showMenu, setShowMenu] = useState(false);
     const [showRename, setShowRename] = useState(false);
@@ -116,7 +117,7 @@ export default function UnifiedCard({
         }] : []),
     ];
 
-    const allActions = [...defaultActions, ...overflowActions];
+    const allActions = actionsOverride || [...defaultActions, ...overflowActions];
 
     // Reset export state helper
     const resetExportState = () => {
@@ -223,13 +224,37 @@ export default function UnifiedCard({
                                 >
                                     <div className="p-1 space-y-0.5">
                                         {allActions.map((action, idx) => {
+                                            if (action?.divider) {
+                                                return (
+                                                    <div
+                                                        key={`divider-${idx}`}
+                                                        className="my-1 border-t border-white/10"
+                                                    />
+                                                );
+                                            }
+
                                             const Icon = action.icon;
                                             return (
                                                 <button
                                                     key={idx}
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        action.onClick();
+                                                        if (action.actionKey === "rename") {
+                                                            setShowMenu(false);
+                                                            setShowRename(true);
+                                                            return;
+                                                        }
+                                                        if (action.actionKey === "generateImportCode") {
+                                                            setShowMenu(false);
+                                                            handleGenerateImportCode();
+                                                            return;
+                                                        }
+                                                        if (action.actionKey === "delete") {
+                                                            setShowMenu(false);
+                                                            onDelete && onDelete();
+                                                            return;
+                                                        }
+                                                        action.onClick && action.onClick();
                                                     }}
                                                     className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition ${
                                                         action.destructive

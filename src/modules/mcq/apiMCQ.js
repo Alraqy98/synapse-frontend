@@ -47,6 +47,18 @@ export const createMCQFolder = async (name) => {
     return res.data?.folder || res.data;
 };
 
+export const renameMCQFolder = async (folderId, name) => {
+    if (!folderId) throw new Error("Folder ID missing (renameMCQFolder)");
+    const res = await api.patch(`/ai/mcq/folders/${folderId}`, { name });
+    return res.data?.folder || res.data;
+};
+
+export const deleteMCQFolder = async (folderId) => {
+    if (!folderId) throw new Error("Folder ID missing (deleteMCQFolder)");
+    const res = await api.delete(`/ai/mcq/folders/${folderId}`);
+    return res.data;
+};
+
 /**
  * Get MCQ decks for a specific file (file-scoped query)
  * Uses Supabase direct query to filter by file_ids array containing the file ID
@@ -345,6 +357,8 @@ export const apiMCQ = {
     getMCQQuestions,
     getMCQFolders,
     createMCQFolder,
+    renameMCQFolder,
+    deleteMCQFolder,
     renameMCQDeck,
     updateMCQDeck,
     deleteMCQDeck,

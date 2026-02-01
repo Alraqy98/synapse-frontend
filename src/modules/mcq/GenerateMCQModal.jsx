@@ -62,15 +62,12 @@ function PremiumDropdown({ label, value, setValue, options }) {
     );
 }
 
-function FolderDropdown({ value, onChange, folders, onCreateFolder }) {
+function FolderDropdown({ value, onChange, folders }) {
     const [open, setOpen] = useState(false);
-    const [creating, setCreating] = useState(false);
-    const [newName, setNewName] = useState("");
 
     useEffect(() => {
         function handleClickOutside() {
             setOpen(false);
-            setCreating(false);
         }
         if (open) {
             window.addEventListener("click", handleClickOutside);
@@ -83,25 +80,6 @@ function FolderDropdown({ value, onChange, folders, onCreateFolder }) {
         const match = folders.find((f) => f.id === value);
         return match?.name || "Select folder";
     })();
-
-    const handleCreate = async () => {
-        const trimmed = newName.trim();
-        if (!trimmed || !onCreateFolder) {
-            setCreating(false);
-            setNewName("");
-            return;
-        }
-        try {
-            const created = await onCreateFolder(trimmed);
-            if (created?.id) {
-                onChange(created.id);
-            }
-        } finally {
-            setCreating(false);
-            setNewName("");
-            setOpen(false);
-        }
-    };
 
     return (
         <div className="relative" onClick={(e) => e.stopPropagation()}>
@@ -137,36 +115,6 @@ function FolderDropdown({ value, onChange, folders, onCreateFolder }) {
                                 {folder.name}
                             </button>
                         ))}
-                        <div className="border-t border-white/10 my-1" />
-                        {!creating ? (
-                            <button
-                                className="w-full text-left px-3 py-2 text-sm text-teal hover:bg-white/10"
-                                onClick={() => setCreating(true)}
-                            >
-                                + New Folder
-                            </button>
-                        ) : (
-                            <div className="px-3 py-2">
-                                <input
-                                    autoFocus
-                                    className="w-full px-2 py-1 rounded-md bg-black/40 border border-white/10 text-sm"
-                                    placeholder="Folder name"
-                                    value={newName}
-                                    onChange={(e) => setNewName(e.target.value)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === "Enter") {
-                                            e.preventDefault();
-                                            handleCreate();
-                                        }
-                                        if (e.key === "Escape") {
-                                            setCreating(false);
-                                            setNewName("");
-                                        }
-                                    }}
-                                    onBlur={handleCreate}
-                                />
-                            </div>
-                        )}
                     </div>
                 </div>
             )}
@@ -190,7 +138,6 @@ export default function GenerateMCQModal({
     onCreated,
     presetFileId = null,
     folders: initialFolders = [],
-    onFolderCreated,
 }) {
     if (!open) return null;
 
@@ -591,14 +538,6 @@ export default function GenerateMCQModal({
                         value={selectedFolderId}
                         onChange={setSelectedFolderId}
                         folders={folders}
-                        onCreateFolder={async (name) => {
-                            const created = await apiMCQ.createMCQFolder(name);
-                            if (created?.id) {
-                                setFolders((prev) => [...prev, created]);
-                                onFolderCreated?.(created);
-                            }
-                            return created;
-                        }}
                     />
                     {loadingFolders && (
                         <div className="text-xs text-muted mt-1">Loading folders…</div>
