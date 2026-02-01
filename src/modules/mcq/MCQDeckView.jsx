@@ -716,7 +716,7 @@ export default function MCQDeckView({ deckId, goBack }) {
                 </div>
             </div>
 
-            <div className="panel p-8 max-w-4xl mx-auto rounded-2xl mb-16">
+            <div className="panel p-8 max-w-4xl mx-auto rounded-2xl mb-16 relative overflow-visible">
                 {reviewMode && (
                     <div className="mb-4 p-3 rounded-lg bg-teal/10 border border-teal/30">
                         <p className="text-sm text-teal">
@@ -740,8 +740,8 @@ export default function MCQDeckView({ deckId, goBack }) {
                         />
                     </div>
                 </div>
-                <div className="flex items-start justify-between gap-6 mb-3">
-                    <div className="flex-1 flex items-start gap-3">
+                <div className="flex items-start justify-between gap-6 mb-3 relative overflow-visible">
+                    <div className="flex-1 flex items-start gap-3 relative overflow-visible">
                         <div className="text-[1.35rem] font-semibold leading-relaxed flex-1" data-demo="mcq-question-text">
                             {q.question}
                         </div>
