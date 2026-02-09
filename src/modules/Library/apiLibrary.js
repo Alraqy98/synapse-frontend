@@ -296,7 +296,7 @@ export const prepareFile = async (fileId) => {
 };
 
 // ------------------------------------------------------
-// UPLOAD FILE
+// UPLOAD FILE (single file - kept for backward compatibility)
 // ------------------------------------------------------
 export const uploadLibraryFile = async (
     file,
@@ -319,6 +319,77 @@ export const uploadLibraryFile = async (
 
     const data = await handleJson(res);
     return mapItemFromApi(data.item);
+};
+
+// ------------------------------------------------------
+// UPLOAD MULTIPLE FILES (up to 5 files)
+// ------------------------------------------------------
+export const uploadLibraryFiles = async (
+    files,
+    uiCategory,
+    parentId = null
+) => {
+    if (!files || files.length === 0) {
+        throw new Error("No files provided");
+    }
+
+    if (files.length > 5) {
+        throw new Error("Maximum 5 files allowed per upload");
+    }
+
+    const category = uiToApiCategory(uiCategory);
+    const formData = new FormData();
+
+    // Append all files as files[] array
+    files.forEach((file) => {
+        formData.append("files[]", file);
+    });
+
+    formData.append("category", category);
+    if (parentId) formData.append("parent_id", parentId);
+
+    const res = await fetch(`${API_BASE}/library/upload`, {
+        method: "POST",
+        headers: { ...getAuthHeaders() },
+        body: formData,
+    });
+
+    const data = await handleJson(res);
+    
+    // Handle response - could be single item or array of items with success/failure per file
+    if (data.items && Array.isArray(data.items)) {
+        // Multiple files response with per-file results
+        return {
+            success: data.items.map((item) => ({
+                success: item.success !== false,
+                item: item.item ? mapItemFromApi(item.item) : null,
+                error: item.error || null,
+                fileName: item.file_name || null,
+            })),
+        };
+    } else if (data.item) {
+        // Single file response (backward compatibility)
+        return {
+            success: [
+                {
+                    success: true,
+                    item: mapItemFromApi(data.item),
+                    error: null,
+                    fileName: data.item.title || null,
+                },
+            ],
+        };
+    } else {
+        // Fallback - assume all succeeded
+        return {
+            success: files.map((file) => ({
+                success: true,
+                item: null,
+                error: null,
+                fileName: file.name,
+            })),
+        };
+    }
 };
 
 // ------------------------------------------------------

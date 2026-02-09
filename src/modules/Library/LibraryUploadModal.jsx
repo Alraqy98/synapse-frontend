@@ -1,7 +1,7 @@
 // src/modules/Library/LibraryUploadModal.jsx
 import React, { useState, useRef, useEffect } from "react";
 import { X, UploadCloud, File, Loader2, Folder, ArrowUpLeft } from "lucide-react";
-import { uploadLibraryFile, getAllFolders, getLibraryItems } from "./apiLibrary";
+import { uploadLibraryFiles, getAllFolders, getLibraryItems } from "./apiLibrary";
 import { compressImageIfNeeded, validateFileForUpload, isImageFile, isPdfFile } from "../../lib/fileCompression";
 import { compressPdfFile } from "./utils/compressPdf";
 import { getUploadErrorMessage } from "./utils/uploadErrorMessages";
@@ -9,14 +9,17 @@ import { getUploadErrorMessage } from "./utils/uploadErrorMessages";
 // TEMP SAFETY RAIL — mirrors backend 25MB upload limit
 const MAX_UPLOAD_SIZE = 25 * 1024 * 1024; // 25MB in bytes
 
+const MAX_FILES = 5;
+
 const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null, enableFolderSelection = false }) => {
-    const [file, setFile] = useState(null);
+    const [files, setFiles] = useState([]);
     const [category, setCategory] = useState("Lecture");
     const [isUploading, setIsUploading] = useState(false);
     const [isCompressing, setIsCompressing] = useState(false);
-    const [compressionProgress, setCompressionProgress] = useState(0);
+    const [compressionProgress, setCompressionProgress] = useState({});
     const [error, setError] = useState(null);
-    const [compressionInfo, setCompressionInfo] = useState(null);
+    const [compressionInfo, setCompressionInfo] = useState({});
+    const [uploadResults, setUploadResults] = useState(null);
     const fileInputRef = useRef(null);
     
     // Folder selection state
@@ -50,117 +53,184 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null, e
     }, [enableFolderSelection]);
 
     const handleFileChange = (e) => {
-        const selectedFile = e.target.files?.[0];
-        if (selectedFile) {
-            setError(null);
-            setCompressionInfo(null);
-            
-            // TEMP SAFETY RAIL — mirrors backend 25MB upload limit
-            if (selectedFile.size > MAX_UPLOAD_SIZE) {
-                setError('Maximum file size is 25MB.');
-                setFile(null);
-                // Clear file input
-                if (fileInputRef.current) {
-                    fileInputRef.current.value = '';
-                }
-                return;
+        const selectedFiles = Array.from(e.target.files || []);
+        if (selectedFiles.length === 0) return;
+
+        setError(null);
+        setUploadResults(null);
+
+        // Check total file count
+        const totalFiles = files.length + selectedFiles.length;
+        if (totalFiles > MAX_FILES) {
+            setError(`Maximum ${MAX_FILES} files allowed. Please select fewer files.`);
+            // Clear file input
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
             }
-            
-            // TEMP EXPERIMENT — size limits disabled to observe render cost
-            // Files ≤ 25MB are accepted unconditionally
-            
-            setFile(selectedFile);
-        }
-    };
-
-    const handleUpload = async () => {
-        if (!file) return;
-
-        // TEMP SAFETY RAIL — mirrors backend 25MB upload limit
-        if (file.size > MAX_UPLOAD_SIZE) {
-            setError('Maximum file size is 25MB.');
             return;
         }
 
-        // TEMP EXPERIMENT — size limits disabled to observe render cost
-        // Compression is attempted but not required - upload proceeds even if compression fails
+        // Validate each file
+        const validFiles = [];
+        const errors = [];
+
+        selectedFiles.forEach((file) => {
+            // TEMP SAFETY RAIL — mirrors backend 25MB upload limit
+            if (file.size > MAX_UPLOAD_SIZE) {
+                errors.push(`${file.name}: Maximum file size is 25MB.`);
+            } else {
+                validFiles.push(file);
+            }
+        });
+
+        if (errors.length > 0) {
+            setError(errors.join(' '));
+        }
+
+        if (validFiles.length > 0) {
+            setFiles((prev) => [...prev, ...validFiles]);
+        }
+
+        // Clear file input to allow selecting same files again
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
+    const removeFile = (index) => {
+        setFiles((prev) => {
+            const newFiles = prev.filter((_, i) => i !== index);
+            // Reindex compression info for remaining files
+            setCompressionInfo((prevInfo) => {
+                const newInfo = {};
+                newFiles.forEach((file, newIndex) => {
+                    // Find the original index of this file
+                    const originalIndex = prev.findIndex((f, i) => i !== index && f === file);
+                    if (originalIndex !== -1 && prevInfo[originalIndex]) {
+                        newInfo[newIndex] = prevInfo[originalIndex];
+                    }
+                });
+                return newInfo;
+            });
+            return newFiles;
+        });
+        setError(null);
+        setUploadResults(null);
+    };
+
+    const handleUpload = async () => {
+        if (files.length === 0) return;
+
+        // TEMP SAFETY RAIL — mirrors backend 25MB upload limit
+        const oversizedFiles = files.filter((f) => f.size > MAX_UPLOAD_SIZE);
+        if (oversizedFiles.length > 0) {
+            setError('Some files exceed 25MB limit. Please remove them before uploading.');
+            return;
+        }
 
         setIsUploading(true);
         setError(null);
+        setUploadResults(null);
         
         try {
-            let fileToUpload = file;
-            const validation = validateFileForUpload(file);
-            
-            // OPTIONAL: Attempt to compress images that are > 3MB (non-blocking)
-            if (validation.canCompress && isImageFile(file)) {
-                setIsCompressing(true);
-                setCompressionProgress(0);
+            const filesToUpload = [];
+            const newCompressionInfo = {};
+
+            // Process each file for compression
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                let fileToUpload = file;
+                const validation = validateFileForUpload(file);
                 
-                try {
-                    const result = await compressImageIfNeeded(file, (progress) => {
-                        setCompressionProgress(progress);
-                    });
-                    
-                    fileToUpload = result.file;
-                    setCompressionInfo({
-                        wasCompressed: result.wasCompressed,
-                        originalSize: result.originalSize,
-                        compressedSize: result.compressedSize
-                    });
-                } catch (compressionError) {
-                    // Compression failed - use original file, don't block upload
-                    console.warn("Image compression failed, using original file:", compressionError);
-                    fileToUpload = file;
-                    setCompressionInfo(null);
-                } finally {
-                    setIsCompressing(false);
-                }
-            }
-            
-            // OPTIONAL: Attempt to compress PDFs that are > 3MB (non-blocking)
-            if (validation.canCompress && isPdfFile(file) && file.type === "application/pdf") {
                 setIsCompressing(true);
-                setCompressionProgress(0);
-                
-                try {
-                    const originalSize = file.size;
-                    setCompressionProgress(50);
-                    
-                    const compressedFile = await compressPdfFile(file, 3 * 1024 * 1024);
-                    
-                    setCompressionProgress(100);
-                    fileToUpload = compressedFile;
-                    setCompressionInfo({
-                        wasCompressed: compressedFile.size < originalSize,
-                        originalSize: originalSize,
-                        compressedSize: compressedFile.size
-                    });
-                } catch (compressionError) {
-                    // Compression failed - use original file, don't block upload
-                    console.warn("PDF compression failed, using original file:", compressionError);
-                    fileToUpload = file;
-                    setCompressionInfo(null);
-                } finally {
-                    setIsCompressing(false);
+                setCompressionProgress((prev) => ({ ...prev, [i]: 0 }));
+
+                // OPTIONAL: Attempt to compress images that are > 3MB (non-blocking)
+                if (validation.canCompress && isImageFile(file)) {
+                    try {
+                        const result = await compressImageIfNeeded(file, (progress) => {
+                            setCompressionProgress((prev) => ({ ...prev, [i]: progress }));
+                        });
+                        
+                        fileToUpload = result.file;
+                        newCompressionInfo[i] = {
+                            wasCompressed: result.wasCompressed,
+                            originalSize: result.originalSize,
+                            compressedSize: result.compressedSize
+                        };
+                    } catch (compressionError) {
+                        // Compression failed - use original file, don't block upload
+                        console.warn(`Image compression failed for ${file.name}, using original file:`, compressionError);
+                        fileToUpload = file;
+                        newCompressionInfo[i] = null;
+                    }
                 }
+                
+                // OPTIONAL: Attempt to compress PDFs that are > 3MB (non-blocking)
+                if (validation.canCompress && isPdfFile(file) && file.type === "application/pdf") {
+                    try {
+                        const originalSize = file.size;
+                        setCompressionProgress((prev) => ({ ...prev, [i]: 50 }));
+                        
+                        const compressedFile = await compressPdfFile(file, 3 * 1024 * 1024);
+                        
+                        setCompressionProgress((prev) => ({ ...prev, [i]: 100 }));
+                        fileToUpload = compressedFile;
+                        newCompressionInfo[i] = {
+                            wasCompressed: compressedFile.size < originalSize,
+                            originalSize: originalSize,
+                            compressedSize: compressedFile.size
+                        };
+                    } catch (compressionError) {
+                        // Compression failed - use original file, don't block upload
+                        console.warn(`PDF compression failed for ${file.name}, using original file:`, compressionError);
+                        fileToUpload = file;
+                        newCompressionInfo[i] = null;
+                    }
+                }
+
+                filesToUpload.push(fileToUpload);
             }
-            
-            // TEMP EXPERIMENT — no size validation, upload proceeds regardless of file size
-            // Upload the file (compressed or original)
-            // Use selectedFolderId if folder selection is enabled, otherwise use parentFolderId prop
+
+            setCompressionInfo(newCompressionInfo);
+            setIsCompressing(false);
+
+            // Upload all files in one request
             const targetFolderId = enableFolderSelection ? selectedFolderId : parentFolderId;
-            await uploadLibraryFile(fileToUpload, category, targetFolderId);
-            onUploadSuccess();
-            onClose();
+            const result = await uploadLibraryFiles(filesToUpload, category, targetFolderId);
+
+            // Check for partial failures
+            const successful = result.success.filter((r) => r.success);
+            const failed = result.success.filter((r) => !r.success);
+
+            if (failed.length > 0) {
+                // Some files failed - show errors but don't close modal
+                setUploadResults({ successful, failed });
+                const errorMessages = failed.map((f) => {
+                    const fileName = f.fileName || 'Unknown file';
+                    const errorMsg = f.error || 'Upload failed';
+                    return `${fileName}: ${errorMsg}`;
+                });
+                setError(errorMessages.join(' '));
+                
+                // If some files succeeded, refresh library
+                if (successful.length > 0) {
+                    onUploadSuccess();
+                }
+            } else {
+                // All files succeeded
+                onUploadSuccess();
+                onClose();
+            }
         } catch (error) {
             console.error("Upload failed:", error);
             // Map backend error codes to user-friendly messages
             const userMessage = getUploadErrorMessage(error);
-            setError(userMessage);
+            setError(userMessage || error.message || 'Upload failed. Please try again.');
         } finally {
             setIsUploading(false);
-            setCompressionProgress(0);
+            setIsCompressing(false);
+            setCompressionProgress({});
         }
     };
 
@@ -209,7 +279,7 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null, e
                         onClick={() => fileInputRef.current?.click()}
                         className={`
                             border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all
-                            ${file
+                            ${files.length > 0
                                 ? "border-teal/50 bg-teal/5"
                                 : "border-white/10 hover:border-white/20 hover:bg-white/5"
                             }
@@ -221,29 +291,10 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null, e
                             onChange={handleFileChange}
                             className="hidden"
                             accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.md,.jpg,.jpeg,.png,.gif,.webp"
+                            multiple
                         />
 
-                        {file ? (
-                            <>
-                                <File size={40} className="text-teal mb-4" />
-                                <p className="font-medium text-white">{file.name}</p>
-                                <div className="text-sm text-muted mt-1 space-y-1">
-                                    <p>
-                                    {(file.size / 1024 / 1024).toFixed(2)} MB
-                                        {compressionInfo?.wasCompressed && (
-                                            <span className="text-teal ml-2">
-                                                (compressed from {(compressionInfo.originalSize / 1024 / 1024).toFixed(2)} MB)
-                                            </span>
-                                        )}
-                                    </p>
-                                    {file.size > 3 * 1024 * 1024 && (
-                                        <p className="text-yellow-400 text-xs">
-                                            Large files may take longer to process
-                                        </p>
-                                    )}
-                                </div>
-                            </>
-                        ) : (
+                        {files.length === 0 ? (
                             <>
                                 <UploadCloud size={40} className="text-muted mb-4" />
                                 <p className="font-medium text-white">Click to upload</p>
@@ -251,13 +302,79 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null, e
                                     {/* TEMP SAFETY RAIL — reflects backend 25MB upload limit */}
                                     PDF, Images, DOC, DOCX, PPT, PPTX, TXT — Max 25MB
                                 </p>
+                                <p className="text-xs text-muted mt-2">
+                                    Select up to {MAX_FILES} files
+                                </p>
                             </>
+                        ) : (
+                            <div className="w-full space-y-3">
+                                {files.map((file, index) => (
+                                    <div
+                                        key={index}
+                                        className="flex items-start gap-3 p-3 bg-white/5 rounded-lg border border-white/10"
+                                    >
+                                        <File size={20} className="text-teal mt-0.5 shrink-0" />
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-start justify-between gap-2">
+                                                <p className="font-medium text-white text-sm truncate">{file.name}</p>
+                                                {!isUploading && (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            removeFile(index);
+                                                        }}
+                                                        className="text-muted hover:text-red-400 transition-colors shrink-0"
+                                                        type="button"
+                                                    >
+                                                        <X size={16} />
+                                                    </button>
+                                                )}
+                                            </div>
+                                            <div className="text-xs text-muted mt-1 space-y-1">
+                                                <p>
+                                                    {(file.size / 1024 / 1024).toFixed(2)} MB
+                                                    {compressionInfo[index]?.wasCompressed && (
+                                                        <span className="text-teal ml-2">
+                                                            (compressed from {(compressionInfo[index].originalSize / 1024 / 1024).toFixed(2)} MB)
+                                                        </span>
+                                                    )}
+                                                </p>
+                                                {compressionProgress[index] !== undefined && compressionProgress[index] > 0 && compressionProgress[index] < 100 && (
+                                                    <div className="w-full bg-[#0f1115] rounded-full h-1.5 mt-1 overflow-hidden">
+                                                        <div
+                                                            className="bg-teal h-full transition-all duration-300"
+                                                            style={{ width: `${compressionProgress[index]}%` }}
+                                                        />
+                                                    </div>
+                                                )}
+                                                {file.size > 3 * 1024 * 1024 && (
+                                                    <p className="text-yellow-400 text-xs">
+                                                        Large file may take longer to process
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                                {files.length < MAX_FILES && (
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            fileInputRef.current?.click();
+                                        }}
+                                        className="text-sm text-teal hover:text-teal-neon transition-colors"
+                                        type="button"
+                                    >
+                                        + Add more files ({MAX_FILES - files.length} remaining)
+                                    </button>
+                                )}
+                            </div>
                         )}
                     </div>
                     
                     {/* TEMP SAFETY RAIL — reflects backend 25MB upload limit */}
                     <p className="text-xs text-muted text-center">
-                        Maximum file size: 25MB
+                        Maximum file size: 25MB per file • Up to {MAX_FILES} files
                     </p>
 
                     {/* Folder Selection (only when enabled and user has existing items) */}
@@ -315,21 +432,30 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null, e
                         </select>
                     </div>
 
-                    {/* Compression Progress */}
-                    {isCompressing && (
+                    {/* Upload Results */}
+                    {uploadResults && (
                         <div className="space-y-2">
-                            <div className="flex items-center justify-between text-sm">
-                                <span className="text-muted">
-                                    {isPdfFile(file) ? "Compressing PDF…" : "Compressing image…"}
-                                </span>
-                                <span className="text-teal">{Math.round(compressionProgress)}%</span>
-                            </div>
-                            <div className="w-full bg-[#0f1115] rounded-full h-2 overflow-hidden">
-                                <div
-                                    className="bg-teal h-full transition-all duration-300"
-                                    style={{ width: `${compressionProgress}%` }}
-                                />
-                            </div>
+                            {uploadResults.successful.length > 0 && (
+                                <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4">
+                                    <p className="text-green-400 text-sm font-medium mb-1">
+                                        ✓ {uploadResults.successful.length} file{uploadResults.successful.length !== 1 ? 's' : ''} uploaded successfully
+                                    </p>
+                                </div>
+                            )}
+                            {uploadResults.failed.length > 0 && (
+                                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
+                                    <p className="text-red-400 text-sm font-medium mb-2">
+                                        ✗ {uploadResults.failed.length} file{uploadResults.failed.length !== 1 ? 's' : ''} failed:
+                                    </p>
+                                    <ul className="list-disc list-inside space-y-1 text-red-300 text-xs">
+                                        {uploadResults.failed.map((f, idx) => (
+                                            <li key={idx}>
+                                                {f.fileName || 'Unknown file'}: {f.error || 'Upload failed'}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -351,16 +477,16 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null, e
                     </button>
                     <button
                         onClick={handleUpload}
-                        disabled={!file || isUploading || isCompressing || (file && file.size > MAX_UPLOAD_SIZE)}
+                        disabled={files.length === 0 || isUploading || isCompressing || files.some((f) => f.size > MAX_UPLOAD_SIZE)}
                         className="px-6 py-2 bg-teal hover:bg-teal-neon text-black font-bold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                         {(isUploading || isCompressing) ? (
                             <>
                                 <Loader2 size={16} className="animate-spin" />
-                                {isCompressing ? "Compressing..." : "Uploading..."}
+                                {isCompressing ? "Compressing..." : `Uploading ${files.length} file${files.length !== 1 ? 's' : ''}...`}
                             </>
                         ) : (
-                            "Upload"
+                            `Upload ${files.length > 0 ? `${files.length} file${files.length !== 1 ? 's' : ''}` : ''}`
                         )}
                     </button>
                 </div>
