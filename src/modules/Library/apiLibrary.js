@@ -340,9 +340,9 @@ export const uploadLibraryFiles = async (
     const category = uiToApiCategory(uiCategory);
     const formData = new FormData();
 
-    // Append all files as files[] array
+    // Append all files with field name "file" to match multer upload.array("file", 5)
     files.forEach((file) => {
-        formData.append("files[]", file);
+        formData.append("file", file);
     });
 
     formData.append("category", category);
