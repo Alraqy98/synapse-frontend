@@ -256,12 +256,12 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null, e
             onClick={handleClose}
         >
             <div 
-                className="w-full max-w-md bg-[#1a1d24] border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-fade-in-up"
+                className="w-full max-w-md bg-[#1a1d24] border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-fade-in-up flex flex-col max-h-[90vh]"
                 onClick={(e) => e.stopPropagation()}
             >
 
                 {/* Header */}
-                <div className="flex justify-between items-center p-6 border-b border-white/5">
+                <div className="flex justify-between items-center p-6 border-b border-white/5 shrink-0">
                     <h2 className="text-xl font-bold text-white">Upload to Library</h2>
                     <button
                         onClick={handleClose}
@@ -271,106 +271,110 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null, e
                     </button>
                 </div>
 
-                {/* Body */}
-                <div className="p-6 space-y-6">
+                {/* Body - Scrollable */}
+                <div className="p-6 space-y-6 overflow-y-auto flex-1 min-h-0">
 
-                    {/* File Drop Area */}
-                    <div
-                        onClick={() => fileInputRef.current?.click()}
-                        className={`
-                            border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all
-                            ${files.length > 0
-                                ? "border-teal/50 bg-teal/5"
-                                : "border-white/10 hover:border-white/20 hover:bg-white/5"
-                            }
-                        `}
-                    >
-                        <input
-                            type="file"
-                            ref={fileInputRef}
-                            onChange={handleFileChange}
-                            className="hidden"
-                            accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.md,.jpg,.jpeg,.png,.gif,.webp"
-                            multiple
-                        />
-
-                        {files.length === 0 ? (
-                            <>
-                                <UploadCloud size={40} className="text-muted mb-4" />
-                                <p className="font-medium text-white">Click to upload</p>
-                                <p className="text-sm text-muted mt-1">
-                                    {/* TEMP SAFETY RAIL — reflects backend 25MB upload limit */}
-                                    PDF, Images, DOC, DOCX, PPT, PPTX, TXT — Max 25MB
-                                </p>
-                                <p className="text-xs text-muted mt-2">
-                                    Select up to {MAX_FILES} files
-                                </p>
-                            </>
-                        ) : (
-                            <div className="w-full space-y-3">
-                                {files.map((file, index) => (
-                                    <div
-                                        key={index}
-                                        className="flex items-start gap-3 p-3 bg-white/5 rounded-lg border border-white/10"
-                                    >
-                                        <File size={20} className="text-teal mt-0.5 shrink-0" />
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-start justify-between gap-2">
-                                                <p className="font-medium text-white text-sm truncate">{file.name}</p>
-                                                {!isUploading && (
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            removeFile(index);
-                                                        }}
-                                                        className="text-muted hover:text-red-400 transition-colors shrink-0"
-                                                        type="button"
-                                                    >
-                                                        <X size={16} />
-                                                    </button>
-                                                )}
-                                            </div>
-                                            <div className="text-xs text-muted mt-1 space-y-1">
-                                                <p>
+                    {/* File Drop Area - Only show when no files selected */}
+                    {files.length === 0 ? (
+                        <div
+                            onClick={() => fileInputRef.current?.click()}
+                            className="border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all border-white/10 hover:border-white/20 hover:bg-white/5"
+                        >
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={handleFileChange}
+                                className="hidden"
+                                accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.md,.jpg,.jpeg,.png,.gif,.webp"
+                                multiple
+                            />
+                            <UploadCloud size={40} className="text-muted mb-4" />
+                            <p className="font-medium text-white">Click to upload</p>
+                            <p className="text-sm text-muted mt-1">
+                                PDF, Images, DOC, DOCX, PPT, PPTX, TXT — Max 25MB
+                            </p>
+                            <p className="text-xs text-muted mt-2">
+                                Select up to {MAX_FILES} files
+                            </p>
+                        </div>
+                    ) : (
+                        <>
+                            {/* Hidden file input for adding more files */}
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={handleFileChange}
+                                className="hidden"
+                                accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.md,.jpg,.jpeg,.png,.gif,.webp"
+                                multiple
+                            />
+                            {/* Compact File List */}
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between mb-2">
+                                    <label className="block text-sm font-medium text-muted">
+                                        Selected Files ({files.length}/{MAX_FILES})
+                                    </label>
+                                    {files.length < MAX_FILES && (
+                                        <button
+                                            onClick={() => fileInputRef.current?.click()}
+                                            className="text-xs text-teal hover:text-teal-neon transition-colors"
+                                            type="button"
+                                        >
+                                            + Add more
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="max-h-[200px] overflow-y-auto space-y-1 pr-1 border border-white/10 rounded-lg p-2 bg-white/5">
+                                    {files.map((file, index) => (
+                                        <div
+                                            key={index}
+                                            className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/5 transition-colors group"
+                                        >
+                                            <File size={16} className="text-teal shrink-0" />
+                                            <div className="flex-1 min-w-0 flex items-center gap-2">
+                                                <p className="text-sm text-white truncate flex-1">{file.name}</p>
+                                                <span className="text-xs text-muted shrink-0">
                                                     {(file.size / 1024 / 1024).toFixed(2)} MB
                                                     {compressionInfo[index]?.wasCompressed && (
-                                                        <span className="text-teal ml-2">
-                                                            (compressed from {(compressionInfo[index].originalSize / 1024 / 1024).toFixed(2)} MB)
+                                                        <span className="text-teal ml-1">
+                                                            (compressed)
                                                         </span>
                                                     )}
-                                                </p>
-                                                {compressionProgress[index] !== undefined && compressionProgress[index] > 0 && compressionProgress[index] < 100 && (
-                                                    <div className="w-full bg-[#0f1115] rounded-full h-1.5 mt-1 overflow-hidden">
-                                                        <div
-                                                            className="bg-teal h-full transition-all duration-300"
-                                                            style={{ width: `${compressionProgress[index]}%` }}
-                                                        />
-                                                    </div>
-                                                )}
-                                                {file.size > 3 * 1024 * 1024 && (
-                                                    <p className="text-yellow-400 text-xs">
-                                                        Large file may take longer to process
-                                                    </p>
-                                                )}
+                                                </span>
                                             </div>
+                                            {compressionProgress[index] !== undefined && compressionProgress[index] > 0 && compressionProgress[index] < 100 && (
+                                                <div className="w-16 bg-[#0f1115] rounded-full h-1.5 overflow-hidden shrink-0">
+                                                    <div
+                                                        className="bg-teal h-full transition-all duration-300"
+                                                        style={{ width: `${compressionProgress[index]}%` }}
+                                                    />
+                                                </div>
+                                            )}
+                                            {!isUploading && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        removeFile(index);
+                                                    }}
+                                                    className="text-muted hover:text-red-400 transition-colors shrink-0 opacity-0 group-hover:opacity-100"
+                                                    type="button"
+                                                    aria-label="Remove file"
+                                                >
+                                                    <X size={14} />
+                                                </button>
+                                            )}
                                         </div>
-                                    </div>
-                                ))}
-                                {files.length < MAX_FILES && (
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            fileInputRef.current?.click();
-                                        }}
-                                        className="text-sm text-teal hover:text-teal-neon transition-colors"
-                                        type="button"
-                                    >
-                                        + Add more files ({MAX_FILES - files.length} remaining)
-                                    </button>
+                                    ))}
+                                </div>
+                                {/* Single warning footer - only show if any file is large */}
+                                {files.some((f) => f.size > 3 * 1024 * 1024) && (
+                                    <p className="text-yellow-400 text-xs text-center mt-1">
+                                        Large files may take longer to process
+                                    </p>
                                 )}
                             </div>
-                        )}
-                    </div>
+                        </>
+                    )}
                     
                     {/* TEMP SAFETY RAIL — reflects backend 25MB upload limit */}
                     <p className="text-xs text-muted text-center">
@@ -467,8 +471,8 @@ const LibraryUploadModal = ({ onClose, onUploadSuccess, parentFolderId = null, e
                     )}
                 </div>
 
-                {/* Footer */}
-                <div className="p-6 border-t border-white/5 flex justify-end gap-3">
+                {/* Footer - Pinned to bottom */}
+                <div className="p-6 border-t border-white/5 flex justify-end gap-3 shrink-0 bg-[#1a1d24]">
                     <button
                         onClick={handleClose}
                         className="px-4 py-2 rounded-lg text-muted hover:text-white hover:bg-white/5 transition-colors"
