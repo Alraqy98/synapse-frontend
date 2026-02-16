@@ -6,6 +6,8 @@ import MCQEntryModal from "./MCQEntryModal";
 import { useDemo } from "../demo/DemoContext";
 import { DEMO_MCQ_DECK_ID } from "../demo/demoData/demoMcq";
 import SourceAttribution from "../../components/SourceAttribution";
+import { analyzeAttempt } from "./utils/performanceAnalysis";
+import MCQPerformanceMentor from "./components/MCQPerformanceMentor";
 
 const LETTERS = ["A", "B", "C", "D", "E"];
 
@@ -606,6 +608,12 @@ export default function MCQDeckView({ deckId, goBack }) {
                 : 0,
         } : calculateStats(answers);
 
+        // Compute performance analysis (memoized to avoid recomputation)
+        const analysis = useMemo(
+            () => analyzeAttempt({ stats, answers, questions, progress }),
+            [stats.total, stats.correct, stats.percent, stats.totalTime, stats.avgTime]
+        );
+
         return (
             <div className="h-full w-full overflow-y-auto pb-16">
                 <div className="flex items-center justify-between mb-6">
@@ -659,6 +667,11 @@ export default function MCQDeckView({ deckId, goBack }) {
                                     {formatSeconds(stats.avgTime)}
                                 </div>
                             </div>
+                        </div>
+
+                        {/* PERFORMANCE MENTOR */}
+                        <div className="w-full">
+                            <MCQPerformanceMentor analysis={analysis} />
                         </div>
 
                         {/* ACTIONS */}
