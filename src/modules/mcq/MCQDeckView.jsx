@@ -128,6 +128,26 @@ export default function MCQDeckView({ deckId, goBack }) {
         return { byLetter, byTextNorm };
     }, [q?.id, q?.options_full]);
 
+    // Performance analysis - MUST be at top level (React Hook Rules)
+    const analysis = useMemo(() => {
+        if (!finished) return null;
+
+        // Compute stats for analysis
+        const stats = progress ? {
+            total: progress.questions_answered || 0,
+            correct: progress.questions_correct || 0,
+            percent: progress.questions_answered 
+                ? Math.round((progress.questions_correct / progress.questions_answered) * 100)
+                : 0,
+            totalTime: Object.values(answers).reduce((s, a) => s + (a.timeSpent || 0), 0),
+            avgTime: progress.questions_answered && progress.questions_answered > 0
+                ? Math.round(Object.values(answers).reduce((s, a) => s + (a.timeSpent || 0), 0) / progress.questions_answered)
+                : 0,
+        } : calculateStats(answers);
+
+        return analyzeAttempt({ stats, answers, questions, progress });
+    }, [finished, progress, answers, questions]);
+
     // ---------------- Entry Flow: Start deck and check progress ----------------
     useEffect(() => {
         let mounted = true;
@@ -608,12 +628,6 @@ export default function MCQDeckView({ deckId, goBack }) {
                 : 0,
         } : calculateStats(answers);
 
-        // Compute performance analysis (memoized to avoid recomputation)
-        const analysis = useMemo(
-            () => analyzeAttempt({ stats, answers, questions, progress }),
-            [stats.total, stats.correct, stats.percent, stats.totalTime, stats.avgTime]
-        );
-
         return (
             <div className="h-full w-full overflow-y-auto pb-16">
                 <div className="flex items-center justify-between mb-6">
@@ -670,9 +684,11 @@ export default function MCQDeckView({ deckId, goBack }) {
                         </div>
 
                         {/* PERFORMANCE MENTOR */}
-                        <div className="w-full">
-                            <MCQPerformanceMentor analysis={analysis} />
-                        </div>
+                        {analysis && (
+                            <div className="w-full">
+                                <MCQPerformanceMentor analysis={analysis} />
+                            </div>
+                        )}
 
                         {/* ACTIONS */}
                         <div className="flex flex-col items-center gap-3 mt-4">
