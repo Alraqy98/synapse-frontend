@@ -8,6 +8,7 @@ import { DEMO_MCQ_DECK_ID } from "../demo/demoData/demoMcq";
 import SourceAttribution from "../../components/SourceAttribution";
 import { analyzeAttempt } from "./utils/performanceAnalysis";
 import MCQPerformanceMentor from "./components/MCQPerformanceMentor";
+import { useUserPerformanceOverview } from "./hooks/useUserPerformanceOverview";
 
 const LETTERS = ["A", "B", "C", "D", "E"];
 
@@ -88,6 +89,9 @@ export default function MCQDeckView({ deckId, goBack }) {
     const [showEntryModal, setShowEntryModal] = useState(false);
     const [reviewMode, setReviewMode] = useState(false);
     const [reviewScope, setReviewScope] = useState(null); // "wrong" | "all"
+    
+    // Fetch cross-deck performance overview (only fetches when hook is mounted)
+    const { overview: performanceOverview } = useUserPerformanceOverview();
     
     const handleRetake = async () => {
         try {
@@ -686,7 +690,10 @@ export default function MCQDeckView({ deckId, goBack }) {
                         {/* PERFORMANCE MENTOR */}
                         {analysis && (
                             <div className="w-full">
-                                <MCQPerformanceMentor analysis={analysis} />
+                                <MCQPerformanceMentor 
+                                    analysis={analysis} 
+                                    overview={performanceOverview}
+                                />
                             </div>
                         )}
 
