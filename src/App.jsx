@@ -66,7 +66,12 @@ import SummariesTab from "./modules/summaries/SummariesTab";
 import SummaryViewerPage from "./modules/summaries/SummaryViewerPage";
 
 // ANALYTICS
-import AnalyticsPage from "./modules/analytics/AnalyticsPage";
+import AnalyticsHub from "./modules/analytics/AnalyticsHub";
+import AnalyticsOverview from "./modules/analytics/AnalyticsOverview";
+import StudyPlanPage from "./modules/analytics/pages/StudyPlanPage";
+import ConceptsPage from "./modules/analytics/pages/ConceptsPage";
+import DeckReportsPage from "./modules/analytics/pages/DeckReportsPage";
+import FileAnalyticsPage from "./modules/analytics/pages/FileAnalyticsPage";
 
 // COMPONENTS
 import SidebarItem from "./components/SidebarItem";
@@ -116,7 +121,6 @@ const SummariesModule = () => {
 };
 
 const PlannerModule = () => <Placeholder label="Planner" />;
-const AnalyticsModule = () => <AnalyticsPage />;
 
 const SettingsModule = ({ onLogout }) => (
   <div className="flex-center flex-col gap-4 text-muted">
@@ -1165,9 +1169,15 @@ const SynapseOS = () => {
             } />
             <Route path="/analytics" element={
               <div className="flex-1 overflow-y-auto p-6">
-                <AnalyticsModule />
+                <AnalyticsHub />
               </div>
-            } />
+            }>
+              <Route index element={<AnalyticsOverview />} />
+              <Route path="study-plan" element={<StudyPlanPage />} />
+              <Route path="concepts" element={<ConceptsPage />} />
+              <Route path="decks" element={<DeckReportsPage />} />
+              <Route path="files" element={<FileAnalyticsPage />} />
+            </Route>
             <Route path="/settings" element={
               <div className="flex-1 overflow-y-auto p-6">
                   <SettingsPage
