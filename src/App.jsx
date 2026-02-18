@@ -1083,15 +1083,24 @@ const SynapseOS = () => {
             
             {/* Dashboard */}
             <Route path="/dashboard" element={
-              <div className="flex-1 overflow-y-auto p-6">
-                <DashboardPage 
-                  profile={profile}
-                  onOpenUploadModal={() => setActiveModal("upload")}
-                  onOpenSummaryModal={() => setActiveModal("summary")}
-                  onOpenMCQModal={() => setActiveModal("mcq")}
-                  onOpenFlashcardsModal={() => setActiveModal("flashcards")}
-                />
-              </div>
+              profile === null ? (
+                <div className="flex-1 flex-center">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal mx-auto mb-4" />
+                    <p className="text-muted">Loading...</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex-1 overflow-y-auto p-6">
+                  <DashboardPage 
+                    profile={profile}
+                    onOpenUploadModal={() => setActiveModal("upload")}
+                    onOpenSummaryModal={() => setActiveModal("summary")}
+                    onOpenMCQModal={() => setActiveModal("mcq")}
+                    onOpenFlashcardsModal={() => setActiveModal("flashcards")}
+                  />
+                </div>
+              )
             } />
             
             {/* Library browsing routes (folders only) */}
