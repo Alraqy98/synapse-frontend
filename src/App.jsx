@@ -686,42 +686,6 @@ const SynapseOS = () => {
     };
   }, [accountDropdownOpen]);
 
-  // /auth/callback
-  if (window.location.pathname.startsWith("/auth/callback")) {
-    return (
-      <AuthCallback
-        onFinish={(success) => {
-          if (success) fetchProfile();
-          window.history.replaceState({}, "", "/");
-        }}
-      />
-    );
-  }
-
-  // Password recovery routes (accessible without authentication)
-  if (window.location.pathname === "/forgot-password") {
-    return <ForgotPassword />;
-  }
-
-  if (window.location.pathname === "/reset-password") {
-    return <ResetPassword />;
-  }
-
-  // Onboarding
-  if (authScreen === "onboarding") {
-    return (
-      <OnboardingFlow
-        initialFullName={tempUserData?.fullName}
-        initialEmail={tempUserData?.email}
-        onComplete={() => {
-          fetchProfile();
-          setTempUserData(null);
-          setAuthScreen(null);
-        }}
-      />
-    );
-  }
-
   // Admin role validation after profile fetch
   useEffect(() => {
     // Only validate if we're on admin route, authenticated, and profile is loaded
@@ -773,6 +737,42 @@ const SynapseOS = () => {
       }
     }
   }, [isAdminRoute, isAuthenticated, profile, location.pathname, navigate]);
+
+  // /auth/callback
+  if (window.location.pathname.startsWith("/auth/callback")) {
+    return (
+      <AuthCallback
+        onFinish={(success) => {
+          if (success) fetchProfile();
+          window.history.replaceState({}, "", "/");
+        }}
+      />
+    );
+  }
+
+  // Password recovery routes (accessible without authentication)
+  if (window.location.pathname === "/forgot-password") {
+    return <ForgotPassword />;
+  }
+
+  if (window.location.pathname === "/reset-password") {
+    return <ResetPassword />;
+  }
+
+  // Onboarding
+  if (authScreen === "onboarding") {
+    return (
+      <OnboardingFlow
+        initialFullName={tempUserData?.fullName}
+        initialEmail={tempUserData?.email}
+        onComplete={() => {
+          fetchProfile();
+          setTempUserData(null);
+          setAuthScreen(null);
+        }}
+      />
+    );
+  }
 
   // Not authenticated
   if (!isAuthenticated) {
