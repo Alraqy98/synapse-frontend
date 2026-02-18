@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import LegalModal from "../LegalModal";
 import AppLogo from "../AppLogo";
+import { supabase } from "../../lib/supabaseClient";
 
 const OTP_LENGTH = 6;
 const RESEND_DELAY = 30; // seconds
@@ -85,12 +86,19 @@ const VerifyOtp = ({ email, password, onVerified }) => {
             if (!loginRes.ok)
                 throw new Error(loginJson.error || "Auto-login failed");
 
-            // 3️⃣ Save token
-            localStorage.setItem(
-                "token",
-                loginJson.data.session.access_token
-            );
+            // 3️⃣ Save token and set Supabase session
+            const { access_token, refresh_token } = loginJson.data.session;
 
+            // Store using correct key
+            localStorage.setItem("access_token", access_token);
+
+            // Hydrate Supabase session so auth listeners trigger
+            await supabase.auth.setSession({
+                access_token,
+                refresh_token
+            });
+
+            // Now safe to proceed
             onVerified();
         } catch (err) {
             setError(err.message);
