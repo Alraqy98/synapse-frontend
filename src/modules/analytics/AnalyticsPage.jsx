@@ -16,7 +16,7 @@ const AnalyticsPage = () => {
             setLoadingReports(true);
             setReportsError(null);
             try {
-                const response = await api.get("/reports");
+                const response = await api.get("/api/reports");
                 setReports(response.data.data.reports);
             } catch (err) {
                 setReportsError(err.response?.data?.error || err.message || "Failed to fetch reports");
@@ -37,7 +37,7 @@ const AnalyticsPage = () => {
             setLoadingReport(true);
             setReportError(null);
             try {
-                const response = await api.get(`/reports/${selectedReportId}`);
+                const response = await api.get(`/api/reports/${selectedReportId}`);
                 setSelectedReport(response.data.data);
             } catch (err) {
                 setReportError(err.response?.data?.error || err.message || "Failed to fetch report");
