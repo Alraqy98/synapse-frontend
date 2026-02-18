@@ -102,6 +102,18 @@ const AnalyticsPage = () => {
         setSelectedReportId(reportId);
     };
 
+    const startFocusSession = (session) => {
+        console.log("Launching focus session:", session);
+        // TODO: route to MCQ drill mode
+    };
+
+    const severityStyles = {
+        critical: "border-red-500 bg-red-500/10",
+        weak: "border-yellow-500 bg-yellow-500/10",
+        borderline: "border-orange-500 bg-orange-500/10",
+        stable: "border-green-500 bg-green-500/10"
+    };
+
     const formatDate = (dateString) => {
         if (!dateString) return "Unknown date";
         const date = new Date(dateString);
@@ -273,7 +285,59 @@ const AnalyticsPage = () => {
                                                 />
                                             </div>
 
-                                            {focusRecommendation && (
+                                            {selectedReport.report?.recommendations && selectedReport.report.recommendations.length > 0 ? (
+                                                <div className="mt-6 space-y-4">
+                                                    <h3 className="text-lg font-semibold text-white mb-3">Smart Recommendations</h3>
+                                                    {selectedReport.report.recommendations.map((rec, idx) => (
+                                                        <div key={idx} className={`border rounded-xl p-4 ${severityStyles[rec.severity] || severityStyles.weak}`}>
+                                                            <div className="flex justify-between items-center mb-3">
+                                                                <h3 className="text-lg font-semibold text-white">{rec.conceptName}</h3>
+                                                                <span className="text-xs font-medium uppercase tracking-wide text-muted">
+                                                                    {rec.nextActionLabel}
+                                                                </span>
+                                                            </div>
+
+                                                            {rec.lowConfidenceSignal && (
+                                                                <div className="text-sm text-blue-400 mb-3">
+                                                                    You answer correctly but with low confidence. Review for deeper mastery.
+                                                                </div>
+                                                            )}
+
+                                                            {rec.studyMaterials && rec.studyMaterials.length > 0 && (
+                                                                <div className="mb-3">
+                                                                    <div className="text-sm text-muted mb-2">Study Materials:</div>
+                                                                    <div className="space-y-1">
+                                                                        {rec.studyMaterials.map((material, mIdx) => (
+                                                                            <div key={mIdx} className="flex items-center gap-2">
+                                                                                <span className="text-sm text-white">{material.title}</span>
+                                                                                {material.openUrl && (
+                                                                                    <a
+                                                                                        href={material.openUrl}
+                                                                                        target="_blank"
+                                                                                        rel="noopener noreferrer"
+                                                                                        className="text-sm text-teal-400 hover:underline"
+                                                                                    >
+                                                                                        Open First Page →
+                                                                                    </a>
+                                                                                )}
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+
+                                                            {rec.focusSession && (
+                                                                <button
+                                                                    onClick={() => startFocusSession(rec.focusSession)}
+                                                                    className="mt-4 bg-teal-500 hover:bg-teal-600 text-black px-4 py-2 rounded-lg font-medium transition"
+                                                                >
+                                                                    Practice {rec.recommendedPracticeCount || 10} Questions
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : focusRecommendation ? (
                                                 <div className="mt-6 p-4 rounded-lg bg-red-500/10 border border-red-500/20">
                                                     <div className="text-sm text-red-400 font-semibold mb-1">
                                                         Focus Area
@@ -283,7 +347,7 @@ const AnalyticsPage = () => {
                                                         {Math.round(focusRecommendation.accuracyPercentage)}% accuracy
                                                     </div>
                                                 </div>
-                                            )}
+                                            ) : null}
                                         </div>
 
                                         {selectedReport.report?.facetBreakdown && selectedReport.report.facetBreakdown.length > 0 && (
