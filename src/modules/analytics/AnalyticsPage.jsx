@@ -17,13 +17,30 @@ const AnalyticsPage = () => {
             setReportsError(null);
             try {
                 const response = await api.get("/api/reports");
+                console.log("RAW API RESPONSE:", response.data);
+                console.log("Extracted reports:", response.data?.data?.reports);
+                console.log("Response shape check:");
+                console.log("  - response.data.success:", response.data?.success);
+                console.log("  - response.data.data:", response.data?.data);
+                console.log("  - response.data.data.reports:", response.data?.data?.reports);
+                console.log("  - Is array?", Array.isArray(response.data?.data?.reports));
+                console.log("  - Length:", response.data?.data?.reports?.length);
+                
                 const fetchedReports = response.data.data.reports || [];
+                console.log("fetchedReports after extraction:", fetchedReports);
+                console.log("fetchedReports.length:", fetchedReports.length);
+                
                 setReports(fetchedReports);
                 
                 if (fetchedReports.length > 0) {
+                    console.log("Auto-selecting first report:", fetchedReports[0].id);
                     setSelectedReportId(fetchedReports[0].id);
+                } else {
+                    console.log("No reports to auto-select");
                 }
             } catch (err) {
+                console.error("FETCH REPORTS ERROR:", err);
+                console.error("Error response:", err.response?.data);
                 setReportsError(err.response?.data?.error || err.message || "Failed to fetch reports");
             } finally {
                 setLoadingReports(false);
