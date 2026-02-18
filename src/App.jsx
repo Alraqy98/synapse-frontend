@@ -65,6 +65,9 @@ import ReviewScreen from "./modules/flashcards/ReviewScreen";
 import SummariesTab from "./modules/summaries/SummariesTab";
 import SummaryViewerPage from "./modules/summaries/SummaryViewerPage";
 
+// ANALYTICS
+import AnalyticsPage from "./modules/analytics/AnalyticsPage";
+
 // COMPONENTS
 import SidebarItem from "./components/SidebarItem";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -113,7 +116,7 @@ const SummariesModule = () => {
 };
 
 const PlannerModule = () => <Placeholder label="Planner" />;
-const AnalyticsModule = () => <Placeholder label="Analytics" />;
+const AnalyticsModule = () => <AnalyticsPage />;
 
 const SettingsModule = ({ onLogout }) => (
   <div className="flex-center flex-col gap-4 text-muted">
