@@ -1,48 +1,26 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import api from "../../lib/api";
 
 const AnalyticsOverview = () => {
     const navigate = useNavigate();
-    const [snapshot, setSnapshot] = useState(null);
-    const [recommendations, setRecommendations] = useState([]);
+    const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const fetchLatestData = async () => {
+        const fetchDashboardData = async () => {
             try {
-                const response = await api.get("/api/reports");
-                const reports = response.data.data.reports || [];
-                if (reports.length > 0) {
-                    const latest = reports[0];
-                    setSnapshot({
-                        summary: {
-                            overallQuestionAccuracy: latest.summary?.overallQuestionAccuracy,
-                            overallConceptAccuracy: latest.summary?.overallConceptAccuracy,
-                            totalQuestionAttempts: latest.summary?.totalQuestionAttempts,
-                            totalConceptAttempts: latest.summary?.totalConceptAttempts,
-                        },
-                        createdAt: latest.createdAt
-                    });
-
-                    // Fetch full report for recommendations
-                    const fullReport = await api.get(`/api/reports/${latest.id}`);
-                    const recs = fullReport.data.data.report?.recommendations || [];
-                    setRecommendations(recs);
-                }
+                const response = await api.get("/api/analytics/dashboard");
+                setData(response.data.data);
             } catch (err) {
-                console.error("Failed to fetch data:", err);
+                console.error("Failed to fetch dashboard data:", err);
+                setData(null);
             } finally {
                 setLoading(false);
             }
         };
-        fetchLatestData();
+        fetchDashboardData();
     }, []);
-
-    const startFocusSession = (session) => {
-        console.log("Starting focus session:", session);
-        // TODO: route to MCQ drill mode
-    };
 
     if (loading) {
         return (
@@ -53,32 +31,45 @@ const AnalyticsOverview = () => {
         );
     }
 
-    const primary = recommendations
-        ?.filter(r => r.severity === "critical" || r.severity === "weak")
-        ?.sort((a,b) => (b.priorityScore || 0) - (a.priorityScore || 0))[0];
+    if (!data) {
+        return (
+            <div className="text-center py-12">
+                <p className="text-muted">No performance data available yet.</p>
+                <p className="text-sm text-muted mt-2">Complete some MCQ sessions to get started.</p>
+            </div>
+        );
+    }
+
+    const { weakestConcepts, recentTrend, lastSessionId } = data;
+
+    // Calculate momentum state
+    const momentum = calculateMomentum(recentTrend);
+    const momentumState = classifyMomentum(momentum);
+    const overallAccuracy = recentTrend && recentTrend.length > 0 
+        ? recentTrend[recentTrend.length - 1].accuracy 
+        : null;
 
     return (
         <div>
-            {/* Subtle Hero */}
-            <div className="space-y-2 mb-6">
-                <h1 className="text-3xl font-semibold text-white">
-                    Performance OS
-                </h1>
-                <p className="text-muted text-sm">
-                    One thing matters right now.
-                </p>
-            </div>
-
-            {/* Primary Focus Card - DOMINANT */}
-            <PrimaryFocusCard 
-                primary={primary}
-                snapshot={snapshot}
-                onStartFocus={startFocusSession}
+            {/* Momentum Hero */}
+            <MomentumHero 
+                momentumState={momentumState}
+                momentum={momentum}
+                overallAccuracy={overallAccuracy}
+                recentTrend={recentTrend}
             />
+
+            {/* Primary Risk Block */}
+            {weakestConcepts && weakestConcepts.length > 0 && (
+                <PrimaryRiskCard 
+                    concept={weakestConcepts[0]}
+                    momentumState={momentumState}
+                />
+            )}
 
             {/* Command Bar */}
             <div className="mt-10">
-                <AnalyticsCommandBar primary={primary} />
+                <AnalyticsCommandBar weakestConcept={weakestConcepts?.[0]} />
             </div>
 
             {/* Explore Tools - Below Fold */}
@@ -88,137 +79,229 @@ const AnalyticsOverview = () => {
                 </h2>
                 <AnalyticsQuickActions navigate={navigate} />
             </div>
-
-            {/* Compact Snapshot */}
-            {snapshot && (
-                <CompactSnapshot snapshot={snapshot} />
-            )}
         </div>
     );
 };
 
-function PrimaryFocusCard({ primary, snapshot, onStartFocus }) {
-    if (!primary) {
-        // Stable state - no critical/weak concepts
-        const accuracy = snapshot?.summary?.overallQuestionAccuracy || 0;
-        
+// Momentum calculation helpers
+function calculateMomentum(recentTrend) {
+    if (!recentTrend || recentTrend.length < 2) return null;
+    const first = recentTrend[0].accuracy;
+    const last = recentTrend[recentTrend.length - 1].accuracy;
+    return last - first;
+}
+
+function classifyMomentum(momentum) {
+    if (momentum === null) return "INSUFFICIENT_DATA";
+    if (momentum >= 3) return "RISING";
+    if (momentum <= -2) return "DECLINING";
+    return "STABLE";
+}
+
+// Momentum Hero - Dynamic headline based on trajectory
+function MomentumHero({ momentumState, momentum, overallAccuracy, recentTrend }) {
+    if (momentumState === "INSUFFICIENT_DATA") {
         return (
-            <div className="bg-white/5 border-2 border-green-500/20 rounded-3xl p-10">
-                <h2 className="text-4xl font-bold text-white mb-4">
-                    {accuracy > 0 ? `You're Stable at ${Math.round(accuracy)}%` : "No Data Yet"}
-                </h2>
-                <p className="text-lg text-muted mb-8">
-                    {accuracy > 0 
-                        ? "No critical weaknesses detected. Keep practicing to maintain your level."
-                        : "Complete some MCQ sessions to see your performance insights."}
+            <div className="mb-8">
+                <h1 className="text-3xl font-bold text-white mb-2">
+                    Performance OS
+                </h1>
+                <p className="text-lg text-muted">
+                    Not enough data yet. Complete more sessions to track your momentum.
                 </p>
-                <button 
-                    onClick={() => console.log("Build reinforcement plan")}
-                    className="w-full bg-teal-500 hover:bg-teal-600 text-black py-4 rounded-2xl text-lg font-semibold transition"
-                >
-                    {accuracy > 0 ? "Build 60-Min Reinforcement Plan" : "Start Practicing"}
-                </button>
             </div>
         );
     }
 
-    // Weak/Critical state - show priority concept
-    const severityStyle = primary.severity === "critical" 
-        ? "border-red-500 bg-red-500/10" 
-        : "border-yellow-500 bg-yellow-500/10";
+    const momentumConfig = {
+        RISING: {
+            headline: "You're Gaining Momentum",
+            color: "text-teal",
+            borderColor: "border-teal/20",
+            bgColor: "bg-teal/5"
+        },
+        STABLE: {
+            headline: "Your Growth Has Plateaued",
+            color: "text-yellow-400",
+            borderColor: "border-yellow-400/20",
+            bgColor: "bg-yellow-400/5"
+        },
+        DECLINING: {
+            headline: "You're Slipping",
+            color: "text-red-400",
+            borderColor: "border-red-400/20",
+            bgColor: "bg-red-400/5"
+        }
+    };
+
+    const config = momentumConfig[momentumState];
 
     return (
-        <div className={`border-2 ${severityStyle} rounded-3xl p-10`}>
-            <div className="flex justify-between items-start mb-6">
+        <div className={`mb-8 border-2 ${config.borderColor} ${config.bgColor} rounded-2xl p-6`}>
+            <div className="flex justify-between items-start mb-4">
                 <div>
-                    <h2 className="text-4xl font-bold text-white mb-2">
-                        {primary.conceptName}
-                    </h2>
-                    <p className="text-xl text-muted">
-                        {Math.round(primary.currentAccuracy)}% → Target {Math.round(primary.targetAccuracy || 70)}%
+                    <h1 className={`text-3xl font-bold ${config.color} mb-2`}>
+                        {config.headline}
+                    </h1>
+                    <p className="text-lg text-white">
+                        {momentum > 0 ? "+" : ""}{Math.round(momentum)}% in last 7 days
                     </p>
                 </div>
-                <span className="text-xs uppercase tracking-wider font-semibold text-muted">
-                    Immediate Focus
+                {overallAccuracy != null && (
+                    <div className="text-right">
+                        <p className="text-sm text-muted uppercase tracking-wide mb-1">Current</p>
+                        <p className="text-3xl font-bold text-white">
+                            {Math.round(overallAccuracy)}%
+                        </p>
+                    </div>
+                )}
+            </div>
+
+            {/* Mini Sparkline */}
+            {recentTrend && recentTrend.length >= 2 && (
+                <div className="mt-4">
+                    <MiniSparkline data={recentTrend} momentumState={momentumState} />
+                </div>
+            )}
+        </div>
+    );
+}
+
+// Primary Risk Card - Shows weakest concept with severity labeling
+function PrimaryRiskCard({ concept, momentumState }) {
+    if (!concept) return null;
+
+    const accuracy = concept.accuracy;
+    const riskLevel = accuracy < 60 ? "HIGH_RISK" : accuracy < 70 ? "NEEDS_REINFORCEMENT" : "MAINTAIN";
+
+    const riskConfig = {
+        HIGH_RISK: {
+            label: "High Risk",
+            color: "text-red-400",
+            borderColor: "border-red-400/40",
+            bgColor: "bg-red-400/10",
+            alert: "⚠ Weak concept decaying"
+        },
+        NEEDS_REINFORCEMENT: {
+            label: "Needs Reinforcement",
+            color: "text-yellow-400",
+            borderColor: "border-yellow-400/40",
+            bgColor: "bg-yellow-400/10",
+            alert: null
+        },
+        MAINTAIN: {
+            label: "Maintain",
+            color: "text-teal",
+            borderColor: "border-teal/40",
+            bgColor: "bg-teal/10",
+            alert: null
+        }
+    };
+
+    const config = riskConfig[riskLevel];
+
+    // Contextual CTA based on momentum
+    const ctaConfig = {
+        DECLINING: { label: "Recover Accuracy", duration: "20 mins" },
+        STABLE: { label: "Break the Plateau", duration: "15 mins" },
+        RISING: { label: "Lock In Gains", duration: "10 mins" }
+    };
+
+    const cta = ctaConfig[momentumState] || { label: "Start Practice", duration: "15 mins" };
+
+    return (
+        <div className={`border-2 ${config.borderColor} ${config.bgColor} rounded-2xl p-8 mb-8`}>
+            <div className="flex items-start justify-between mb-4">
+                <div>
+                    <p className="text-xs uppercase tracking-wider text-muted mb-2">
+                        Your Biggest Risk Right Now
+                    </p>
+                    <h2 className="text-3xl font-bold text-white mb-2">
+                        {concept.name}
+                    </h2>
+                </div>
+                <span className={`text-xs uppercase tracking-wider font-semibold px-3 py-1 rounded-full ${config.color} border ${config.borderColor}`}>
+                    {config.label}
                 </span>
             </div>
 
-            <p className="text-lg text-muted mb-8">
-                This is your largest performance gap. Fixing it will move your overall score fastest.
-            </p>
+            <div className="flex items-baseline gap-4 mb-6">
+                <span className={`text-4xl font-bold ${config.color}`}>
+                    {Math.round(accuracy)}%
+                </span>
+                <span className="text-sm text-muted">
+                    {concept.totalAttempts} attempts
+                </span>
+            </div>
 
-            {/* Study Materials */}
-            {primary.recommendedStudy && primary.recommendedStudy.length > 0 && (
-                <div className="space-y-3 mb-8">
-                    {primary.recommendedStudy.map((material, idx) => (
-                        <div key={idx} className="bg-white/5 rounded-lg p-4">
-                            <div className="flex justify-between items-center">
-                                <div>
-                                    <p className="font-medium text-white">
-                                        {material.fileTitle}
-                                    </p>
-                                    <p className="text-sm text-muted">
-                                        Pages {material.pageRangeText || material.pages?.join(", ")}
-                                    </p>
-                                </div>
-                                {material.openUrl && (
-                                    <a 
-                                        href={material.openUrl}
-                                        className="text-teal-400 text-sm hover:underline"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                    >
-                                        Open →
-                                    </a>
-                                )}
-                            </div>
-                        </div>
-                    ))}
+            {/* Behavioral Signal */}
+            {config.alert && (
+                <div className="mb-6 p-3 rounded-lg bg-red-400/10 border border-red-400/20">
+                    <p className="text-sm text-red-400">{config.alert}</p>
                 </div>
             )}
 
-            {/* CTA */}
-            <button 
-                onClick={() => onStartFocus(primary.focusSession || primary)}
-                className="w-full bg-teal-500 hover:bg-teal-600 text-black py-5 rounded-2xl text-xl font-semibold transition hover:scale-[1.01]"
+            {momentumState === "DECLINING" && (
+                <div className="mb-6 p-3 rounded-lg bg-red-400/10 border border-red-400/20">
+                    <p className="text-sm text-red-400">↓ Performance trending down</p>
+                </div>
+            )}
+
+            {/* Contextual CTA */}
+            <Link
+                to={`/analytics/concepts/${concept.id}`}
+                className="block w-full bg-teal-500 hover:bg-teal-600 text-black py-4 rounded-xl text-center text-lg font-semibold transition hover:scale-[1.01]"
             >
-                Practice {primary.recommendedPracticeCount || 10} Questions
-            </button>
+                {cta.label} ({cta.duration})
+            </Link>
         </div>
     );
 }
 
-function HeroIntelligence({ snapshot, recommendations }) {
-    const weak = recommendations?.filter(r => r.severity === "critical" || r.severity === "weak") || [];
-    const currentAccuracy = snapshot?.summary?.overallQuestionAccuracy || 0;
-    const projected = Math.round(currentAccuracy + 6);
+// Mini Sparkline Component
+function MiniSparkline({ data, momentumState }) {
+    const width = 200;
+    const height = 40;
+    
+    const accuracies = data.map(d => d.accuracy);
+    const max = Math.max(...accuracies);
+    const min = Math.min(...accuracies);
+    const range = max - min || 1;
+
+    const xScale = (i) => (i / (data.length - 1)) * width;
+    const yScale = (val) => height - ((val - min) / range) * height;
+
+    const path = data
+        .map((d, i) => {
+            const x = xScale(i);
+            const y = yScale(d.accuracy);
+            return i === 0 ? `M ${x} ${y}` : `L ${x} ${y}`;
+        })
+        .join(" ");
+
+    const colorMap = {
+        RISING: "rgb(0,245,204)",
+        STABLE: "rgb(251,191,36)",
+        DECLINING: "rgb(248,113,113)"
+    };
+
+    const strokeColor = colorMap[momentumState] || "rgb(245,245,247)";
 
     return (
-        <div className="space-y-3">
-            <h1 className="text-4xl font-bold text-white">
-                Your Performance Today
-            </h1>
-
-            {weak.length > 0 ? (
-                <p className="text-lg text-muted">
-                    You're at {Math.round(currentAccuracy)}%.{" "}
-                    {weak.length} weak {weak.length === 1 ? "area is" : "areas are"} holding you back.
-                    Fix them and you'll cross ~{projected}%.
-                </p>
-            ) : currentAccuracy > 0 ? (
-                <p className="text-lg text-muted">
-                    You're stable at {Math.round(currentAccuracy)}%. Maintain momentum.
-                </p>
-            ) : (
-                <p className="text-lg text-muted">
-                    Start practicing to track your progress.
-                </p>
-            )}
-        </div>
+        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-10">
+            <path
+                d={path}
+                fill="none"
+                stroke={strokeColor}
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+        </svg>
     );
 }
 
-function AnalyticsCommandBar({ primary }) {
+function AnalyticsCommandBar({ weakestConcept }) {
     const [input, setInput] = useState("");
 
     const handleSubmit = (e) => {
@@ -227,8 +310,8 @@ function AnalyticsCommandBar({ primary }) {
         // TODO: route to astra endpoint with analytics context
     };
 
-    const placeholder = primary
-        ? `Fix ${primary.conceptName} (${Math.round(primary.currentAccuracy)}%)`
+    const placeholder = weakestConcept
+        ? `Fix ${weakestConcept.name} (${Math.round(weakestConcept.accuracy)}%)`
         : "Ask about your performance...";
 
     return (
@@ -243,46 +326,6 @@ function AnalyticsCommandBar({ primary }) {
                 className="w-full bg-transparent outline-none text-white placeholder:text-muted"
             />
         </form>
-    );
-}
-
-function NextSteps({ recommendations, navigate }) {
-    const weak = recommendations
-        .filter(r => r.severity === "critical" || r.severity === "weak")
-        .slice(0, 3);
-
-    if (weak.length === 0) return null;
-
-    return (
-        <div>
-            <h2 className="text-xl font-semibold text-white mb-4">
-                Next Steps
-            </h2>
-
-            <div className="space-y-3">
-                {weak.map((rec) => (
-                    <button
-                        key={rec.conceptId || rec.conceptName}
-                        onClick={() => console.log("Practice:", rec.conceptName)}
-                        className="w-full text-left bg-white/5 hover:bg-white/10 border border-white/10 hover:border-teal/40 p-4 rounded-xl transition group"
-                    >
-                        <div className="flex justify-between items-center">
-                            <div>
-                                <p className="font-medium text-white group-hover:text-teal transition">
-                                    {rec.conceptName}
-                                </p>
-                                <p className="text-sm text-muted mt-1">
-                                    {rec.nextActionLabel || "Review and practice"}
-                                </p>
-                            </div>
-                            <span className="text-lg font-semibold text-white">
-                                {Math.round(rec.currentAccuracy)}%
-                            </span>
-                        </div>
-                    </button>
-                ))}
-            </div>
-        </div>
     );
 }
 
@@ -332,26 +375,6 @@ function ActionCard({ title, description, onClick }) {
                 {description}
             </p>
         </button>
-    );
-}
-
-function CompactSnapshot({ snapshot }) {
-    const accuracy = snapshot.summary?.overallQuestionAccuracy;
-    const concepts = snapshot.summary?.totalConceptAttempts;
-    const attempts = snapshot.summary?.totalQuestionAttempts;
-
-    return (
-        <div className="mt-12 text-sm text-muted flex flex-wrap gap-6">
-            {accuracy != null && (
-                <span>Overall: {Math.round(accuracy)}%</span>
-            )}
-            {concepts != null && (
-                <span>Concepts: {concepts}</span>
-            )}
-            {attempts != null && (
-                <span>Attempts: {attempts}</span>
-            )}
-        </div>
     );
 }
 
