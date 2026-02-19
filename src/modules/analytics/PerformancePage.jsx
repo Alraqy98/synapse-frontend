@@ -229,19 +229,73 @@ export default function PerformancePage() {
 
   const overallState = data.overall?.state || data.overall_state;
   
-  // Insufficient data guard
+  // Calibration Mode (insufficient data state)
   if (overallState === "INSUFFICIENT_DATA") {
+    const debugInputs = data.debug?.inputs ?? {};
+    const recentTrendPoints = debugInputs.recent_trend_points ?? 0;
+    const minPointsRequired = debugInputs.min_points_required ?? 5;
+    const progress = minPointsRequired > 0 ? (recentTrendPoints / minPointsRequired) * 100 : 0;
+
     return (
       <div className="max-w-7xl mx-auto">
-        <div className="panel p-8 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 mb-4">
-            <div className="w-2 h-2 rounded-full bg-white/30" />
-            <span className="font-mono text-xs text-white/40 tracking-wider">INSUFFICIENT DATA</span>
+        <div className="panel max-w-2xl mx-auto overflow-hidden">
+          {/* Header */}
+          <div className="px-6 py-5 bg-[#111114]/50 border-b border-white/[0.07]">
+            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded bg-[#4E9E7A]/10 border border-[#4E9E7A]/25 mb-3">
+              <div className="w-1.5 h-1.5 rounded-full bg-[#4E9E7A]" />
+              <span className="font-mono text-xs text-[#4E9E7A] tracking-wider">CALIBRATION MODE</span>
+            </div>
+            <h2 className="text-2xl font-semibold text-white mb-2">
+              Learning Calibration Mode
+            </h2>
+            <p className="text-base text-white/60 leading-relaxed">
+              We need at least <span className="font-mono text-white">{minPointsRequired}</span> distinct sessions 
+              to measure your learning trajectory and detect patterns.
+            </p>
           </div>
-          <h3 className="text-lg font-semibold text-white mb-2">Not enough data yet</h3>
-          <p className="text-muted max-w-md mx-auto">
-            Complete a few more MCQ sessions to generate your learning trajectory and performance insights.
-          </p>
+
+          {/* Progress Section */}
+          <div className="px-6 py-5 bg-[#111114]/30">
+            <div className="flex items-center justify-between mb-3">
+              <span className="font-mono text-xs text-white/40 tracking-wider">CALIBRATION PROGRESS</span>
+              <span className="font-mono text-sm text-white">
+                {recentTrendPoints} / {minPointsRequired}
+              </span>
+            </div>
+            
+            {/* Progress Bar */}
+            <div className="h-2 bg-white/[0.06] rounded-full overflow-hidden mb-4">
+              <div 
+                className="h-full bg-gradient-to-r from-[#4E9E7A] to-[#5BAE8C] rounded-full transition-all duration-500 ease-out"
+                style={{ width: `${Math.min(progress, 100)}%` }}
+              />
+            </div>
+
+            {/* Sessions Needed */}
+            {recentTrendPoints < minPointsRequired && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.08]">
+                <span className="text-sm text-white/50">
+                  {minPointsRequired - recentTrendPoints} more {minPointsRequired - recentTrendPoints === 1 ? 'session' : 'sessions'} needed
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* CTA Section */}
+          <div className="px-6 py-5 bg-[#0F1612] border-t border-[#4E9E7A]/20">
+            <button 
+              className="w-full px-5 py-3 rounded-lg bg-[#4E9E7A] hover:bg-[#5BAE8C] text-[#0C0C0E] font-semibold text-sm transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]"
+              onClick={() => {
+                // TODO: Navigate to MCQ practice
+                console.log("Start calibration session");
+              }}
+            >
+              Start 10-minute calibration session
+            </button>
+            <p className="text-center text-xs text-white/35 mt-3">
+              Complete practice sessions to unlock trajectory analysis
+            </p>
+          </div>
         </div>
       </div>
     );
