@@ -72,6 +72,7 @@ import DeckReportsPage from "./modules/analytics/pages/DeckReportsPage";
 import FileAnalyticsPage from "./modules/analytics/pages/FileAnalyticsPage";
 import ConceptDetailPage from "./modules/analytics/pages/ConceptDetailPage";
 import DeckRushedMistakesPage from "./modules/analytics/pages/DeckRushedMistakesPage";
+import PerformancePage from "./modules/analytics/PerformancePage";
 
 // COMPONENTS
 import SidebarItem from "./components/SidebarItem";
@@ -1169,15 +1170,9 @@ const SynapseOS = () => {
             } />
             <Route path="/analytics" element={
               <div className="flex-1 overflow-y-auto p-6">
-                <AnalyticsHub />
+                <PerformancePage />
               </div>
-            }>
-              <Route index element={<AnalyticsOverview />} />
-              <Route path="decks" element={<DeckReportsPage />} />
-              <Route path="decks/:deckId/rushed" element={<DeckRushedMistakesPage />} />
-              <Route path="files" element={<FileAnalyticsPage />} />
-              <Route path="concepts/:conceptId" element={<ConceptDetailPage />} />
-            </Route>
+            } />
             <Route path="/settings" element={
               <div className="flex-1 overflow-y-auto p-6">
                   <SettingsPage
