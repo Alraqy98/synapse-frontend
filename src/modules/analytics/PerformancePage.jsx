@@ -136,7 +136,6 @@ const STATE_CONFIG = {
 
 // ─── MICROCOPY ENGINE ──────────────────────────────────────────────────────
 function getMicrocopy(data) {
-  // Extract values with fallback to old structure for backward compatibility
   const overall_state = data.overall?.state || data.overall_state;
   const momentum = data.overall?.momentum || data.momentum;
   const chronic_risk = data.chronic_risk;
@@ -195,9 +194,22 @@ function Sparkline({ data, color, height = 36 }) {
     return `${x},${y}`;
   });
   return (
-    <svg width={w} height={h} style={{ display: "block" }}>
-      <polyline points={pts.join(" ")} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" opacity="0.9" />
-      <circle cx={pts[pts.length - 1].split(",")[0]} cy={pts[pts.length - 1].split(",")[1]} r="2.5" fill={color} />
+    <svg width={w} height={h} className="block">
+      <polyline 
+        points={pts.join(" ")} 
+        fill="none" 
+        stroke={color} 
+        strokeWidth="1.5" 
+        strokeLinejoin="round" 
+        strokeLinecap="round" 
+        opacity="0.9" 
+      />
+      <circle 
+        cx={pts[pts.length - 1].split(",")[0]} 
+        cy={pts[pts.length - 1].split(",")[1]} 
+        r="2.5" 
+        fill={color} 
+      />
     </svg>
   );
 }
@@ -206,13 +218,19 @@ function Sparkline({ data, color, height = 36 }) {
 function AccuracyBar({ value, trend }) {
   const color = value >= 75 ? "#4E9E7A" : value >= 60 ? "#C4A84F" : "#E55A4E";
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      <div style={{ flex: 1, height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
-        <div style={{ width: `${value}%`, height: "100%", background: color, borderRadius: 2, transition: "width 0.6s ease" }} />
+    <div className="flex items-center gap-2">
+      <div className="flex-1 h-[3px] bg-white/[0.06] rounded-sm overflow-hidden">
+        <div 
+          className="h-full rounded-sm transition-all duration-600 ease-out" 
+          style={{ width: `${value}%`, background: color }}
+        />
       </div>
-      <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color, minWidth: 28, textAlign: "right" }}>{value}%</span>
+      <span className="font-mono text-xs min-w-[28px] text-right" style={{ color }}>{value}%</span>
       {trend !== 0 && (
-        <span style={{ fontSize: 10, color: trend > 0 ? "#4E9E7A" : "#E55A4E", minWidth: 24, textAlign: "right" }}>
+        <span 
+          className="text-[10px] min-w-[24px] text-right" 
+          style={{ color: trend > 0 ? "#4E9E7A" : "#E55A4E" }}
+        >
           {trend > 0 ? "+" : ""}{trend}
         </span>
       )}
@@ -223,21 +241,23 @@ function AccuracyBar({ value, trend }) {
 // ─── TRANSITION TIMELINE ──────────────────────────────────────────────────
 function TransitionTimeline({ history }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+    <div className="flex items-center gap-0">
       {history.map((item, i) => {
         const cfg = STATE_CONFIG[item.state];
         return (
-          <div key={i} style={{ display: "flex", alignItems: "center" }}>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-              <div style={{
-                width: 8, height: 8, borderRadius: "50%",
-                background: i === history.length - 1 ? cfg.dot : "transparent",
-                border: `1.5px solid ${cfg.dot}`,
-              }} />
-              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "rgba(255,255,255,0.3)", whiteSpace: "nowrap" }}>{item.date}</span>
+          <div key={i} className="flex items-center">
+            <div className="flex flex-col items-center gap-1">
+              <div 
+                className="w-2 h-2 rounded-full"
+                style={{
+                  background: i === history.length - 1 ? cfg.dot : "transparent",
+                  border: `1.5px solid ${cfg.dot}`,
+                }}
+              />
+              <span className="font-mono text-[9px] text-white/30 whitespace-nowrap">{item.date}</span>
             </div>
             {i < history.length - 1 && (
-              <div style={{ width: 28, height: 1, background: "rgba(255,255,255,0.1)", margin: "0 2px", marginBottom: 16 }} />
+              <div className="w-7 h-px bg-white/10 mx-0.5 mb-4" />
             )}
           </div>
         );
@@ -257,13 +277,12 @@ function UrgencyBadge({ urgency }) {
   };
   const s = map[urgency] || map.LOW;
   return (
-    <div style={{
-      display: "inline-flex", alignItems: "center", gap: 6,
-      padding: "3px 9px", borderRadius: 3,
-      background: s.bg, border: `1px solid ${s.border}`,
-    }}>
-      <div style={{ width: 5, height: 5, borderRadius: "50%", background: s.color }} />
-      <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: s.color, letterSpacing: "0.08em" }}>{s.text}</span>
+    <div 
+      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-sm"
+      style={{ background: s.bg, border: `1px solid ${s.border}` }}
+    >
+      <div className="w-1.5 h-1.5 rounded-full" style={{ background: s.color }} />
+      <span className="font-mono text-[10px] tracking-wider" style={{ color: s.color }}>{s.text}</span>
     </div>
   );
 }
@@ -277,31 +296,25 @@ export default function PerformancePage() {
   const [expandedConcept, setExpandedConcept] = useState(null);
   const [animKey, setAnimKey] = useState(0);
 
-  // Use API data if available, otherwise fall back to mock data
   const data = apiData || MOCK_STATES[activeScenario];
   
-  // Debug logging
   console.log("Learning state data:", data);
   console.log("Learning history data:", apiHistory);
 
-  // Extract values with fallback to old structure for backward compatibility
   const overallState = data.overall?.state || data.overall_state;
   const momentum = data.overall?.momentum || data.momentum;
   const transitionHistory = apiHistory || data.transition || data.transition_history;
   const chronicRisk = data.chronic_risk;
   const daysInState = data.days_in_state;
   
-  // Get config and microcopy first (needed by other extractions)
   const cfg = STATE_CONFIG[overallState];
   const copy = getMicrocopy(data);
   
-  // Primary risk extraction
   const primaryRiskConceptName = data.primary_risk?.concept_name || data.primary_risk_concept;
   const primaryRiskAccuracy = data.primary_risk?.accuracy;
   const primaryRiskAttempts = data.primary_risk?.attempts;
   const primaryRiskReasons = data.primary_risk?.risk_reasons || data.root_cause;
   
-  // Prescription extraction
   const prescriptionType = typeof data.prescription === 'object' 
     ? data.prescription?.type 
     : data.prescription;
@@ -314,54 +327,25 @@ export default function PerformancePage() {
     setExpandedConcept(null);
   };
 
-  // Show loading state while fetching API data
   if (loading && !apiData) {
     return (
-      <div style={{
-        minHeight: "100vh",
-        background: "#0C0C0E",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        color: "#E8E8E8",
-      }}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{
-            width: 40,
-            height: 40,
-            border: "3px solid rgba(255,255,255,0.1)",
-            borderTopColor: "#4E9E7A",
-            borderRadius: "50%",
-            animation: "spin 1s linear infinite",
-            margin: "0 auto 16px",
-          }} />
-          <p style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "rgba(255,255,255,0.4)" }}>
+      <div className="min-h-screen bg-[#0C0C0E] flex items-center justify-center text-[#E8E8E8]">
+        <div className="text-center">
+          <div className="w-10 h-10 border-[3px] border-white/10 border-t-[#4E9E7A] rounded-full animate-spin mx-auto mb-4" />
+          <p className="font-mono text-xs text-white/40">
             Loading learning state...
           </p>
         </div>
-        <style>{`
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
       </div>
     );
   }
 
   return (
-    <div style={{
-      minHeight: "100vh",
-      background: "#0C0C0E",
-      fontFamily: "'DM Sans', system-ui, sans-serif",
-      color: "#E8E8E8",
-      padding: "24px 20px 60px",
-      boxSizing: "border-box",
-    }}>
-      {/* Google Fonts load */}
+    <div className="min-h-screen bg-[#0C0C0E] text-[#E8E8E8] px-5 pt-6 pb-[60px]">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@300;400;500&display=swap');
 
-        * { box-sizing: border-box; }
+        * { box-sizing: border-box; font-family: 'DM Sans', system-ui, sans-serif; }
 
         .scenario-btn {
           padding: 5px 12px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.1);
@@ -394,261 +378,249 @@ export default function PerformancePage() {
         }
         .anim { animation: fadeSlide 0.3s ease both; }
 
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.4; }
-        }
-
         .cohort-fill {
           height: 100%;
           transition: width 0.8s ease;
         }
       `}</style>
 
-      {/* ── Scenario Switcher ── */}
-      <div style={{ maxWidth: 620, margin: "0 auto 32px", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "rgba(255,255,255,0.25)", letterSpacing: "0.1em", marginRight: 4 }}>SCENARIO</span>
+      {/* Scenario Switcher */}
+      <div className="max-w-[620px] mx-auto mb-8 flex items-center gap-2 flex-wrap">
+        <span className="font-mono text-[9px] text-white/25 tracking-widest mr-1">SCENARIO</span>
         {[
           { key: "declining", label: "DECLINING" },
           { key: "accelerating", label: "ACCEL. DECLINE" },
           { key: "stable_low", label: "STABLE / LOW" },
           { key: "chronic", label: "CHRONIC RISK" },
         ].map(s => (
-          <button key={s.key} className={`scenario-btn ${activeScenario === s.key ? "active" : ""}`} onClick={() => handleScenario(s.key)}>
+          <button 
+            key={s.key} 
+            className={`scenario-btn ${activeScenario === s.key ? "active" : ""}`} 
+            onClick={() => handleScenario(s.key)}
+          >
             {s.label}
           </button>
         ))}
       </div>
 
-      {/* ── PANEL ── */}
-      <div key={animKey} className="anim" style={{ maxWidth: 620, margin: "0 auto" }}>
+      {/* Main Panel */}
+      <div key={animKey} className="anim max-w-[620px] mx-auto">
 
-        {/* ── BLOCK 1: Identity Header ── */}
-        <div style={{
-          padding: "16px 20px", marginBottom: 1,
-          background: "#111114", borderRadius: "8px 8px 0 0",
-          border: "1px solid rgba(255,255,255,0.07)",
-          borderBottom: "none",
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "rgba(255,255,255,0.25)", letterSpacing: "0.12em" }}>
+        {/* BLOCK 1: Identity Header */}
+        <div className="px-5 py-4 mb-px bg-[#111114] rounded-t-lg border border-white/[0.07] border-b-0 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <span className="font-mono text-[10px] text-white/25 tracking-[0.12em]">
               LEARNING STATUS
             </span>
-            <span style={{ width: 1, height: 12, background: "rgba(255,255,255,0.1)" }} />
-            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "rgba(255,255,255,0.25)" }}>
+            <span className="w-px h-3 bg-white/10" />
+            <span className="font-mono text-[10px] text-white/25">
               {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }).toUpperCase()}
             </span>
           </div>
           <UrgencyBadge urgency={copy.urgency} />
         </div>
 
-        {/* ── BLOCK 2: State Signal ── */}
-        <div style={{
-          padding: "24px 20px 20px",
-          background: "#111114",
-          border: "1px solid rgba(255,255,255,0.07)",
-          borderTop: `2px solid ${cfg.color}`,
-          marginBottom: 1,
-        }}>
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 14 }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 6 }}>
-                <span style={{
-                  fontFamily: "'DM Mono', monospace", fontSize: 22, fontWeight: 500,
-                  color: cfg.color, letterSpacing: "-0.01em",
-                }}>
+        {/* BLOCK 2: State Signal */}
+        <div 
+          className="px-5 pt-6 pb-5 mb-px bg-[#111114] border border-white/[0.07] border-t-2"
+          style={{ borderTopColor: cfg.color }}
+        >
+          <div className="flex items-start justify-between gap-4 mb-3.5">
+            <div className="flex-1">
+              <div className="flex items-baseline gap-2.5 mb-1.5">
+                <span 
+                  className="font-mono text-[22px] font-medium tracking-tight"
+                  style={{ color: cfg.color }}
+                >
                   {cfg.label}
                 </span>
                 {momentum !== 0 && (
-                  <span style={{
-                    fontFamily: "'DM Mono', monospace", fontSize: 12,
-                    color: momentum > 0 ? "#4E9E7A" : "#E55A4E",
-                  }}>
+                  <span 
+                    className="font-mono text-xs"
+                    style={{ color: momentum > 0 ? "#4E9E7A" : "#E55A4E" }}
+                  >
                     {momentum > 0 ? "+" : ""}{momentum}%
                   </span>
                 )}
               </div>
-              <p style={{ margin: 0, fontSize: 15, fontWeight: 400, color: "#E8E8E8", lineHeight: 1.45, maxWidth: 380 }}>
-                {copy.headline} <span style={{ color: "rgba(255,255,255,0.5)" }}>{copy.subline}</span>
+              <p className="m-0 text-[15px] font-normal leading-[1.45] max-w-[380px]">
+                {copy.headline} <span className="text-white/50">{copy.subline}</span>
               </p>
             </div>
-            <div style={{ textAlign: "right", flexShrink: 0 }}>
-              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginBottom: 2, fontFamily: "'DM Mono', monospace" }}>DAY {daysInState}</div>
+            <div className="text-right shrink-0">
+              <div className="font-mono text-[11px] text-white/30 mb-0.5">DAY {daysInState}</div>
               <Sparkline data={data.session_accuracy} color={cfg.color} height={40} />
             </div>
           </div>
 
-          {/* State timeline */}
           <TransitionTimeline history={transitionHistory} />
         </div>
 
-        {/* ── BLOCK 3: Primary Risk ── */}
-        <div style={{
-          padding: "16px 20px", marginBottom: 1,
-          background: "#111114",
-          border: "1px solid rgba(255,255,255,0.07)",
-          borderLeft: `3px solid ${cfg.color}`,
-        }}>
-          <div style={{ display: "flex", gap: 12 }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "rgba(255,255,255,0.3)", letterSpacing: "0.1em", marginBottom: 5 }}>PRIMARY RISK</div>
-              <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 4 }}>
-                <div style={{ fontSize: 14, fontWeight: 500, color: cfg.color }}>{primaryRiskConceptName}</div>
+        {/* BLOCK 3: Primary Risk */}
+        <div 
+          className="px-5 py-4 mb-px bg-[#111114] border border-white/[0.07] border-l-[3px]"
+          style={{ borderLeftColor: cfg.color }}
+        >
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <div className="font-mono text-[10px] text-white/30 tracking-widest mb-1.5">PRIMARY RISK</div>
+              <div className="flex items-baseline gap-2 mb-1">
+                <div className="text-sm font-medium" style={{ color: cfg.color }}>
+                  {primaryRiskConceptName}
+                </div>
                 {primaryRiskAccuracy != null && (
-                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "rgba(255,255,255,0.4)" }}>
+                  <span className="font-mono text-[11px] text-white/40">
                     {primaryRiskAccuracy}%
                   </span>
                 )}
                 {primaryRiskAttempts != null && (
-                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "rgba(255,255,255,0.25)" }}>
+                  <span className="font-mono text-[10px] text-white/25">
                     {primaryRiskAttempts} attempts
                   </span>
                 )}
               </div>
-              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", lineHeight: 1.5 }}>{primaryRiskReasons}</div>
+              <div className="text-xs text-white/45 leading-[1.5]">{primaryRiskReasons}</div>
             </div>
             {chronicRisk && (
-              <div style={{
-                flexShrink: 0, alignSelf: "flex-start",
-                padding: "4px 8px", borderRadius: 3,
-                background: "rgba(196,168,79,0.1)", border: "1px solid rgba(196,168,79,0.3)",
-              }}>
-                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#C4A84F", letterSpacing: "0.08em", marginBottom: 2 }}>CHRONIC</div>
-                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "rgba(196,168,79,0.7)" }}>RECURRING</div>
+              <div className="shrink-0 self-start px-2 py-1 rounded-sm bg-[#C4A84F]/10 border border-[#C4A84F]/30">
+                <div className="font-mono text-[9px] text-[#C4A84F] tracking-wider mb-0.5">CHRONIC</div>
+                <div className="font-mono text-[9px] text-[#C4A84F]/70">RECURRING</div>
               </div>
             )}
           </div>
         </div>
 
-        {/* ── BLOCK 4: Prescription ── */}
-        <div style={{
-          padding: "14px 20px", marginBottom: 1,
-          background: "#0F1612",
-          border: "1px solid rgba(78,158,122,0.2)",
-        }}>
-          <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "rgba(78,158,122,0.6)", letterSpacing: "0.1em", marginBottom: 5 }}>PRESCRIBED ACTION</div>
-          <p style={{ margin: 0, fontSize: 13, color: "#C8DDD4", lineHeight: 1.55 }}>
+        {/* BLOCK 4: Prescription */}
+        <div className="px-5 py-3.5 mb-px bg-[#0F1612] border border-[#4E9E7A]/20">
+          <div className="font-mono text-[10px] text-[#4E9E7A]/60 tracking-widest mb-1.5">PRESCRIBED ACTION</div>
+          <p className="m-0 text-[13px] text-[#C8DDD4] leading-[1.55]">
             {prescriptionType}
           </p>
           {prescriptionTarget && (
-            <div style={{ marginTop: 8, fontSize: 11, color: "rgba(78,158,122,0.7)", fontFamily: "'DM Mono', monospace" }}>
+            <div className="mt-2 font-mono text-[11px] text-[#4E9E7A]/70">
               → {prescriptionTarget}
             </div>
           )}
           {prescriptionCtaLabel && (
-            <button style={{
-              marginTop: 12, padding: "7px 14px", borderRadius: 4,
-              background: "rgba(78,158,122,0.12)", border: "1px solid rgba(78,158,122,0.35)",
-              color: "#4E9E7A", fontFamily: "'DM Mono', monospace", fontSize: 11,
-              cursor: "pointer", letterSpacing: "0.05em",
-            }}>
+            <button className="mt-3 px-3.5 py-1.5 rounded bg-[#4E9E7A]/[0.12] border border-[#4E9E7A]/[0.35] text-[#4E9E7A] font-mono text-[11px] cursor-pointer tracking-wide">
               {prescriptionCtaLabel}
             </button>
           )}
         </div>
 
-        {/* ── BLOCK 5: Tabs — Concepts / Session / Cohort ── */}
-        <div style={{
-          background: "#111114",
-          border: "1px solid rgba(255,255,255,0.07)",
-          borderRadius: "0 0 8px 8px",
-          marginBottom: 0,
-        }}>
+        {/* BLOCK 5: Tabs */}
+        <div className="bg-[#111114] border border-white/[0.07] rounded-b-lg mb-0">
           {/* Tab nav */}
-          <div style={{
-            display: "flex", gap: 20, padding: "0 20px",
-            borderBottom: "1px solid rgba(255,255,255,0.06)",
-          }}>
+          <div className="flex gap-5 px-5 border-b border-white/[0.06]">
             {["status", "concepts", "session"].map(t => (
-              <button key={t} className={`tab-btn ${activeTab === t ? "active" : ""}`} onClick={() => setActiveTab(t)}>
+              <button 
+                key={t} 
+                className={`tab-btn ${activeTab === t ? "active" : ""}`} 
+                onClick={() => setActiveTab(t)}
+              >
                 {t.toUpperCase()}
               </button>
             ))}
           </div>
 
-          {/* ── Tab: STATUS ── */}
+          {/* Tab: STATUS */}
           {activeTab === "status" && (
-            <div style={{ padding: "16px 20px" }}>
+            <div className="p-4 px-5">
               {/* 3-stat row */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 16 }}>
+              <div className="grid grid-cols-3 gap-3 mb-4">
                 {[
                   { label: "COHORT RANK", value: `${data.cohort_percentile}th`, sub: "percentile among peers" },
                   { label: "EFFICIENCY", value: `${data.session_efficiency.toFixed(1)}`, sub: "correct / min this week" },
                   { label: "ATTEMPTS", value: data.concept_breakdown.reduce((a, c) => a + c.attempts, 0), sub: "on risk concept cluster" },
                 ].map((s, i) => (
-                  <div key={i} style={{ padding: "12px 0" }}>
-                    <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "rgba(255,255,255,0.25)", letterSpacing: "0.1em", marginBottom: 5 }}>{s.label}</div>
-                    <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 20, fontWeight: 500, color: "#E8E8E8", marginBottom: 3 }}>{s.value}</div>
-                    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)" }}>{s.sub}</div>
+                  <div key={i} className="py-3">
+                    <div className="font-mono text-[9px] text-white/25 tracking-widest mb-1.5">{s.label}</div>
+                    <div className="font-mono text-xl font-medium mb-0.5">{s.value}</div>
+                    <div className="text-[10px] text-white/30">{s.sub}</div>
                   </div>
                 ))}
               </div>
 
               {/* Cohort bar */}
               <div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
-                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "rgba(255,255,255,0.25)", letterSpacing: "0.1em" }}>COHORT POSITION</span>
-                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "rgba(255,255,255,0.25)" }}>vs. students at same study stage</span>
+                <div className="flex justify-between mb-1.5">
+                  <span className="font-mono text-[9px] text-white/25 tracking-widest">COHORT POSITION</span>
+                  <span className="font-mono text-[9px] text-white/25">vs. students at same study stage</span>
                 </div>
-                <div style={{ height: 5, background: "rgba(255,255,255,0.06)", borderRadius: 3, overflow: "hidden", position: "relative" }}>
-                  <div className="cohort-fill" style={{ width: `${data.cohort_percentile}%`, background: data.cohort_percentile >= 60 ? "#4E9E7A" : data.cohort_percentile >= 40 ? "#C4A84F" : "#E55A4E", borderRadius: 3 }} />
-                  <div style={{ position: "absolute", left: "50%", top: 0, width: 1, height: "100%", background: "rgba(255,255,255,0.2)" }} />
+                <div className="h-[5px] bg-white/[0.06] rounded-sm overflow-hidden relative">
+                  <div 
+                    className="cohort-fill rounded-sm" 
+                    style={{ 
+                      width: `${data.cohort_percentile}%`, 
+                      background: data.cohort_percentile >= 60 ? "#4E9E7A" : data.cohort_percentile >= 40 ? "#C4A84F" : "#E55A4E"
+                    }} 
+                  />
+                  <div className="absolute left-1/2 top-0 w-px h-full bg-white/20" />
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 8, color: "rgba(255,255,255,0.2)" }}>0th</span>
-                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 8, color: "rgba(255,255,255,0.2)" }}>median</span>
-                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 8, color: "rgba(255,255,255,0.2)" }}>100th</span>
+                <div className="flex justify-between mt-1">
+                  <span className="font-mono text-[8px] text-white/20">0th</span>
+                  <span className="font-mono text-[8px] text-white/20">median</span>
+                  <span className="font-mono text-[8px] text-white/20">100th</span>
                 </div>
               </div>
             </div>
           )}
 
-          {/* ── Tab: CONCEPTS ── */}
+          {/* Tab: CONCEPTS */}
           {activeTab === "concepts" && (
-            <div style={{ padding: "12px 20px" }}>
-              <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "rgba(255,255,255,0.25)", marginBottom: 12, letterSpacing: "0.08em" }}>
+            <div className="p-3 px-5">
+              <div className="font-mono text-[10px] text-white/25 mb-3 tracking-wide">
                 TAP A CONCEPT TO SEE QUESTION-LEVEL EVIDENCE
               </div>
               {data.concept_breakdown.map((concept, i) => (
-                <div key={i} className="concept-row" onClick={() => setExpandedConcept(expandedConcept === i ? null : i)}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: expandedConcept === i ? 10 : 0 }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                        <span style={{ fontSize: 13, fontWeight: 500, color: concept.accuracy < 60 ? "#E55A4E" : concept.accuracy < 75 ? "#C4A84F" : "#4E9E7A" }}>
+                <div 
+                  key={i} 
+                  className="concept-row" 
+                  onClick={() => setExpandedConcept(expandedConcept === i ? null : i)}
+                >
+                  <div className={`flex items-center gap-2.5 ${expandedConcept === i ? "mb-2.5" : ""}`}>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span 
+                          className="text-[13px] font-medium"
+                          style={{ color: concept.accuracy < 60 ? "#E55A4E" : concept.accuracy < 75 ? "#C4A84F" : "#4E9E7A" }}
+                        >
                           {concept.name}
                         </span>
-                        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "rgba(255,255,255,0.25)", padding: "1px 5px", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 2 }}>
+                        <span className="font-mono text-[9px] text-white/25 px-1.5 py-px border border-white/[0.08] rounded-sm">
                           {concept.facet}
                         </span>
                       </div>
                       <AccuracyBar value={concept.accuracy} trend={concept.trend} />
                     </div>
-                    <div style={{ textAlign: "right", flexShrink: 0 }}>
-                      <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "rgba(255,255,255,0.25)", marginBottom: 2 }}>{concept.attempts} attempts</div>
-                      <div style={{ color: "rgba(255,255,255,0.15)", fontSize: 10 }}>{expandedConcept === i ? "▲" : "▼"}</div>
+                    <div className="text-right shrink-0">
+                      <div className="font-mono text-[9px] text-white/25 mb-0.5">{concept.attempts} attempts</div>
+                      <div className="text-white/15 text-[10px]">{expandedConcept === i ? "▲" : "▼"}</div>
                     </div>
                   </div>
 
                   {/* Drill-down proof layer */}
                   {expandedConcept === i && (
-                    <div style={{
-                      padding: "10px 12px", borderRadius: 4,
-                      background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)",
-                    }}>
-                      <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "rgba(255,255,255,0.3)", marginBottom: 8, letterSpacing: "0.08em" }}>QUESTION-LEVEL EVIDENCE</div>
+                    <div className="p-2.5 px-3 rounded bg-white/[0.025] border border-white/[0.06]">
+                      <div className="font-mono text-[10px] text-white/30 mb-2 tracking-wide">QUESTION-LEVEL EVIDENCE</div>
                       {[
                         { q: "A 22-year-old presents with pH 7.28, PCO₂ 18 mmHg, HCO₃ 8 mEq/L. What is the primary disorder?", attempts: 5, correct: 1, time: "3.2 min avg", page: "Costanzo p. 302" },
                         { q: "Which buffer system provides the fastest response to acute acidosis?", attempts: 3, correct: 0, time: "4.1 min avg", page: "Costanzo p. 289" },
                       ].map((q, qi) => (
-                        <div key={qi} style={{ marginBottom: qi === 0 ? 10 : 0, paddingBottom: qi === 0 ? 10 : 0, borderBottom: qi === 0 ? "1px solid rgba(255,255,255,0.05)" : "none" }}>
-                          <p style={{ margin: "0 0 6px", fontSize: 12, color: "rgba(255,255,255,0.7)", lineHeight: 1.45 }}>{q.q}</p>
-                          <div style={{ display: "flex", gap: 12 }}>
-                            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: q.correct === 0 ? "#E55A4E" : "#C4A84F" }}>
+                        <div 
+                          key={qi} 
+                          className={qi === 0 ? "mb-2.5 pb-2.5 border-b border-white/[0.05]" : ""}
+                        >
+                          <p className="m-0 mb-1.5 text-xs text-white/70 leading-[1.45]">{q.q}</p>
+                          <div className="flex gap-3">
+                            <span 
+                              className="font-mono text-[10px]"
+                              style={{ color: q.correct === 0 ? "#E55A4E" : "#C4A84F" }}
+                            >
                               {q.correct}/{q.attempts} correct
                             </span>
-                            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "rgba(255,255,255,0.25)" }}>{q.time}</span>
-                            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "rgba(78,158,122,0.7)" }}>→ {q.page}</span>
+                            <span className="font-mono text-[10px] text-white/25">{q.time}</span>
+                            <span className="font-mono text-[10px] text-[#4E9E7A]/70">→ {q.page}</span>
                           </div>
                         </div>
                       ))}
@@ -659,35 +631,46 @@ export default function PerformancePage() {
             </div>
           )}
 
-          {/* ── Tab: SESSION ── */}
+          {/* Tab: SESSION */}
           {activeTab === "session" && (
-            <div style={{ padding: "16px 20px" }}>
-              <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "rgba(255,255,255,0.25)", marginBottom: 14, letterSpacing: "0.08em" }}>8-SESSION ACCURACY HISTORY</div>
-              {/* Session chart - manual bars */}
-              <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 80, marginBottom: 8 }}>
+            <div className="p-4 px-5">
+              <div className="font-mono text-[10px] text-white/25 mb-3.5 tracking-wide">8-SESSION ACCURACY HISTORY</div>
+              {/* Session chart */}
+              <div className="flex items-end gap-1.5 h-20 mb-2">
                 {data.session_accuracy.map((v, i) => {
                   const isLast = i === data.session_accuracy.length - 1;
                   const color = v >= 75 ? "#4E9E7A" : v >= 60 ? "#C4A84F" : "#E55A4E";
                   return (
-                    <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                      <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 8, color: isLast ? color : "rgba(255,255,255,0.2)" }}>{v}</span>
-                      <div style={{ width: "100%", background: isLast ? color : "rgba(255,255,255,0.08)", borderRadius: 2, height: `${(v / 100) * 60}px`, transition: "height 0.4s ease" }} />
+                    <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                      <span 
+                        className="font-mono text-[8px]"
+                        style={{ color: isLast ? color : "rgba(255,255,255,0.2)" }}
+                      >
+                        {v}
+                      </span>
+                      <div 
+                        className="w-full rounded-sm transition-all duration-400"
+                        style={{ 
+                          background: isLast ? color : "rgba(255,255,255,0.08)", 
+                          height: `${(v / 100) * 60}px` 
+                        }} 
+                      />
                     </div>
                   );
                 })}
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "rgba(255,255,255,0.2)" }}>8 sessions ago</span>
-                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "rgba(255,255,255,0.2)" }}>current</span>
+              <div className="flex justify-between">
+                <span className="font-mono text-[9px] text-white/20">8 sessions ago</span>
+                <span className="font-mono text-[9px] text-white/20">current</span>
               </div>
 
-              <div style={{ marginTop: 20, padding: "12px 0", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "rgba(255,255,255,0.25)", marginBottom: 10, letterSpacing: "0.1em" }}>SESSION EFFICIENCY (correct / min)</div>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 28, color: "#E8E8E8" }}>{data.session_efficiency.toFixed(1)}</span>
-                  <span style={{ fontSize: 12, color: "rgba(255,255,255,0.35)" }}>correct answers per minute</span>
+              <div className="mt-5 pt-3 border-t border-white/[0.06]">
+                <div className="font-mono text-[9px] text-white/25 mb-2.5 tracking-widest">SESSION EFFICIENCY (correct / min)</div>
+                <div className="flex items-baseline gap-2">
+                  <span className="font-mono text-[28px]">{data.session_efficiency.toFixed(1)}</span>
+                  <span className="text-xs text-white/35">correct answers per minute</span>
                 </div>
-                <p style={{ margin: "8px 0 0", fontSize: 11, color: "rgba(255,255,255,0.35)", lineHeight: 1.5 }}>
+                <p className="mt-2 mb-0 text-[11px] text-white/35 leading-[1.5]">
                   {data.session_efficiency < 2.5
                     ? "Low efficiency suggests extended hesitation or guessing. Speed-accuracy balance is off."
                     : "Efficiency is acceptable. Accuracy is the limiting factor, not cognitive speed."}
@@ -698,10 +681,10 @@ export default function PerformancePage() {
         </div>
       </div>
 
-      {/* ── SPEC ANNOTATIONS (below panel) ── */}
-      <div style={{ maxWidth: 620, margin: "48px auto 0" }}>
-        <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 32 }}>
-          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "rgba(255,255,255,0.2)", letterSpacing: "0.12em", marginBottom: 20 }}>DESIGN SPEC — COMPONENT BLUEPRINT</div>
+      {/* Spec Annotations */}
+      <div className="max-w-[620px] mx-auto mt-12">
+        <div className="border-t border-white/[0.06] pt-8">
+          <div className="font-mono text-[9px] text-white/20 tracking-[0.12em] mb-5">DESIGN SPEC — COMPONENT BLUEPRINT</div>
 
           {[
             { block: "BLOCK 1", name: "Identity Header", source: "analytics_snapshots.created_at, urgency computed from state + momentum", note: "Always visible. Date grounds the data in time. Badge communicates triage level before anything else is read." },
@@ -712,14 +695,17 @@ export default function PerformancePage() {
             { block: "BLOCK 5b", name: "Concepts Tab", source: "concept_breakdown[], mcq_user_answers, mcq_question_concept_mentions", note: "Every concept is tappable. Drill-down shows actual question text + attempt history + source page. This is the proof layer." },
             { block: "BLOCK 5c", name: "Session Tab", source: "session_accuracy[], session_efficiency", note: "8-session bar chart. No line chart — bars communicate discreteness of sessions. Efficiency metric contextualizes accuracy." },
           ].map((s, i) => (
-            <div key={i} style={{ display: "grid", gridTemplateColumns: "80px 1fr", gap: 12, marginBottom: 16, paddingBottom: 16, borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+            <div 
+              key={i} 
+              className="grid grid-cols-[80px_1fr] gap-3 mb-4 pb-4 border-b border-white/[0.04]"
+            >
               <div>
-                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "rgba(255,255,255,0.25)", letterSpacing: "0.08em" }}>{s.block}</div>
-                <div style={{ fontSize: 11, fontWeight: 500, color: "rgba(255,255,255,0.6)", marginTop: 2 }}>{s.name}</div>
+                <div className="font-mono text-[9px] text-white/25 tracking-wide">{s.block}</div>
+                <div className="text-[11px] font-medium text-white/60 mt-0.5">{s.name}</div>
               </div>
               <div>
-                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "rgba(78,158,122,0.6)", marginBottom: 4 }}>{s.source}</div>
-                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", lineHeight: 1.55 }}>{s.note}</div>
+                <div className="font-mono text-[10px] text-[#4E9E7A]/60 mb-1">{s.source}</div>
+                <div className="text-[11px] text-white/35 leading-[1.55]">{s.note}</div>
               </div>
             </div>
           ))}
