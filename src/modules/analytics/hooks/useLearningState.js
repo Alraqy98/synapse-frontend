@@ -13,7 +13,7 @@ export default function useLearningState() {
     const fetchLearningState = async () => {
       try {
         setLoading(true);
-        const response = await api.get("/api/analytics/learning-state");
+        const response = await api.get("/api/learning/state");
         setData(response.data.data);
       } catch (err) {
         console.error("Failed to fetch learning state:", err);

@@ -17,7 +17,7 @@ The new PerformancePage (Clinical Learning State Interface) requires 2 backend e
 
 ## 📌 ENDPOINT 1: Learning State
 
-### **GET /api/analytics/learning-state**
+### **GET /api/learning/state**
 
 **Purpose:** Provide current learning state with risk analysis and prescription
 
@@ -97,7 +97,7 @@ If API returns null or fails, frontend shows:
 
 ## 📌 ENDPOINT 2: Learning History
 
-### **GET /api/analytics/history?limit=30**
+### **GET /api/learning/history?limit=30**
 
 **Purpose:** Provide state transition timeline for visualization
 
@@ -182,7 +182,7 @@ If API returns null or fails, frontend uses:
 **Test Case 1:** User with sufficient data
 ```
 Given: User has 50+ question attempts across 5+ concepts
-When: GET /api/analytics/learning-state
+When: GET /api/learning/state
 Then: 
   - overall.state should be valid state
   - concept_breakdown should have 5+ items
@@ -192,7 +192,7 @@ Then:
 **Test Case 2:** New user
 ```
 Given: User has <10 question attempts
-When: GET /api/analytics/learning-state
+When: GET /api/learning/state
 Then: 
   - May return minimal data or null
   - Frontend shows "complete MCQ sessions" message
@@ -201,7 +201,7 @@ Then:
 **Test Case 3:** History timeline
 ```
 Given: User has 10+ days of activity
-When: GET /api/analytics/history?limit=30
+When: GET /api/learning/history?limit=30
 Then:
   - Returns array of state changes ordered chronologically
   - Each item has date + state
@@ -214,8 +214,8 @@ Then:
 **Base URL:** `https://synapse-backend-k07r.onrender.com`
 
 **Frontend Endpoints Configured:**
-- ✅ `GET /api/analytics/learning-state` (useLearningState hook)
-- ✅ `GET /api/analytics/history?limit=30` (useLearningHistory hook)
+- ✅ `GET /api/learning/state` (useLearningState hook)
+- ✅ `GET /api/learning/history?limit=30` (useLearningHistory hook)
 
 **Frontend Status:** 
 - ✅ PerformancePage implemented
