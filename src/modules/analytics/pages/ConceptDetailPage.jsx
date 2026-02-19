@@ -41,7 +41,7 @@ const ConceptDetailPage = () => {
         return (
             <div className="text-center py-12">
                 <p className="text-red-400 mb-4">{error}</p>
-                <button onClick={() => navigate("/analytics")} className="btn btn-secondary">
+                <button onClick={() => navigate("/learning")} className="btn btn-secondary">
                     Back to Analytics
                 </button>
             </div>
@@ -63,7 +63,7 @@ const ConceptDetailPage = () => {
             {/* Header */}
             <div className="flex items-center gap-4">
                 <button
-                    onClick={() => navigate("/analytics")}
+                    onClick={() => navigate("/learning")}
                     className="flex items-center gap-2 text-muted hover:text-white transition"
                 >
                     <ArrowLeft size={18} />

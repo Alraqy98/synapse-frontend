@@ -333,17 +333,17 @@ function AnalyticsQuickActions({ navigate }) {
     const actions = [
         { 
             title: "Generate Deck Report", 
-            route: "/analytics/decks",
+            route: "/learning/decks",
             description: "Deep dive into deck performance"
         },
         { 
             title: "Track File Progress", 
-            route: "/analytics/files",
+            route: "/learning/files",
             description: "See how you're doing per file"
         },
         { 
             title: "Analyze Folder", 
-            route: "/analytics/files?mode=folder",
+            route: "/learning/files?mode=folder",
             description: "Overview by folder grouping"
         }
     ];

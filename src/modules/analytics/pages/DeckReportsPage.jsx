@@ -35,7 +35,7 @@ const DeckReportsPage = () => {
             
             // For now, just navigate back with success message
             setTimeout(() => {
-                navigate("/analytics");
+                navigate("/learning");
             }, 1000);
         } catch (err) {
             console.error("Failed to generate report:", err);
@@ -47,7 +47,7 @@ const DeckReportsPage = () => {
     return (
         <div className="space-y-6">
             <button
-                onClick={() => navigate("/analytics")}
+                onClick={() => navigate("/learning")}
                 className="flex items-center gap-2 text-muted hover:text-white transition"
             >
                 <ArrowLeft size={18} />

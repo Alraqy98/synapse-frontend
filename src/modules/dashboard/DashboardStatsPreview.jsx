@@ -107,7 +107,7 @@ const DashboardStatsPreview = () => {
                         </button>
                     )}
                     <Link
-                        to="/analytics"
+                        to="/learning"
                         className="flex-1 bg-teal-500 hover:bg-teal-600 text-black font-semibold py-2 px-4 rounded-lg transition text-sm text-center"
                     >
                         View Full Analytics

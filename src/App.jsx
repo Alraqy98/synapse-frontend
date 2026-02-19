@@ -730,7 +730,7 @@ const SynapseOS = () => {
         "/osce",
         "/oral",
         "/planner",
-        "/analytics",
+        "/learning",
         "/settings",
       ];
       
@@ -851,7 +851,7 @@ const SynapseOS = () => {
     { icon: Activity, label: "OSCE", to: "/osce" },
     { icon: Mic, label: "Oral Exam", to: "/oral" },
     { icon: Calendar, label: "Planner", to: "/planner" },
-    { icon: BarChart2, label: "Analytics", to: "/analytics" },
+    { icon: BarChart2, label: "Learning", to: "/learning" },
   ];
 
   // Sidebar
@@ -1168,7 +1168,7 @@ const SynapseOS = () => {
                 <PlannerModule />
               </div>
             } />
-            <Route path="/analytics" element={
+            <Route path="/learning" element={
               <div className="flex-1 overflow-y-auto p-6">
                 <PerformancePage />
               </div>
