@@ -404,10 +404,10 @@ export default function PerformancePage() {
       </div>
 
       {/* Main Panel */}
-      <div key={animKey} className="anim max-w-[620px] mx-auto">
+      <div key={animKey} className="anim panel max-w-[620px] mx-auto overflow-hidden">
 
         {/* BLOCK 1: Identity Header */}
-        <div className="px-5 py-4 mb-px bg-[#111114] rounded-t-lg border border-white/[0.07] border-b-0 flex items-center justify-between">
+        <div className="px-5 py-4 mb-px bg-[#111114]/50 border-b border-white/[0.07] flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <span className="font-mono text-[10px] text-white/25 tracking-[0.12em]">
               LEARNING STATUS
@@ -422,7 +422,7 @@ export default function PerformancePage() {
 
         {/* BLOCK 2: State Signal */}
         <div 
-          className="px-5 pt-6 pb-5 mb-px bg-[#111114] border border-white/[0.07] border-t-2"
+          className="px-5 pt-6 pb-5 mb-px bg-[#111114]/50 border-b border-white/[0.07] border-t-2"
           style={{ borderTopColor: cfg.color }}
         >
           <div className="flex items-start justify-between gap-4 mb-3.5">
@@ -458,7 +458,7 @@ export default function PerformancePage() {
 
         {/* BLOCK 3: Primary Risk */}
         <div 
-          className="px-5 py-4 mb-px bg-[#111114] border border-white/[0.07] border-l-[3px]"
+          className="px-5 py-4 mb-px bg-[#111114]/50 border-b border-white/[0.07] border-l-[3px]"
           style={{ borderLeftColor: cfg.color }}
         >
           <div className="flex gap-3">
@@ -491,7 +491,7 @@ export default function PerformancePage() {
         </div>
 
         {/* BLOCK 4: Prescription */}
-        <div className="px-5 py-3.5 mb-px bg-[#0F1612] border border-[#4E9E7A]/20">
+        <div className="px-5 py-3.5 mb-px bg-[#0F1612] border-b border-[#4E9E7A]/20">
           <div className="font-mono text-[10px] text-[#4E9E7A]/60 tracking-widest mb-1.5">PRESCRIBED ACTION</div>
           <p className="m-0 text-[13px] text-[#C8DDD4] leading-[1.55]">
             {prescriptionType}
@@ -509,7 +509,7 @@ export default function PerformancePage() {
         </div>
 
         {/* BLOCK 5: Tabs */}
-        <div className="bg-[#111114] border border-white/[0.07] rounded-b-lg mb-0">
+        <div className="bg-[#111114]/50">
           {/* Tab nav */}
           <div className="flex gap-5 px-5 border-b border-white/[0.06]">
             {["status", "concepts", "session"].map(t => (
