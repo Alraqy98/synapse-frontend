@@ -39,6 +39,11 @@ const AnalyticsOverview = () => {
         fetchLatestData();
     }, []);
 
+    const startFocusSession = (session) => {
+        console.log("Starting focus session:", session);
+        // TODO: route to MCQ drill mode
+    };
+
     if (loading) {
         return (
             <div className="text-center py-12">
@@ -48,30 +53,45 @@ const AnalyticsOverview = () => {
         );
     }
 
+    const primary = recommendations
+        ?.filter(r => r.severity === "critical" || r.severity === "weak")
+        ?.sort((a,b) => (b.priorityScore || 0) - (a.priorityScore || 0))[0];
+
     return (
-        <div className="space-y-8">
-            {/* Hero Intelligence */}
-            <HeroIntelligence snapshot={snapshot} recommendations={recommendations} />
+        <div>
+            {/* Subtle Hero */}
+            <div className="space-y-2 mb-6">
+                <h1 className="text-3xl font-semibold text-white">
+                    Performance OS
+                </h1>
+                <p className="text-muted text-sm">
+                    One thing matters right now.
+                </p>
+            </div>
+
+            {/* Primary Focus Card - DOMINANT */}
+            <PrimaryFocusCard 
+                primary={primary}
+                snapshot={snapshot}
+                onStartFocus={startFocusSession}
+            />
 
             {/* Command Bar */}
-            <AnalyticsCommandBar recommendations={recommendations} />
+            <div className="mt-10">
+                <AnalyticsCommandBar primary={primary} />
+            </div>
 
-            {/* Next Steps */}
-            {recommendations.length > 0 && (
-                <NextSteps recommendations={recommendations} navigate={navigate} />
-            )}
-
-            {/* Additional Tools */}
-            <div>
+            {/* Explore Tools - Below Fold */}
+            <div className="mt-12">
                 <h2 className="text-lg font-semibold text-white mb-4">
-                    More Tools
+                    Explore
                 </h2>
                 <AnalyticsQuickActions navigate={navigate} />
             </div>
 
-            {/* Current State */}
+            {/* Compact Snapshot */}
             {snapshot && (
-                <CurrentState snapshot={snapshot} />
+                <CompactSnapshot snapshot={snapshot} />
             )}
         </div>
     );
@@ -218,72 +238,34 @@ function ActionCard({ title, description, onClick }) {
     return (
         <button
             onClick={onClick}
-            className="bg-white/5 hover:bg-white/10 border border-white/10 hover:border-teal/40 p-5 rounded-xl text-left transition group"
+            className="bg-white/5 hover:bg-white/10 p-4 rounded-xl text-left transition group text-sm"
         >
-            <p className="font-semibold text-white mb-1 group-hover:text-teal transition">
+            <p className="font-medium text-white mb-1 group-hover:text-teal transition">
                 {title}
             </p>
-            <p className="text-sm text-muted">
+            <p className="text-xs text-muted">
                 {description}
             </p>
         </button>
     );
 }
 
-function CurrentState({ snapshot }) {
-    const formatDate = (dateString) => {
-        if (!dateString) return "Unknown";
-        const date = new Date(dateString);
-        return date.toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-        });
-    };
+function CompactSnapshot({ snapshot }) {
+    const accuracy = snapshot.summary?.overallQuestionAccuracy;
+    const concepts = snapshot.summary?.totalConceptAttempts;
+    const attempts = snapshot.summary?.totalQuestionAttempts;
 
     return (
-        <div className="bg-white/5 border border-white/10 rounded-xl p-6">
-            <div className="flex justify-between items-center mb-4">
-                <h3 className="text-sm font-medium text-muted uppercase tracking-wide">
-                    Current State
-                </h3>
-                <span className="text-xs text-muted">
-                    {formatDate(snapshot.createdAt)}
-                </span>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <SnapshotStat 
-                    label="Overall Accuracy" 
-                    value={snapshot.summary?.overallQuestionAccuracy != null ? `${Math.round(snapshot.summary.overallQuestionAccuracy)}%` : "N/A"}
-                />
-                <SnapshotStat 
-                    label="Concept Accuracy" 
-                    value={snapshot.summary?.overallConceptAccuracy != null ? `${Math.round(snapshot.summary.overallConceptAccuracy)}%` : "N/A"}
-                />
-                <SnapshotStat 
-                    label="Total Attempts" 
-                    value={snapshot.summary?.totalQuestionAttempts || 0}
-                />
-                <SnapshotStat 
-                    label="Concepts Tracked" 
-                    value={snapshot.summary?.totalConceptAttempts || 0}
-                />
-            </div>
-        </div>
-    );
-}
-
-function SnapshotStat({ label, value }) {
-    return (
-        <div className="text-center">
-            <div className="text-xl font-bold text-white mb-1">
-                {value}
-            </div>
-            <div className="text-xs text-muted">
-                {label}
-            </div>
+        <div className="mt-12 text-sm text-muted flex flex-wrap gap-6">
+            {accuracy != null && (
+                <span>Overall: {Math.round(accuracy)}%</span>
+            )}
+            {concepts != null && (
+                <span>Concepts: {concepts}</span>
+            )}
+            {attempts != null && (
+                <span>Attempts: {attempts}</span>
+            )}
         </div>
     );
 }
