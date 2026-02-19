@@ -1,4 +1,5 @@
 import { useState } from "react";
+import useLearningState from "./hooks/useLearningState";
 
 // ─── MOCK DATA ─────────────────────────────────────────────────────────────
 const MOCK_STATES = {
@@ -263,12 +264,18 @@ function UrgencyBadge({ urgency }) {
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────
 export default function PerformancePage() {
+  const { data: apiData, loading } = useLearningState();
   const [activeScenario, setActiveScenario] = useState("declining");
   const [activeTab, setActiveTab] = useState("status");
   const [expandedConcept, setExpandedConcept] = useState(null);
   const [animKey, setAnimKey] = useState(0);
 
-  const data = MOCK_STATES[activeScenario];
+  // Use API data if available, otherwise fall back to mock data
+  const data = apiData || MOCK_STATES[activeScenario];
+  
+  // Debug logging
+  console.log("Learning state data:", data);
+
   const cfg = STATE_CONFIG[data.overall_state];
   const copy = getMicrocopy(data);
 
@@ -277,6 +284,40 @@ export default function PerformancePage() {
     setAnimKey(k => k + 1);
     setExpandedConcept(null);
   };
+
+  // Show loading state while fetching API data
+  if (loading && !apiData) {
+    return (
+      <div style={{
+        minHeight: "100vh",
+        background: "#0C0C0E",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        color: "#E8E8E8",
+      }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{
+            width: 40,
+            height: 40,
+            border: "3px solid rgba(255,255,255,0.1)",
+            borderTopColor: "#4E9E7A",
+            borderRadius: "50%",
+            animation: "spin 1s linear infinite",
+            margin: "0 auto 16px",
+          }} />
+          <p style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "rgba(255,255,255,0.4)" }}>
+            Loading learning state...
+          </p>
+        </div>
+        <style>{`
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    );
+  }
 
   return (
     <div style={{
