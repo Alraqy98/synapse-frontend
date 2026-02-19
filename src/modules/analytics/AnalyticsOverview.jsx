@@ -97,6 +97,97 @@ const AnalyticsOverview = () => {
     );
 };
 
+function PrimaryFocusCard({ primary, snapshot, onStartFocus }) {
+    if (!primary) {
+        // Stable state - no critical/weak concepts
+        const accuracy = snapshot?.summary?.overallQuestionAccuracy || 0;
+        
+        return (
+            <div className="bg-white/5 border-2 border-green-500/20 rounded-3xl p-10">
+                <h2 className="text-4xl font-bold text-white mb-4">
+                    {accuracy > 0 ? `You're Stable at ${Math.round(accuracy)}%` : "No Data Yet"}
+                </h2>
+                <p className="text-lg text-muted mb-8">
+                    {accuracy > 0 
+                        ? "No critical weaknesses detected. Keep practicing to maintain your level."
+                        : "Complete some MCQ sessions to see your performance insights."}
+                </p>
+                <button 
+                    onClick={() => console.log("Build reinforcement plan")}
+                    className="w-full bg-teal-500 hover:bg-teal-600 text-black py-4 rounded-2xl text-lg font-semibold transition"
+                >
+                    {accuracy > 0 ? "Build 60-Min Reinforcement Plan" : "Start Practicing"}
+                </button>
+            </div>
+        );
+    }
+
+    // Weak/Critical state - show priority concept
+    const severityStyle = primary.severity === "critical" 
+        ? "border-red-500 bg-red-500/10" 
+        : "border-yellow-500 bg-yellow-500/10";
+
+    return (
+        <div className={`border-2 ${severityStyle} rounded-3xl p-10`}>
+            <div className="flex justify-between items-start mb-6">
+                <div>
+                    <h2 className="text-4xl font-bold text-white mb-2">
+                        {primary.conceptName}
+                    </h2>
+                    <p className="text-xl text-muted">
+                        {Math.round(primary.currentAccuracy)}% → Target {Math.round(primary.targetAccuracy || 70)}%
+                    </p>
+                </div>
+                <span className="text-xs uppercase tracking-wider font-semibold text-muted">
+                    Immediate Focus
+                </span>
+            </div>
+
+            <p className="text-lg text-muted mb-8">
+                This is your largest performance gap. Fixing it will move your overall score fastest.
+            </p>
+
+            {/* Study Materials */}
+            {primary.recommendedStudy && primary.recommendedStudy.length > 0 && (
+                <div className="space-y-3 mb-8">
+                    {primary.recommendedStudy.map((material, idx) => (
+                        <div key={idx} className="bg-white/5 rounded-lg p-4">
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <p className="font-medium text-white">
+                                        {material.fileTitle}
+                                    </p>
+                                    <p className="text-sm text-muted">
+                                        Pages {material.pageRangeText || material.pages?.join(", ")}
+                                    </p>
+                                </div>
+                                {material.openUrl && (
+                                    <a 
+                                        href={material.openUrl}
+                                        className="text-teal-400 text-sm hover:underline"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        Open →
+                                    </a>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* CTA */}
+            <button 
+                onClick={() => onStartFocus(primary.focusSession || primary)}
+                className="w-full bg-teal-500 hover:bg-teal-600 text-black py-5 rounded-2xl text-xl font-semibold transition hover:scale-[1.01]"
+            >
+                Practice {primary.recommendedPracticeCount || 10} Questions
+            </button>
+        </div>
+    );
+}
+
 function HeroIntelligence({ snapshot, recommendations }) {
     const weak = recommendations?.filter(r => r.severity === "critical" || r.severity === "weak") || [];
     const currentAccuracy = snapshot?.summary?.overallQuestionAccuracy || 0;
@@ -127,9 +218,8 @@ function HeroIntelligence({ snapshot, recommendations }) {
     );
 }
 
-function AnalyticsCommandBar({ recommendations }) {
+function AnalyticsCommandBar({ primary }) {
     const [input, setInput] = useState("");
-    const weak = recommendations?.filter(r => r.severity === "critical" || r.severity === "weak") || [];
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -137,8 +227,8 @@ function AnalyticsCommandBar({ recommendations }) {
         // TODO: route to astra endpoint with analytics context
     };
 
-    const placeholder = weak.length > 0
-        ? `Fix ${weak[0].conceptName} (${Math.round(weak[0].currentAccuracy)}%)`
+    const placeholder = primary
+        ? `Fix ${primary.conceptName} (${Math.round(primary.currentAccuracy)}%)`
         : "Ask about your performance...";
 
     return (
