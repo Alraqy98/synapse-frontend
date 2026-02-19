@@ -135,7 +135,12 @@ const STATE_CONFIG = {
 
 // ─── MICROCOPY ENGINE ──────────────────────────────────────────────────────
 function getMicrocopy(data) {
-  const { overall_state, momentum, chronic_risk, days_in_state } = data;
+  // Extract values with fallback to old structure for backward compatibility
+  const overall_state = data.overall?.state || data.overall_state;
+  const momentum = data.overall?.momentum || data.momentum;
+  const chronic_risk = data.chronic_risk;
+  const days_in_state = data.days_in_state;
+  const transition_history = data.transition || data.transition_history;
 
   if (overall_state === "DECLINING" && momentum <= -30) {
     return {
@@ -156,7 +161,7 @@ function getMicrocopy(data) {
   if (overall_state === "STABLE" && chronic_risk) {
     return {
       headline: "Chronic risk pattern.",
-      subline: `This concept cluster has regressed ${data.transition_history.filter(t => t.state === "DECLINING").length} times. Repetition is not building retention.`,
+      subline: `This concept cluster has regressed ${transition_history.filter(t => t.state === "DECLINING").length} times. Repetition is not building retention.`,
       urgency: "MODERATE",
       cta: "Structured review required.",
     };
@@ -276,7 +281,14 @@ export default function PerformancePage() {
   // Debug logging
   console.log("Learning state data:", data);
 
-  const cfg = STATE_CONFIG[data.overall_state];
+  // Extract values with fallback to old structure for backward compatibility
+  const overallState = data.overall?.state || data.overall_state;
+  const momentum = data.overall?.momentum || data.momentum;
+  const transitionHistory = data.transition || data.transition_history;
+  const chronicRisk = data.chronic_risk;
+  const daysInState = data.days_in_state;
+
+  const cfg = STATE_CONFIG[overallState];
   const copy = getMicrocopy(data);
 
   const handleScenario = (s) => {
@@ -431,12 +443,12 @@ export default function PerformancePage() {
                 }}>
                   {cfg.label}
                 </span>
-                {data.momentum !== 0 && (
+                {momentum !== 0 && (
                   <span style={{
                     fontFamily: "'DM Mono', monospace", fontSize: 12,
-                    color: data.momentum > 0 ? "#4E9E7A" : "#E55A4E",
+                    color: momentum > 0 ? "#4E9E7A" : "#E55A4E",
                   }}>
-                    {data.momentum > 0 ? "+" : ""}{data.momentum}%
+                    {momentum > 0 ? "+" : ""}{momentum}%
                   </span>
                 )}
               </div>
@@ -445,13 +457,13 @@ export default function PerformancePage() {
               </p>
             </div>
             <div style={{ textAlign: "right", flexShrink: 0 }}>
-              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginBottom: 2, fontFamily: "'DM Mono', monospace" }}>DAY {data.days_in_state}</div>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginBottom: 2, fontFamily: "'DM Mono', monospace" }}>DAY {daysInState}</div>
               <Sparkline data={data.session_accuracy} color={cfg.color} height={40} />
             </div>
           </div>
 
           {/* State timeline */}
-          <TransitionTimeline history={data.transition_history} />
+          <TransitionTimeline history={transitionHistory} />
         </div>
 
         {/* ── BLOCK 3: Primary Risk ── */}
@@ -467,7 +479,7 @@ export default function PerformancePage() {
               <div style={{ fontSize: 14, fontWeight: 500, color: cfg.color, marginBottom: 4 }}>{data.primary_risk_concept}</div>
               <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", lineHeight: 1.5 }}>{data.root_cause}</div>
             </div>
-            {data.chronic_risk && (
+            {chronicRisk && (
               <div style={{
                 flexShrink: 0, alignSelf: "flex-start",
                 padding: "4px 8px", borderRadius: 3,
