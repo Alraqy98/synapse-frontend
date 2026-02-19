@@ -11,7 +11,7 @@ export default function useLearningHistory() {
       try {
         setLoading(true);
         setError(null);
-        const response = await api.get("/api/learning/history?limit=30");
+        const response = await api.get("/api/analytics/history?limit=30");
         setHistory(response.data.data || null);
       } catch (err) {
         console.error("Failed to fetch learning history:", err);
