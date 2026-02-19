@@ -325,22 +325,34 @@ export default function PerformancePage() {
   const cfg = STATE_CONFIG[overallState] || STATE_CONFIG.STABLE;
   const copy = getMicrocopy(data);
   
-  // Ensure all primary risk fields are primitives, not objects
-  const primaryRiskConceptName = String(data.primary_risk?.concept_name || data.primary_risk_concept || "Unknown");
+  // Extract primary risk fields (handle both old flat structure and new structured)
+  const primaryRiskConceptName = data.primary_risk?.concept_name || data.primary_risk_concept || "Unknown";
   const primaryRiskAccuracy = data.primary_risk?.accuracy ?? null;
   const primaryRiskAttempts = data.primary_risk?.attempts ?? null;
-  const primaryRiskReasons = String(data.primary_risk?.risk_reasons || data.root_cause || "");
+  const primaryRiskLevel = data.primary_risk?.risk_level ?? null;
+  
+  // Handle risk_reasons: can be string (legacy) or array (new)
+  const primaryRiskReasons = Array.isArray(data.primary_risk?.risk_reasons)
+    ? data.primary_risk.risk_reasons
+    : (data.primary_risk?.risk_reasons || data.root_cause || "");
   
   // Safely extract evidence fields if they exist (can be null in INSUFFICIENT_DATA)
   const primaryRiskEvidence = data.primary_risk?.evidence ?? {};
   const avgTimeLast7d = primaryRiskEvidence.avg_time_ms_last_7d ?? 0;
   
-  // Safely extract prescription (ensure we get primitives, not objects)
-  const prescriptionType = typeof data.prescription === 'object' && data.prescription !== null
-    ? (data.prescription?.type ?? "") 
-    : (data.prescription ?? "");
-  const prescriptionCtaLabel = data.prescription?.cta_label || copy.cta;
-  const prescriptionTarget = data.prescription?.target ?? null;
+  // Extract prescription fields (handle structured object)
+  const prescriptionData = typeof data.prescription === 'object' && data.prescription !== null
+    ? data.prescription
+    : null;
+  const prescriptionType = prescriptionData?.type || (typeof data.prescription === 'string' ? data.prescription : "");
+  const prescriptionDuration = prescriptionData?.duration_minutes ?? null;
+  const prescriptionCtaLabel = prescriptionData?.cta_label || copy.cta;
+  const prescriptionTarget = prescriptionData?.target ?? null;
+  
+  // Extract root cause if present (structured object)
+  const rootCause = data.root_cause && typeof data.root_cause === 'object' 
+    ? data.root_cause 
+    : null;
   
   const conceptBreakdown = data.concept_breakdown || [];
   const sessionAccuracy = data.session_accuracy || [];
@@ -407,7 +419,7 @@ export default function PerformancePage() {
                   className="font-mono text-2xl font-medium tracking-tight"
                   style={{ color: cfg.color }}
                 >
-                  {String(cfg.label)}
+                  {cfg.label}
                 </span>
                 {momentum !== 0 && (
                   <span 
@@ -419,7 +431,7 @@ export default function PerformancePage() {
                 )}
               </div>
               <p className="m-0 text-base font-normal leading-[1.45] max-w-[380px]">
-                {String(copy.headline)} <span className="text-white/50">{String(copy.subline)}</span>
+                {copy.headline} <span className="text-white/50">{copy.subline}</span>
               </p>
             </div>
             <div className="text-right shrink-0">
@@ -453,8 +465,28 @@ export default function PerformancePage() {
                     {primaryRiskAttempts} attempts
                   </span>
                 )}
+                {primaryRiskLevel && (
+                  <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-white/[0.05] border border-white/[0.1] text-white/50">
+                    {primaryRiskLevel}
+                  </span>
+                )}
               </div>
-              <div className="text-xs text-white/45 leading-[1.5]">{primaryRiskReasons}</div>
+              
+              {/* Render risk_reasons: handle both string and array */}
+              {Array.isArray(primaryRiskReasons) ? (
+                <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  {primaryRiskReasons.map((reason, idx) => (
+                    <span 
+                      key={idx}
+                      className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-white/[0.04] border border-white/[0.08] text-white/50"
+                    >
+                      {reason}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-xs text-white/45 leading-[1.5]">{primaryRiskReasons}</div>
+              )}
             </div>
             {chronicRisk && (
               <div className="shrink-0 self-start px-2 py-1 rounded-sm bg-[#C4A84F]/10 border border-[#C4A84F]/30">
@@ -467,18 +499,37 @@ export default function PerformancePage() {
 
         {/* BLOCK 4: Prescription */}
         <div className="px-5 py-3.5 mb-px bg-[#0F1612] border-b border-[#4E9E7A]/20">
-          <div className="font-mono text-xs text-[#4E9E7A]/60 tracking-widest mb-1.5">PRESCRIBED ACTION</div>
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="font-mono text-xs text-[#4E9E7A]/60 tracking-widest">PRESCRIBED ACTION</span>
+            {prescriptionDuration && (
+              <span className="font-mono text-xs text-[#4E9E7A]/40">
+                {prescriptionDuration} minutes
+              </span>
+            )}
+          </div>
+          
           <p className="m-0 text-sm text-[#C8DDD4] leading-[1.55]">
-            {String(prescriptionType || "")}
+            {prescriptionType || "—"}
           </p>
-          {prescriptionTarget && (
+          
+          {/* Render structured target */}
+          {prescriptionTarget && typeof prescriptionTarget === 'object' && (
             <div className="mt-2 font-mono text-xs text-[#4E9E7A]/70">
-              → {String(prescriptionTarget)}
+              {prescriptionTarget.kind === "concept" && (
+                <>→ Focus concept: {primaryRiskConceptName}</>
+              )}
+              {prescriptionTarget.kind === "file" && (
+                <>→ Review file: {prescriptionTarget.id}</>
+              )}
+              {prescriptionTarget.kind === "deck" && (
+                <>→ Practice deck: {prescriptionTarget.id}</>
+              )}
             </div>
           )}
+          
           {prescriptionCtaLabel && (
             <button className="mt-3 px-3.5 py-1.5 rounded bg-[#4E9E7A]/[0.12] border border-[#4E9E7A]/[0.35] text-[#4E9E7A] font-mono text-xs cursor-pointer tracking-wide">
-              {String(prescriptionCtaLabel)}
+              {prescriptionCtaLabel}
             </button>
           )}
         </div>
