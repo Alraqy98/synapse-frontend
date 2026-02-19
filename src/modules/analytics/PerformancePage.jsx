@@ -86,6 +86,11 @@ function getMicrocopy(data) {
 
 // ─── MINI SPARKLINE ────────────────────────────────────────────────────────
 function Sparkline({ data, color, height = 36 }) {
+  // Guard against null/undefined/empty data
+  if (!Array.isArray(data) || data.length === 0) {
+    return null;
+  }
+
   const w = 120, h = height;
   const min = Math.min(...data);
   const max = Math.max(...data);
@@ -142,10 +147,16 @@ function AccuracyBar({ value, trend }) {
 
 // ─── TRANSITION TIMELINE ──────────────────────────────────────────────────
 function TransitionTimeline({ history }) {
+  // Guard against null/undefined/non-array history
+  if (!Array.isArray(history) || history.length === 0) {
+    return null;
+  }
+
   return (
     <div className="flex items-center gap-0">
       {history.map((item, i) => {
-        const cfg = STATE_CONFIG[item.state];
+        // Safe: fallback to STABLE if state is not in config
+        const cfg = STATE_CONFIG[item?.state] || STATE_CONFIG.STABLE;
         return (
           <div key={i} className="flex items-center">
             <div className="flex flex-col items-center gap-1">
@@ -156,7 +167,7 @@ function TransitionTimeline({ history }) {
                   border: `1.5px solid ${cfg.dot}`,
                 }}
               />
-              <span className="font-mono text-xs text-white/30 whitespace-nowrap">{item.date}</span>
+              <span className="font-mono text-xs text-white/30 whitespace-nowrap">{item?.date || "—"}</span>
             </div>
             {i < history.length - 1 && (
               <div className="w-7 h-px bg-white/10 mx-0.5 mb-4" />
