@@ -33,10 +33,16 @@ const STATE_CONFIG = {
 // ─── MICROCOPY ENGINE ──────────────────────────────────────────────────────
 function getMicrocopy(data) {
   const overall_state = data.overall?.state || data.overall_state;
-  const momentum = data.overall?.momentum || data.momentum;
+  
+  // Safely extract momentum (can be object with .dot, number, or null)
+  const rawMomentum = data.overall?.momentum || data.momentum;
+  const momentum = typeof rawMomentum === 'object' && rawMomentum !== null 
+    ? (rawMomentum.dot ?? 0) 
+    : (rawMomentum ?? 0);
+  
   const chronic_risk = data.chronic_risk;
-  const days_in_state = data.days_in_state;
-  const transition_history = data.transition || data.transition_history;
+  const days_in_state = data.days_in_state || 0;
+  const transition_history = data.transition || data.transition_history || [];
 
   if (overall_state === "DECLINING" && momentum <= -30) {
     return {
@@ -222,7 +228,31 @@ export default function PerformancePage() {
   }
 
   const overallState = data.overall?.state || data.overall_state;
-  const momentum = data.overall?.momentum || data.momentum || 0;
+  
+  // Insufficient data guard
+  if (overallState === "INSUFFICIENT_DATA") {
+    return (
+      <div className="max-w-7xl mx-auto">
+        <div className="panel p-8 text-center">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 mb-4">
+            <div className="w-2 h-2 rounded-full bg-white/30" />
+            <span className="font-mono text-xs text-white/40 tracking-wider">INSUFFICIENT DATA</span>
+          </div>
+          <h3 className="text-lg font-semibold text-white mb-2">Not enough data yet</h3>
+          <p className="text-muted max-w-md mx-auto">
+            Complete a few more MCQ sessions to generate your learning trajectory and performance insights.
+          </p>
+        </div>
+      </div>
+    );
+  }
+  
+  // Safely extract momentum (can be object with .dot, number, or null)
+  const rawMomentum = data.overall?.momentum || data.momentum;
+  const momentum = typeof rawMomentum === 'object' && rawMomentum !== null 
+    ? (rawMomentum.dot ?? 0) 
+    : (rawMomentum ?? 0);
+  
   const transitionHistory = apiHistory || data.transition || data.transition_history || [];
   const chronicRisk = data.chronic_risk;
   const daysInState = data.days_in_state || 0;
@@ -231,9 +261,13 @@ export default function PerformancePage() {
   const copy = getMicrocopy(data);
   
   const primaryRiskConceptName = data.primary_risk?.concept_name || data.primary_risk_concept || "Unknown";
-  const primaryRiskAccuracy = data.primary_risk?.accuracy;
-  const primaryRiskAttempts = data.primary_risk?.attempts;
+  const primaryRiskAccuracy = data.primary_risk?.accuracy ?? null;
+  const primaryRiskAttempts = data.primary_risk?.attempts ?? null;
   const primaryRiskReasons = data.primary_risk?.risk_reasons || data.root_cause || "";
+  
+  // Safely extract evidence fields if they exist (can be null in INSUFFICIENT_DATA)
+  const primaryRiskEvidence = data.primary_risk?.evidence ?? {};
+  const avgTimeLast7d = primaryRiskEvidence.avg_time_ms_last_7d ?? 0;
   
   const prescriptionType = typeof data.prescription === 'object' 
     ? data.prescription?.type 
