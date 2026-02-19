@@ -1,5 +1,6 @@
 import { useState } from "react";
 import useLearningState from "./hooks/useLearningState";
+import useLearningHistory from "./hooks/useLearningHistory";
 
 // ─── MOCK DATA ─────────────────────────────────────────────────────────────
 const MOCK_STATES = {
@@ -270,6 +271,7 @@ function UrgencyBadge({ urgency }) {
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────
 export default function PerformancePage() {
   const { data: apiData, loading } = useLearningState();
+  const { history: apiHistory, loading: historyLoading } = useLearningHistory();
   const [activeScenario, setActiveScenario] = useState("declining");
   const [activeTab, setActiveTab] = useState("status");
   const [expandedConcept, setExpandedConcept] = useState(null);
@@ -280,11 +282,12 @@ export default function PerformancePage() {
   
   // Debug logging
   console.log("Learning state data:", data);
+  console.log("Learning history data:", apiHistory);
 
   // Extract values with fallback to old structure for backward compatibility
   const overallState = data.overall?.state || data.overall_state;
   const momentum = data.overall?.momentum || data.momentum;
-  const transitionHistory = data.transition || data.transition_history;
+  const transitionHistory = apiHistory || data.transition || data.transition_history;
   const chronicRisk = data.chronic_risk;
   const daysInState = data.days_in_state;
   
