@@ -291,12 +291,11 @@ function UrgencyBadge({ urgency }) {
 export default function PerformancePage() {
   const { data: apiData, loading } = useLearningState();
   const { history: apiHistory, loading: historyLoading } = useLearningHistory();
-  const [activeScenario, setActiveScenario] = useState("declining");
   const [activeTab, setActiveTab] = useState("status");
   const [expandedConcept, setExpandedConcept] = useState(null);
-  const [animKey, setAnimKey] = useState(0);
 
-  const data = apiData || MOCK_STATES[activeScenario];
+  // Use API data if available, otherwise fall back to stable_low mock state
+  const data = apiData || MOCK_STATES.stable_low;
   
   console.log("Learning state data:", data);
   console.log("Learning history data:", apiHistory);
@@ -321,12 +320,6 @@ export default function PerformancePage() {
   const prescriptionCtaLabel = data.prescription?.cta_label || copy.cta;
   const prescriptionTarget = data.prescription?.target;
 
-  const handleScenario = (s) => {
-    setActiveScenario(s);
-    setAnimKey(k => k + 1);
-    setExpandedConcept(null);
-  };
-
   if (loading && !apiData) {
     return (
       <div className="min-h-screen bg-[#0C0C0E] flex items-center justify-center text-[#E8E8E8]">
@@ -343,15 +336,6 @@ export default function PerformancePage() {
   return (
     <div className="min-h-screen bg-[#0C0C0E] text-[#E8E8E8] px-5 pt-6 pb-[60px]">
       <style>{`
-        .scenario-btn {
-          padding: 5px 12px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.1);
-          background: transparent; color: rgba(255,255,255,0.4); cursor: pointer;
-          font-size: 10px; letter-spacing: 0.05em;
-          transition: all 0.15s;
-        }
-        .scenario-btn:hover { border-color: rgba(255,255,255,0.25); color: rgba(255,255,255,0.7); }
-        .scenario-btn.active { border-color: rgba(255,255,255,0.4); color: #E8E8E8; background: rgba(255,255,255,0.05); }
-
         .tab-btn {
           padding: 6px 0; border: none; background: transparent;
           font-size: 11px; letter-spacing: 0.06em;
@@ -380,27 +364,8 @@ export default function PerformancePage() {
         }
       `}</style>
 
-      {/* Scenario Switcher */}
-      <div className="max-w-[620px] mx-auto mb-8 flex items-center gap-2 flex-wrap">
-        <span className="font-mono text-xs text-white/25 tracking-widest mr-1">SCENARIO</span>
-        {[
-          { key: "declining", label: "DECLINING" },
-          { key: "accelerating", label: "ACCEL. DECLINE" },
-          { key: "stable_low", label: "STABLE / LOW" },
-          { key: "chronic", label: "CHRONIC RISK" },
-        ].map(s => (
-          <button 
-            key={s.key} 
-            className={`scenario-btn ${activeScenario === s.key ? "active" : ""}`} 
-            onClick={() => handleScenario(s.key)}
-          >
-            {s.label}
-          </button>
-        ))}
-      </div>
-
       {/* Main Panel */}
-      <div key={animKey} className="anim panel max-w-[620px] mx-auto overflow-hidden">
+      <div className="anim panel max-w-[620px] mx-auto overflow-hidden">
 
         {/* BLOCK 1: Identity Header */}
         <div className="px-5 py-4 mb-px bg-[#111114]/50 border-b border-white/[0.07] flex items-center justify-between">
