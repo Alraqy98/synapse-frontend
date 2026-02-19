@@ -228,7 +228,7 @@ function AccuracyBar({ value, trend }) {
       <span className="font-mono text-xs min-w-[28px] text-right" style={{ color }}>{value}%</span>
       {trend !== 0 && (
         <span 
-          className="text-[10px] min-w-[24px] text-right" 
+          className="text-xs min-w-[24px] text-right" 
           style={{ color: trend > 0 ? "#4E9E7A" : "#E55A4E" }}
         >
           {trend > 0 ? "+" : ""}{trend}
@@ -254,7 +254,7 @@ function TransitionTimeline({ history }) {
                   border: `1.5px solid ${cfg.dot}`,
                 }}
               />
-              <span className="font-mono text-[9px] text-white/30 whitespace-nowrap">{item.date}</span>
+              <span className="font-mono text-xs text-white/30 whitespace-nowrap">{item.date}</span>
             </div>
             {i < history.length - 1 && (
               <div className="w-7 h-px bg-white/10 mx-0.5 mb-4" />
@@ -282,7 +282,7 @@ function UrgencyBadge({ urgency }) {
       style={{ background: s.bg, border: `1px solid ${s.border}` }}
     >
       <div className="w-1.5 h-1.5 rounded-full" style={{ background: s.color }} />
-      <span className="font-mono text-[10px] tracking-wider" style={{ color: s.color }}>{s.text}</span>
+      <span className="font-mono text-xs tracking-wider" style={{ color: s.color }}>{s.text}</span>
     </div>
   );
 }
@@ -343,14 +343,10 @@ export default function PerformancePage() {
   return (
     <div className="min-h-screen bg-[#0C0C0E] text-[#E8E8E8] px-5 pt-6 pb-[60px]">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@300;400;500&display=swap');
-
-        * { box-sizing: border-box; font-family: 'DM Sans', system-ui, sans-serif; }
-
         .scenario-btn {
           padding: 5px 12px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.1);
           background: transparent; color: rgba(255,255,255,0.4); cursor: pointer;
-          font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.05em;
+          font-size: 10px; letter-spacing: 0.05em;
           transition: all 0.15s;
         }
         .scenario-btn:hover { border-color: rgba(255,255,255,0.25); color: rgba(255,255,255,0.7); }
@@ -358,7 +354,7 @@ export default function PerformancePage() {
 
         .tab-btn {
           padding: 6px 0; border: none; background: transparent;
-          font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.06em;
+          font-size: 11px; letter-spacing: 0.06em;
           cursor: pointer; transition: all 0.15s; border-bottom: 1.5px solid transparent;
           color: rgba(255,255,255,0.35);
         }
@@ -386,7 +382,7 @@ export default function PerformancePage() {
 
       {/* Scenario Switcher */}
       <div className="max-w-[620px] mx-auto mb-8 flex items-center gap-2 flex-wrap">
-        <span className="font-mono text-[9px] text-white/25 tracking-widest mr-1">SCENARIO</span>
+        <span className="font-mono text-xs text-white/25 tracking-widest mr-1">SCENARIO</span>
         {[
           { key: "declining", label: "DECLINING" },
           { key: "accelerating", label: "ACCEL. DECLINE" },
@@ -409,12 +405,12 @@ export default function PerformancePage() {
         {/* BLOCK 1: Identity Header */}
         <div className="px-5 py-4 mb-px bg-[#111114]/50 border-b border-white/[0.07] flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <span className="font-mono text-[10px] text-white/25 tracking-[0.12em]">
+            <span className="font-mono text-xs text-white/25 tracking-[0.12em]">
               LEARNING STATUS
             </span>
             <span className="w-px h-3 bg-white/10" />
-            <span className="font-mono text-[10px] text-white/25">
-              {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }).toUpperCase()}
+            <span className="font-mono text-xs text-white/25">
+              {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase()}
             </span>
           </div>
           <UrgencyBadge urgency={copy.urgency} />
@@ -429,7 +425,7 @@ export default function PerformancePage() {
             <div className="flex-1">
               <div className="flex items-baseline gap-2.5 mb-1.5">
                 <span 
-                  className="font-mono text-[22px] font-medium tracking-tight"
+                  className="font-mono text-2xl font-medium tracking-tight"
                   style={{ color: cfg.color }}
                 >
                   {cfg.label}
@@ -443,12 +439,12 @@ export default function PerformancePage() {
                   </span>
                 )}
               </div>
-              <p className="m-0 text-[15px] font-normal leading-[1.45] max-w-[380px]">
+              <p className="m-0 text-base font-normal leading-[1.45] max-w-[380px]">
                 {copy.headline} <span className="text-white/50">{copy.subline}</span>
               </p>
             </div>
             <div className="text-right shrink-0">
-              <div className="font-mono text-[11px] text-white/30 mb-0.5">DAY {daysInState}</div>
+              <div className="font-mono text-xs text-white/30 mb-0.5">DAY {daysInState}</div>
               <Sparkline data={data.session_accuracy} color={cfg.color} height={40} />
             </div>
           </div>
@@ -463,18 +459,18 @@ export default function PerformancePage() {
         >
           <div className="flex gap-3">
             <div className="flex-1">
-              <div className="font-mono text-[10px] text-white/30 tracking-widest mb-1.5">PRIMARY RISK</div>
+              <div className="font-mono text-xs text-white/30 tracking-widest mb-1.5">PRIMARY RISK</div>
               <div className="flex items-baseline gap-2 mb-1">
                 <div className="text-sm font-medium" style={{ color: cfg.color }}>
                   {primaryRiskConceptName}
                 </div>
                 {primaryRiskAccuracy != null && (
-                  <span className="font-mono text-[11px] text-white/40">
+                  <span className="font-mono text-xs text-white/40">
                     {primaryRiskAccuracy}%
                   </span>
                 )}
                 {primaryRiskAttempts != null && (
-                  <span className="font-mono text-[10px] text-white/25">
+                  <span className="font-mono text-xs text-white/25">
                     {primaryRiskAttempts} attempts
                   </span>
                 )}
@@ -483,8 +479,8 @@ export default function PerformancePage() {
             </div>
             {chronicRisk && (
               <div className="shrink-0 self-start px-2 py-1 rounded-sm bg-[#C4A84F]/10 border border-[#C4A84F]/30">
-                <div className="font-mono text-[9px] text-[#C4A84F] tracking-wider mb-0.5">CHRONIC</div>
-                <div className="font-mono text-[9px] text-[#C4A84F]/70">RECURRING</div>
+                <div className="font-mono text-xs text-[#C4A84F] tracking-wider mb-0.5">CHRONIC</div>
+                <div className="font-mono text-xs text-[#C4A84F]/70">RECURRING</div>
               </div>
             )}
           </div>
@@ -492,17 +488,17 @@ export default function PerformancePage() {
 
         {/* BLOCK 4: Prescription */}
         <div className="px-5 py-3.5 mb-px bg-[#0F1612] border-b border-[#4E9E7A]/20">
-          <div className="font-mono text-[10px] text-[#4E9E7A]/60 tracking-widest mb-1.5">PRESCRIBED ACTION</div>
-          <p className="m-0 text-[13px] text-[#C8DDD4] leading-[1.55]">
+          <div className="font-mono text-xs text-[#4E9E7A]/60 tracking-widest mb-1.5">PRESCRIBED ACTION</div>
+          <p className="m-0 text-sm text-[#C8DDD4] leading-[1.55]">
             {prescriptionType}
           </p>
           {prescriptionTarget && (
-            <div className="mt-2 font-mono text-[11px] text-[#4E9E7A]/70">
+            <div className="mt-2 font-mono text-xs text-[#4E9E7A]/70">
               → {prescriptionTarget}
             </div>
           )}
           {prescriptionCtaLabel && (
-            <button className="mt-3 px-3.5 py-1.5 rounded bg-[#4E9E7A]/[0.12] border border-[#4E9E7A]/[0.35] text-[#4E9E7A] font-mono text-[11px] cursor-pointer tracking-wide">
+            <button className="mt-3 px-3.5 py-1.5 rounded bg-[#4E9E7A]/[0.12] border border-[#4E9E7A]/[0.35] text-[#4E9E7A] font-mono text-xs cursor-pointer tracking-wide">
               {prescriptionCtaLabel}
             </button>
           )}
@@ -534,9 +530,9 @@ export default function PerformancePage() {
                   { label: "ATTEMPTS", value: data.concept_breakdown.reduce((a, c) => a + c.attempts, 0), sub: "on risk concept cluster" },
                 ].map((s, i) => (
                   <div key={i} className="py-3">
-                    <div className="font-mono text-[9px] text-white/25 tracking-widest mb-1.5">{s.label}</div>
+                    <div className="font-mono text-xs text-white/25 tracking-widest mb-1.5">{s.label}</div>
                     <div className="font-mono text-xl font-medium mb-0.5">{s.value}</div>
-                    <div className="text-[10px] text-white/30">{s.sub}</div>
+                    <div className="text-xs text-white/30">{s.sub}</div>
                   </div>
                 ))}
               </div>
@@ -544,8 +540,8 @@ export default function PerformancePage() {
               {/* Cohort bar */}
               <div>
                 <div className="flex justify-between mb-1.5">
-                  <span className="font-mono text-[9px] text-white/25 tracking-widest">COHORT POSITION</span>
-                  <span className="font-mono text-[9px] text-white/25">vs. students at same study stage</span>
+                  <span className="font-mono text-xs text-white/25 tracking-widest">COHORT POSITION</span>
+                  <span className="font-mono text-xs text-white/25">vs. students at same study stage</span>
                 </div>
                 <div className="h-[5px] bg-white/[0.06] rounded-sm overflow-hidden relative">
                   <div 
@@ -558,9 +554,9 @@ export default function PerformancePage() {
                   <div className="absolute left-1/2 top-0 w-px h-full bg-white/20" />
                 </div>
                 <div className="flex justify-between mt-1">
-                  <span className="font-mono text-[8px] text-white/20">0th</span>
-                  <span className="font-mono text-[8px] text-white/20">median</span>
-                  <span className="font-mono text-[8px] text-white/20">100th</span>
+                  <span className="font-mono text-xs text-white/20">0th</span>
+                  <span className="font-mono text-xs text-white/20">median</span>
+                  <span className="font-mono text-xs text-white/20">100th</span>
                 </div>
               </div>
             </div>
@@ -569,7 +565,7 @@ export default function PerformancePage() {
           {/* Tab: CONCEPTS */}
           {activeTab === "concepts" && (
             <div className="p-3 px-5">
-              <div className="font-mono text-[10px] text-white/25 mb-3 tracking-wide">
+              <div className="font-mono text-xs text-white/25 mb-3 tracking-wide">
                 TAP A CONCEPT TO SEE QUESTION-LEVEL EVIDENCE
               </div>
               {data.concept_breakdown.map((concept, i) => (
@@ -582,27 +578,27 @@ export default function PerformancePage() {
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1.5">
                         <span 
-                          className="text-[13px] font-medium"
+                          className="text-sm font-medium"
                           style={{ color: concept.accuracy < 60 ? "#E55A4E" : concept.accuracy < 75 ? "#C4A84F" : "#4E9E7A" }}
                         >
                           {concept.name}
                         </span>
-                        <span className="font-mono text-[9px] text-white/25 px-1.5 py-px border border-white/[0.08] rounded-sm">
+                        <span className="font-mono text-xs text-white/25 px-1.5 py-px border border-white/[0.08] rounded-sm">
                           {concept.facet}
                         </span>
                       </div>
                       <AccuracyBar value={concept.accuracy} trend={concept.trend} />
                     </div>
                     <div className="text-right shrink-0">
-                      <div className="font-mono text-[9px] text-white/25 mb-0.5">{concept.attempts} attempts</div>
-                      <div className="text-white/15 text-[10px]">{expandedConcept === i ? "▲" : "▼"}</div>
+                      <div className="font-mono text-xs text-white/25 mb-0.5">{concept.attempts} attempts</div>
+                      <div className="text-white/15 text-xs">{expandedConcept === i ? "▲" : "▼"}</div>
                     </div>
                   </div>
 
                   {/* Drill-down proof layer */}
                   {expandedConcept === i && (
                     <div className="p-2.5 px-3 rounded bg-white/[0.025] border border-white/[0.06]">
-                      <div className="font-mono text-[10px] text-white/30 mb-2 tracking-wide">QUESTION-LEVEL EVIDENCE</div>
+                      <div className="font-mono text-xs text-white/30 mb-2 tracking-wide">QUESTION-LEVEL EVIDENCE</div>
                       {[
                         { q: "A 22-year-old presents with pH 7.28, PCO₂ 18 mmHg, HCO₃ 8 mEq/L. What is the primary disorder?", attempts: 5, correct: 1, time: "3.2 min avg", page: "Costanzo p. 302" },
                         { q: "Which buffer system provides the fastest response to acute acidosis?", attempts: 3, correct: 0, time: "4.1 min avg", page: "Costanzo p. 289" },
@@ -614,13 +610,13 @@ export default function PerformancePage() {
                           <p className="m-0 mb-1.5 text-xs text-white/70 leading-[1.45]">{q.q}</p>
                           <div className="flex gap-3">
                             <span 
-                              className="font-mono text-[10px]"
+                              className="font-mono text-xs"
                               style={{ color: q.correct === 0 ? "#E55A4E" : "#C4A84F" }}
                             >
                               {q.correct}/{q.attempts} correct
                             </span>
-                            <span className="font-mono text-[10px] text-white/25">{q.time}</span>
-                            <span className="font-mono text-[10px] text-[#4E9E7A]/70">→ {q.page}</span>
+                            <span className="font-mono text-xs text-white/25">{q.time}</span>
+                            <span className="font-mono text-xs text-[#4E9E7A]/70">→ {q.page}</span>
                           </div>
                         </div>
                       ))}
@@ -634,7 +630,7 @@ export default function PerformancePage() {
           {/* Tab: SESSION */}
           {activeTab === "session" && (
             <div className="p-4 px-5">
-              <div className="font-mono text-[10px] text-white/25 mb-3.5 tracking-wide">8-SESSION ACCURACY HISTORY</div>
+              <div className="font-mono text-xs text-white/25 mb-3.5 tracking-wide">8-SESSION ACCURACY HISTORY</div>
               {/* Session chart */}
               <div className="flex items-end gap-1.5 h-20 mb-2">
                 {data.session_accuracy.map((v, i) => {
@@ -643,7 +639,7 @@ export default function PerformancePage() {
                   return (
                     <div key={i} className="flex-1 flex flex-col items-center gap-1">
                       <span 
-                        className="font-mono text-[8px]"
+                        className="font-mono text-xs"
                         style={{ color: isLast ? color : "rgba(255,255,255,0.2)" }}
                       >
                         {v}
@@ -660,17 +656,17 @@ export default function PerformancePage() {
                 })}
               </div>
               <div className="flex justify-between">
-                <span className="font-mono text-[9px] text-white/20">8 sessions ago</span>
-                <span className="font-mono text-[9px] text-white/20">current</span>
+                <span className="font-mono text-xs text-white/20">8 sessions ago</span>
+                <span className="font-mono text-xs text-white/20">current</span>
               </div>
 
               <div className="mt-5 pt-3 border-t border-white/[0.06]">
-                <div className="font-mono text-[9px] text-white/25 mb-2.5 tracking-widest">SESSION EFFICIENCY (correct / min)</div>
+                <div className="font-mono text-xs text-white/25 mb-2.5 tracking-widest">SESSION EFFICIENCY (correct / min)</div>
                 <div className="flex items-baseline gap-2">
-                  <span className="font-mono text-[28px]">{data.session_efficiency.toFixed(1)}</span>
+                  <span className="font-mono text-3xl">{data.session_efficiency.toFixed(1)}</span>
                   <span className="text-xs text-white/35">correct answers per minute</span>
                 </div>
-                <p className="mt-2 mb-0 text-[11px] text-white/35 leading-[1.5]">
+                <p className="mt-2 mb-0 text-xs text-white/35 leading-[1.5]">
                   {data.session_efficiency < 2.5
                     ? "Low efficiency suggests extended hesitation or guessing. Speed-accuracy balance is off."
                     : "Efficiency is acceptable. Accuracy is the limiting factor, not cognitive speed."}
@@ -684,7 +680,7 @@ export default function PerformancePage() {
       {/* Spec Annotations */}
       <div className="max-w-[620px] mx-auto mt-12">
         <div className="border-t border-white/[0.06] pt-8">
-          <div className="font-mono text-[9px] text-white/20 tracking-[0.12em] mb-5">DESIGN SPEC — COMPONENT BLUEPRINT</div>
+          <div className="font-mono text-xs text-white/20 tracking-[0.12em] mb-5">DESIGN SPEC — COMPONENT BLUEPRINT</div>
 
           {[
             { block: "BLOCK 1", name: "Identity Header", source: "analytics_snapshots.created_at, urgency computed from state + momentum", note: "Always visible. Date grounds the data in time. Badge communicates triage level before anything else is read." },
@@ -700,12 +696,12 @@ export default function PerformancePage() {
               className="grid grid-cols-[80px_1fr] gap-3 mb-4 pb-4 border-b border-white/[0.04]"
             >
               <div>
-                <div className="font-mono text-[9px] text-white/25 tracking-wide">{s.block}</div>
-                <div className="text-[11px] font-medium text-white/60 mt-0.5">{s.name}</div>
+                <div className="font-mono text-xs text-white/25 tracking-wide">{s.block}</div>
+                <div className="text-xs font-medium text-white/60 mt-0.5">{s.name}</div>
               </div>
               <div>
-                <div className="font-mono text-[10px] text-[#4E9E7A]/60 mb-1">{s.source}</div>
-                <div className="text-[11px] text-white/35 leading-[1.55]">{s.note}</div>
+                <div className="font-mono text-xs text-[#4E9E7A]/60 mb-1">{s.source}</div>
+                <div className="text-xs text-white/35 leading-[1.55]">{s.note}</div>
               </div>
             </div>
           ))}
