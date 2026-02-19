@@ -287,6 +287,12 @@ export default function PerformancePage() {
   const transitionHistory = data.transition || data.transition_history;
   const chronicRisk = data.chronic_risk;
   const daysInState = data.days_in_state;
+  
+  // Primary risk extraction
+  const primaryRiskConceptName = data.primary_risk?.concept_name || data.primary_risk_concept;
+  const primaryRiskAccuracy = data.primary_risk?.accuracy;
+  const primaryRiskAttempts = data.primary_risk?.attempts;
+  const primaryRiskReasons = data.primary_risk?.risk_reasons || data.root_cause;
 
   const cfg = STATE_CONFIG[overallState];
   const copy = getMicrocopy(data);
@@ -476,8 +482,20 @@ export default function PerformancePage() {
           <div style={{ display: "flex", gap: 12 }}>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "rgba(255,255,255,0.3)", letterSpacing: "0.1em", marginBottom: 5 }}>PRIMARY RISK</div>
-              <div style={{ fontSize: 14, fontWeight: 500, color: cfg.color, marginBottom: 4 }}>{data.primary_risk_concept}</div>
-              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", lineHeight: 1.5 }}>{data.root_cause}</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 4 }}>
+                <div style={{ fontSize: 14, fontWeight: 500, color: cfg.color }}>{primaryRiskConceptName}</div>
+                {primaryRiskAccuracy != null && (
+                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "rgba(255,255,255,0.4)" }}>
+                    {primaryRiskAccuracy}%
+                  </span>
+                )}
+                {primaryRiskAttempts != null && (
+                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "rgba(255,255,255,0.25)" }}>
+                    {primaryRiskAttempts} attempts
+                  </span>
+                )}
+              </div>
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", lineHeight: 1.5 }}>{primaryRiskReasons}</div>
             </div>
             {chronicRisk && (
               <div style={{
