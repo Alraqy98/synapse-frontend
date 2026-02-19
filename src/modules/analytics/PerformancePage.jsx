@@ -2,110 +2,6 @@ import { useState } from "react";
 import useLearningState from "./hooks/useLearningState";
 import useLearningHistory from "./hooks/useLearningHistory";
 
-// ─── MOCK DATA ─────────────────────────────────────────────────────────────
-const MOCK_STATES = {
-  declining: {
-    overall_state: "DECLINING",
-    momentum: -18,
-    primary_risk_concept: "Acid-Base Regulation",
-    root_cause: "High-exposure, low-retention: answered 34 times, accuracy trending -22% over 12 days",
-    prescription: "Stop repeating. Switch to mechanism-first review of Henderson-Hasselbalch before next attempt.",
-    chronic_risk: false,
-    days_in_state: 5,
-    transition_history: [
-      { date: "Jan 28", state: "STABLE" },
-      { date: "Feb 3", state: "IMPROVING" },
-      { date: "Feb 10", state: "STABLE" },
-      { date: "Feb 14", state: "DECLINING" },
-    ],
-    concept_breakdown: [
-      { name: "Acid-Base Regulation", accuracy: 41, attempts: 34, trend: -22, facet: "Mechanism" },
-      { name: "Renal Tubular Transport", accuracy: 58, attempts: 21, trend: -8, facet: "Application" },
-      { name: "Cardiac Output", accuracy: 73, attempts: 18, trend: +4, facet: "Physiology" },
-      { name: "Loop Diuretics", accuracy: 62, attempts: 15, trend: -3, facet: "Pharmacology" },
-      { name: "GFR Regulation", accuracy: 79, attempts: 12, trend: +11, facet: "Physiology" },
-    ],
-    session_accuracy: [52, 49, 61, 55, 48, 43, 44, 41],
-    cohort_percentile: 31,
-    session_efficiency: 2.1,
-  },
-  accelerating: {
-    overall_state: "DECLINING",
-    momentum: -34,
-    primary_risk_concept: "Pulmonary Mechanics",
-    root_cause: "Accelerating decline: accuracy dropped 34% in 6 days across 3 decks simultaneously. Pattern suggests conceptual gap, not fatigue.",
-    prescription: "Pause MCQ. Read Costanzo Ch. 5 pp. 201–218 before attempting further questions on this concept cluster.",
-    chronic_risk: true,
-    days_in_state: 9,
-    transition_history: [
-      { date: "Feb 1", state: "STABLE" },
-      { date: "Feb 5", state: "DECLINING" },
-      { date: "Feb 9", state: "DECLINING" },
-    ],
-    concept_breakdown: [
-      { name: "Pulmonary Mechanics", accuracy: 33, attempts: 41, trend: -34, facet: "Mechanism" },
-      { name: "V/Q Mismatch", accuracy: 39, attempts: 28, trend: -27, facet: "Pathophysiology" },
-      { name: "Lung Compliance", accuracy: 45, attempts: 19, trend: -18, facet: "Physics" },
-      { name: "Surfactant Function", accuracy: 51, attempts: 14, trend: -9, facet: "Biochemistry" },
-      { name: "Hypoxic Vasoconstriction", accuracy: 67, attempts: 9, trend: +2, facet: "Physiology" },
-    ],
-    session_accuracy: [68, 61, 55, 51, 44, 39, 35, 33],
-    cohort_percentile: 18,
-    session_efficiency: 1.4,
-  },
-  stable_low: {
-    overall_state: "STABLE",
-    momentum: +1,
-    primary_risk_concept: "Pharmacokinetics",
-    root_cause: "Persistent plateau: 61% accuracy maintained for 18 days with no upward trajectory. Practice volume is adequate; comprehension depth is not.",
-    prescription: "Add spaced retrieval: after each correct answer, generate a 1-sentence mechanistic explanation before moving on.",
-    chronic_risk: false,
-    days_in_state: 18,
-    transition_history: [
-      { date: "Jan 10", state: "DECLINING" },
-      { date: "Jan 20", state: "STABLE" },
-      { date: "Feb 7", state: "STABLE" },
-    ],
-    concept_breakdown: [
-      { name: "Pharmacokinetics", accuracy: 61, attempts: 56, trend: +1, facet: "Calculation" },
-      { name: "Drug Metabolism", accuracy: 64, attempts: 38, trend: 0, facet: "Biochemistry" },
-      { name: "Receptor Pharmacology", accuracy: 58, attempts: 31, trend: +2, facet: "Mechanism" },
-      { name: "Antibiotic Classes", accuracy: 71, attempts: 24, trend: +3, facet: "Classification" },
-      { name: "Autonomic Drugs", accuracy: 59, attempts: 22, trend: -1, facet: "Application" },
-    ],
-    session_accuracy: [60, 62, 61, 59, 63, 61, 62, 61],
-    cohort_percentile: 44,
-    session_efficiency: 3.2,
-  },
-  chronic: {
-    overall_state: "STABLE",
-    momentum: -3,
-    primary_risk_concept: "Immunology",
-    root_cause: "Chronic risk pattern: this concept cluster has returned to <65% accuracy 4 times in 90 days. Each recovery has been followed by regression within 3 weeks.",
-    prescription: "This concept requires a structured review session, not incremental MCQ repetition. Schedule 2 hours: read → self-test → explain-back.",
-    chronic_risk: true,
-    days_in_state: 11,
-    transition_history: [
-      { date: "Nov 15", state: "DECLINING" },
-      { date: "Dec 1", state: "STABLE" },
-      { date: "Dec 20", state: "DECLINING" },
-      { date: "Jan 4", state: "STABLE" },
-      { date: "Jan 25", state: "DECLINING" },
-      { date: "Feb 8", state: "STABLE" },
-    ],
-    concept_breakdown: [
-      { name: "Immunology", accuracy: 64, attempts: 89, trend: -3, facet: "Mechanism" },
-      { name: "MHC & Presentation", accuracy: 61, attempts: 54, trend: -5, facet: "Cell Biology" },
-      { name: "Complement System", accuracy: 58, attempts: 41, trend: -2, facet: "Biochemistry" },
-      { name: "Hypersensitivity", accuracy: 69, attempts: 37, trend: +4, facet: "Pathophysiology" },
-      { name: "Autoimmune Markers", accuracy: 72, attempts: 28, trend: +1, facet: "Diagnostics" },
-    ],
-    session_accuracy: [67, 65, 63, 66, 64, 63, 65, 64],
-    cohort_percentile: 39,
-    session_efficiency: 2.8,
-  },
-};
-
 // ─── STATE CONFIG ──────────────────────────────────────────────────────────
 const STATE_CONFIG = {
   DECLINING: {
@@ -289,52 +185,69 @@ function UrgencyBadge({ urgency }) {
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────
 export default function PerformancePage() {
-  const { data: apiData, loading } = useLearningState();
+  const { data, loading } = useLearningState();
   const { history: apiHistory, loading: historyLoading } = useLearningHistory();
   const [activeTab, setActiveTab] = useState("status");
   const [expandedConcept, setExpandedConcept] = useState(null);
 
-  // Use API data if available, otherwise fall back to stable_low mock state
-  const data = apiData || MOCK_STATES.stable_low;
-  
   console.log("Learning state data:", data);
   console.log("Learning history data:", apiHistory);
 
+  // Loading state
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto">
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center">
+            <div className="w-10 h-10 border-[3px] border-white/10 border-t-[#4E9E7A] rounded-full animate-spin mx-auto mb-4" />
+            <p className="font-mono text-xs text-white/40">
+              Loading learning state...
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // No data state
+  if (!data) {
+    return (
+      <div className="max-w-7xl mx-auto">
+        <div className="panel p-8 text-center">
+          <p className="text-muted">No learning state data available.</p>
+          <p className="text-sm text-white/40 mt-2">Complete some MCQ sessions to generate insights.</p>
+        </div>
+      </div>
+    );
+  }
+
   const overallState = data.overall?.state || data.overall_state;
-  const momentum = data.overall?.momentum || data.momentum;
-  const transitionHistory = apiHistory || data.transition || data.transition_history;
+  const momentum = data.overall?.momentum || data.momentum || 0;
+  const transitionHistory = apiHistory || data.transition || data.transition_history || [];
   const chronicRisk = data.chronic_risk;
-  const daysInState = data.days_in_state;
+  const daysInState = data.days_in_state || 0;
   
-  const cfg = STATE_CONFIG[overallState];
+  const cfg = STATE_CONFIG[overallState] || STATE_CONFIG.STABLE;
   const copy = getMicrocopy(data);
   
-  const primaryRiskConceptName = data.primary_risk?.concept_name || data.primary_risk_concept;
+  const primaryRiskConceptName = data.primary_risk?.concept_name || data.primary_risk_concept || "Unknown";
   const primaryRiskAccuracy = data.primary_risk?.accuracy;
   const primaryRiskAttempts = data.primary_risk?.attempts;
-  const primaryRiskReasons = data.primary_risk?.risk_reasons || data.root_cause;
+  const primaryRiskReasons = data.primary_risk?.risk_reasons || data.root_cause || "";
   
   const prescriptionType = typeof data.prescription === 'object' 
     ? data.prescription?.type 
     : data.prescription;
   const prescriptionCtaLabel = data.prescription?.cta_label || copy.cta;
   const prescriptionTarget = data.prescription?.target;
-
-  if (loading && !apiData) {
-    return (
-      <div className="min-h-screen bg-[#0C0C0E] flex items-center justify-center text-[#E8E8E8]">
-        <div className="text-center">
-          <div className="w-10 h-10 border-[3px] border-white/10 border-t-[#4E9E7A] rounded-full animate-spin mx-auto mb-4" />
-          <p className="font-mono text-xs text-white/40">
-            Loading learning state...
-          </p>
-        </div>
-      </div>
-    );
-  }
+  
+  const conceptBreakdown = data.concept_breakdown || [];
+  const sessionAccuracy = data.session_accuracy || [];
+  const cohortPercentile = data.cohort_percentile || 0;
+  const sessionEfficiency = data.session_efficiency || 0;
 
   return (
-    <div className="min-h-screen bg-[#0C0C0E] text-[#E8E8E8] px-5 pt-6 pb-[60px]">
+    <div className="max-w-7xl mx-auto space-y-8">
       <style>{`
         .tab-btn {
           padding: 6px 0; border: none; background: transparent;
@@ -365,7 +278,7 @@ export default function PerformancePage() {
       `}</style>
 
       {/* Main Panel */}
-      <div className="anim panel max-w-[620px] mx-auto overflow-hidden">
+      <div className="anim panel max-w-4xl mx-auto overflow-hidden">
 
         {/* BLOCK 1: Identity Header */}
         <div className="px-5 py-4 mb-px bg-[#111114]/50 border-b border-white/[0.07] flex items-center justify-between">
@@ -410,7 +323,7 @@ export default function PerformancePage() {
             </div>
             <div className="text-right shrink-0">
               <div className="font-mono text-xs text-white/30 mb-0.5">DAY {daysInState}</div>
-              <Sparkline data={data.session_accuracy} color={cfg.color} height={40} />
+              {sessionAccuracy.length > 0 && <Sparkline data={sessionAccuracy} color={cfg.color} height={40} />}
             </div>
           </div>
 
@@ -490,9 +403,9 @@ export default function PerformancePage() {
               {/* 3-stat row */}
               <div className="grid grid-cols-3 gap-3 mb-4">
                 {[
-                  { label: "COHORT RANK", value: `${data.cohort_percentile}th`, sub: "percentile among peers" },
-                  { label: "EFFICIENCY", value: `${data.session_efficiency.toFixed(1)}`, sub: "correct / min this week" },
-                  { label: "ATTEMPTS", value: data.concept_breakdown.reduce((a, c) => a + c.attempts, 0), sub: "on risk concept cluster" },
+                  { label: "COHORT RANK", value: `${cohortPercentile}th`, sub: "percentile among peers" },
+                  { label: "EFFICIENCY", value: `${sessionEfficiency.toFixed(1)}`, sub: "correct / min this week" },
+                  { label: "ATTEMPTS", value: conceptBreakdown.reduce((a, c) => a + c.attempts, 0), sub: "on risk concept cluster" },
                 ].map((s, i) => (
                   <div key={i} className="py-3">
                     <div className="font-mono text-xs text-white/25 tracking-widest mb-1.5">{s.label}</div>
@@ -512,8 +425,8 @@ export default function PerformancePage() {
                   <div 
                     className="cohort-fill rounded-sm" 
                     style={{ 
-                      width: `${data.cohort_percentile}%`, 
-                      background: data.cohort_percentile >= 60 ? "#4E9E7A" : data.cohort_percentile >= 40 ? "#C4A84F" : "#E55A4E"
+                      width: `${cohortPercentile}%`, 
+                      background: cohortPercentile >= 60 ? "#4E9E7A" : cohortPercentile >= 40 ? "#C4A84F" : "#E55A4E"
                     }} 
                   />
                   <div className="absolute left-1/2 top-0 w-px h-full bg-white/20" />
@@ -533,7 +446,7 @@ export default function PerformancePage() {
               <div className="font-mono text-xs text-white/25 mb-3 tracking-wide">
                 TAP A CONCEPT TO SEE QUESTION-LEVEL EVIDENCE
               </div>
-              {data.concept_breakdown.map((concept, i) => (
+              {conceptBreakdown.map((concept, i) => (
                 <div 
                   key={i} 
                   className="concept-row" 
@@ -598,8 +511,8 @@ export default function PerformancePage() {
               <div className="font-mono text-xs text-white/25 mb-3.5 tracking-wide">8-SESSION ACCURACY HISTORY</div>
               {/* Session chart */}
               <div className="flex items-end gap-1.5 h-20 mb-2">
-                {data.session_accuracy.map((v, i) => {
-                  const isLast = i === data.session_accuracy.length - 1;
+                {sessionAccuracy.map((v, i) => {
+                  const isLast = i === sessionAccuracy.length - 1;
                   const color = v >= 75 ? "#4E9E7A" : v >= 60 ? "#C4A84F" : "#E55A4E";
                   return (
                     <div key={i} className="flex-1 flex flex-col items-center gap-1">
@@ -628,11 +541,11 @@ export default function PerformancePage() {
               <div className="mt-5 pt-3 border-t border-white/[0.06]">
                 <div className="font-mono text-xs text-white/25 mb-2.5 tracking-widest">SESSION EFFICIENCY (correct / min)</div>
                 <div className="flex items-baseline gap-2">
-                  <span className="font-mono text-3xl">{data.session_efficiency.toFixed(1)}</span>
+                  <span className="font-mono text-3xl">{sessionEfficiency.toFixed(1)}</span>
                   <span className="text-xs text-white/35">correct answers per minute</span>
                 </div>
                 <p className="mt-2 mb-0 text-xs text-white/35 leading-[1.5]">
-                  {data.session_efficiency < 2.5
+                  {sessionEfficiency < 2.5
                     ? "Low efficiency suggests extended hesitation or guessing. Speed-accuracy balance is off."
                     : "Efficiency is acceptable. Accuracy is the limiting factor, not cognitive speed."}
                 </p>
@@ -643,7 +556,7 @@ export default function PerformancePage() {
       </div>
 
       {/* Spec Annotations */}
-      <div className="max-w-[620px] mx-auto mt-12">
+      <div className="max-w-4xl mx-auto">
         <div className="border-t border-white/[0.06] pt-8">
           <div className="font-mono text-xs text-white/20 tracking-[0.12em] mb-5">DESIGN SPEC — COMPONENT BLUEPRINT</div>
 
