@@ -291,6 +291,10 @@ export default function PerformancePage() {
   const chronicRisk = data.chronic_risk;
   const daysInState = data.days_in_state;
   
+  // Get config and microcopy first (needed by other extractions)
+  const cfg = STATE_CONFIG[overallState];
+  const copy = getMicrocopy(data);
+  
   // Primary risk extraction
   const primaryRiskConceptName = data.primary_risk?.concept_name || data.primary_risk_concept;
   const primaryRiskAccuracy = data.primary_risk?.accuracy;
@@ -303,9 +307,6 @@ export default function PerformancePage() {
     : data.prescription;
   const prescriptionCtaLabel = data.prescription?.cta_label || copy.cta;
   const prescriptionTarget = data.prescription?.target;
-
-  const cfg = STATE_CONFIG[overallState];
-  const copy = getMicrocopy(data);
 
   const handleScenario = (s) => {
     setActiveScenario(s);
