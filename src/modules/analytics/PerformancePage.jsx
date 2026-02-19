@@ -359,8 +359,34 @@ export default function PerformancePage() {
   const cohortPercentile = data.cohort_percentile || 0;
   const sessionEfficiency = data.session_efficiency || 0;
 
+  // DEBUG: Data source tracing
+  const dataSource = data ? "API" : "NONE";
+  const endpoint1 = "/api/learning/state";
+  const endpoint2 = "/api/learning/history?limit=30";
+  const dataKeys = data ? Object.keys(data).sort().join(", ") : "none";
+  const historyKeys = apiHistory ? Object.keys(apiHistory).sort().join(", ") : "none";
+  const hasHardcodedQuestions = true; // Lines 632-635 have hardcoded drill-down questions
+
   return (
     <div className="max-w-7xl mx-auto space-y-8">
+      {/* DEBUG BANNER - Data Source Tracing */}
+      <div className="panel p-4 bg-[#1a1a2e] border-2 border-[#4E9E7A]">
+        <div className="font-mono text-xs">
+          <div className="flex items-center gap-2 mb-2">
+            <div className={`w-2 h-2 rounded-full ${dataSource === "API" ? "bg-green-500" : "bg-red-500"}`} />
+            <span className="text-white font-bold">DATA_SOURCE: {dataSource}</span>
+          </div>
+          <div className="text-white/60 space-y-1">
+            <div>📡 Endpoint 1: <span className="text-[#4E9E7A]">{endpoint1}</span></div>
+            <div>📡 Endpoint 2: <span className="text-[#4E9E7A]">{endpoint2}</span></div>
+            <div>🔑 State keys: <span className="text-white/80">{dataKeys}</span></div>
+            <div>🔑 History keys: <span className="text-white/80">{historyKeys}</span></div>
+            {hasHardcodedQuestions && (
+              <div className="text-yellow-500 mt-2">⚠️ MOCK: Question-level evidence (lines 632-635) uses hardcoded data</div>
+            )}
+          </div>
+        </div>
+      </div>
       <style>{`
         .tab-btn {
           padding: 6px 0; border: none; background: transparent;
