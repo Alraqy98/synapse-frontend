@@ -293,6 +293,13 @@ export default function PerformancePage() {
   const primaryRiskAccuracy = data.primary_risk?.accuracy;
   const primaryRiskAttempts = data.primary_risk?.attempts;
   const primaryRiskReasons = data.primary_risk?.risk_reasons || data.root_cause;
+  
+  // Prescription extraction
+  const prescriptionType = typeof data.prescription === 'object' 
+    ? data.prescription?.type 
+    : data.prescription;
+  const prescriptionCtaLabel = data.prescription?.cta_label || copy.cta;
+  const prescriptionTarget = data.prescription?.target;
 
   const cfg = STATE_CONFIG[overallState];
   const copy = getMicrocopy(data);
@@ -518,16 +525,21 @@ export default function PerformancePage() {
         }}>
           <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "rgba(78,158,122,0.6)", letterSpacing: "0.1em", marginBottom: 5 }}>PRESCRIBED ACTION</div>
           <p style={{ margin: 0, fontSize: 13, color: "#C8DDD4", lineHeight: 1.55 }}>
-            {data.prescription}
+            {prescriptionType}
           </p>
-          {copy.cta && (
+          {prescriptionTarget && (
+            <div style={{ marginTop: 8, fontSize: 11, color: "rgba(78,158,122,0.7)", fontFamily: "'DM Mono', monospace" }}>
+              → {prescriptionTarget}
+            </div>
+          )}
+          {prescriptionCtaLabel && (
             <button style={{
               marginTop: 12, padding: "7px 14px", borderRadius: 4,
               background: "rgba(78,158,122,0.12)", border: "1px solid rgba(78,158,122,0.35)",
               color: "#4E9E7A", fontFamily: "'DM Mono', monospace", fontSize: 11,
               cursor: "pointer", letterSpacing: "0.05em",
             }}>
-              {copy.cta}
+              {prescriptionCtaLabel}
             </button>
           )}
         </div>
