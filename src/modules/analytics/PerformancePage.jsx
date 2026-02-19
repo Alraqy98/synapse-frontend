@@ -325,20 +325,22 @@ export default function PerformancePage() {
   const cfg = STATE_CONFIG[overallState] || STATE_CONFIG.STABLE;
   const copy = getMicrocopy(data);
   
-  const primaryRiskConceptName = data.primary_risk?.concept_name || data.primary_risk_concept || "Unknown";
+  // Ensure all primary risk fields are primitives, not objects
+  const primaryRiskConceptName = String(data.primary_risk?.concept_name || data.primary_risk_concept || "Unknown");
   const primaryRiskAccuracy = data.primary_risk?.accuracy ?? null;
   const primaryRiskAttempts = data.primary_risk?.attempts ?? null;
-  const primaryRiskReasons = data.primary_risk?.risk_reasons || data.root_cause || "";
+  const primaryRiskReasons = String(data.primary_risk?.risk_reasons || data.root_cause || "");
   
   // Safely extract evidence fields if they exist (can be null in INSUFFICIENT_DATA)
   const primaryRiskEvidence = data.primary_risk?.evidence ?? {};
   const avgTimeLast7d = primaryRiskEvidence.avg_time_ms_last_7d ?? 0;
   
-  const prescriptionType = typeof data.prescription === 'object' 
-    ? data.prescription?.type 
-    : data.prescription;
+  // Safely extract prescription (ensure we get primitives, not objects)
+  const prescriptionType = typeof data.prescription === 'object' && data.prescription !== null
+    ? (data.prescription?.type ?? "") 
+    : (data.prescription ?? "");
   const prescriptionCtaLabel = data.prescription?.cta_label || copy.cta;
-  const prescriptionTarget = data.prescription?.target;
+  const prescriptionTarget = data.prescription?.target ?? null;
   
   const conceptBreakdown = data.concept_breakdown || [];
   const sessionAccuracy = data.session_accuracy || [];
@@ -405,7 +407,7 @@ export default function PerformancePage() {
                   className="font-mono text-2xl font-medium tracking-tight"
                   style={{ color: cfg.color }}
                 >
-                  {cfg.label}
+                  {String(cfg.label)}
                 </span>
                 {momentum !== 0 && (
                   <span 
@@ -417,7 +419,7 @@ export default function PerformancePage() {
                 )}
               </div>
               <p className="m-0 text-base font-normal leading-[1.45] max-w-[380px]">
-                {copy.headline} <span className="text-white/50">{copy.subline}</span>
+                {String(copy.headline)} <span className="text-white/50">{String(copy.subline)}</span>
               </p>
             </div>
             <div className="text-right shrink-0">
@@ -467,16 +469,16 @@ export default function PerformancePage() {
         <div className="px-5 py-3.5 mb-px bg-[#0F1612] border-b border-[#4E9E7A]/20">
           <div className="font-mono text-xs text-[#4E9E7A]/60 tracking-widest mb-1.5">PRESCRIBED ACTION</div>
           <p className="m-0 text-sm text-[#C8DDD4] leading-[1.55]">
-            {prescriptionType}
+            {String(prescriptionType || "")}
           </p>
           {prescriptionTarget && (
             <div className="mt-2 font-mono text-xs text-[#4E9E7A]/70">
-              → {prescriptionTarget}
+              → {String(prescriptionTarget)}
             </div>
           )}
           {prescriptionCtaLabel && (
             <button className="mt-3 px-3.5 py-1.5 rounded bg-[#4E9E7A]/[0.12] border border-[#4E9E7A]/[0.35] text-[#4E9E7A] font-mono text-xs cursor-pointer tracking-wide">
-              {prescriptionCtaLabel}
+              {String(prescriptionCtaLabel)}
             </button>
           )}
         </div>
