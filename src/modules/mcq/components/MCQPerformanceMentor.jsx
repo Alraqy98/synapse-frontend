@@ -5,6 +5,8 @@
  * Shows deterministic insights derived from attempt data.
  */
 
+import { Link } from "react-router-dom";
+
 function formatSeconds(sec = 0) {
     if (sec < 60) return `${sec}s`;
     const mm = Math.floor(sec / 60);
@@ -169,7 +171,7 @@ function getContextualMessage(analytics, analysis) {
     return null;
 }
 
-export default function MCQPerformanceMentor({ analysis, overview }) {
+export default function MCQPerformanceMentor({ analysis, overview, deckId }) {
     if (!analysis || !analysis.signals) return null;
 
     const { summary, signals, insights, suggestions } = analysis;
@@ -210,9 +212,16 @@ export default function MCQPerformanceMentor({ analysis, overview }) {
                     <div className="text-[10px] uppercase tracking-wider text-muted mb-1">
                         Rushed Mistakes
                     </div>
-                    <div className="text-base font-semibold">
-                        {signals.rushedMistakesCount || "0"}
-                    </div>
+                    {signals.rushedMistakesCount > 0 ? (
+                        <Link
+                            to={`/analytics/decks/${deckId}/rushed`}
+                            className="text-base font-semibold text-red-400 hover:underline"
+                        >
+                            {signals.rushedMistakesCount}
+                        </Link>
+                    ) : (
+                        <div className="text-base font-semibold">0</div>
+                    )}
                 </div>
 
                 <div className="panel p-3 rounded-lg border border-white/10">

@@ -693,6 +693,7 @@ export default function MCQDeckView({ deckId, goBack }) {
                                 <MCQPerformanceMentor 
                                     analysis={analysis} 
                                     overview={performanceOverview}
+                                    deckId={deckId}
                                 />
                             </div>
                         )}

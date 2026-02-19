@@ -68,10 +68,10 @@ import SummaryViewerPage from "./modules/summaries/SummaryViewerPage";
 // ANALYTICS
 import AnalyticsHub from "./modules/analytics/AnalyticsHub";
 import AnalyticsOverview from "./modules/analytics/AnalyticsOverview";
-import StudyPlanPage from "./modules/analytics/pages/StudyPlanPage";
-import ConceptsPage from "./modules/analytics/pages/ConceptsPage";
 import DeckReportsPage from "./modules/analytics/pages/DeckReportsPage";
 import FileAnalyticsPage from "./modules/analytics/pages/FileAnalyticsPage";
+import ConceptDetailPage from "./modules/analytics/pages/ConceptDetailPage";
+import DeckRushedMistakesPage from "./modules/analytics/pages/DeckRushedMistakesPage";
 
 // COMPONENTS
 import SidebarItem from "./components/SidebarItem";
@@ -1173,10 +1173,10 @@ const SynapseOS = () => {
               </div>
             }>
               <Route index element={<AnalyticsOverview />} />
-              <Route path="study-plan" element={<StudyPlanPage />} />
-              <Route path="concepts" element={<ConceptsPage />} />
               <Route path="decks" element={<DeckReportsPage />} />
+              <Route path="decks/:deckId/rushed" element={<DeckRushedMistakesPage />} />
               <Route path="files" element={<FileAnalyticsPage />} />
+              <Route path="concepts/:conceptId" element={<ConceptDetailPage />} />
             </Route>
             <Route path="/settings" element={
               <div className="flex-1 overflow-y-auto p-6">

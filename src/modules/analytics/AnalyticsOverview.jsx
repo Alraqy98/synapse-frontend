@@ -212,16 +212,11 @@ function AnalyticsQuickActions({ navigate }) {
             title: "Analyze Folder", 
             route: "/analytics/files?mode=folder",
             description: "Overview by folder grouping"
-        },
-        { 
-            title: "Build Study Plan", 
-            route: "/analytics/study-plan",
-            description: "Get a personalized roadmap"
         }
     ];
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {actions.map((action) => (
                 <ActionCard 
                     key={action.route}
