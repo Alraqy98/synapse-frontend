@@ -2,6 +2,25 @@ import { useState } from "react";
 import useLearningState from "./hooks/useLearningState";
 import useLearningHistory from "./hooks/useLearningHistory";
 
+// ─── RELATIVE TIME HELPER ──────────────────────────────────────────────────
+function getRelativeTime(timestamp) {
+  if (!timestamp) return "recently";
+  const now = Date.now();
+  const past = new Date(timestamp).getTime();
+  const diffMs = now - past;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return "just now";
+  if (diffMins === 1) return "1 minute ago";
+  if (diffMins < 60) return `${diffMins} minutes ago`;
+  if (diffHours === 1) return "1 hour ago";
+  if (diffHours < 24) return `${diffHours} hours ago`;
+  if (diffDays === 1) return "1 day ago";
+  return `${diffDays} days ago`;
+}
+
 // ─── STATE CONFIG ──────────────────────────────────────────────────────────
 const STATE_CONFIG = {
   DECLINING: {
@@ -202,16 +221,17 @@ function UrgencyBadge({ urgency }) {
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────
 export default function PerformancePage() {
-  const { data, loading } = useLearningState();
+  const { data, loading, error, status, isUpdating, refresh } = useLearningState();
   const { history: apiHistory, loading: historyLoading } = useLearningHistory();
   const [activeTab, setActiveTab] = useState("status");
   const [expandedConcept, setExpandedConcept] = useState(null);
 
   console.log("Learning state data:", data);
   console.log("Learning history data:", apiHistory);
+  console.log("Status:", status, "isUpdating:", isUpdating);
 
-  // Loading state
-  if (loading) {
+  // Loading state (initial load only)
+  if (loading && !data) {
     return (
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-center py-20">
@@ -226,7 +246,48 @@ export default function PerformancePage() {
     );
   }
 
-  // No data state
+  // Pending state (computing in background, no previous snapshot)
+  if (status === "pending" && !data) {
+    return (
+      <div className="max-w-7xl mx-auto">
+        <div className="panel max-w-2xl mx-auto p-8">
+          <div className="text-center">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#4E9E7A]/10 border border-[#4E9E7A]/25 mb-4">
+              <div className="w-2 h-2 rounded-full bg-[#4E9E7A] animate-pulse" />
+              <span className="font-mono text-xs text-[#4E9E7A] tracking-wider">COMPUTING</span>
+            </div>
+            <h2 className="text-xl font-semibold text-white mb-2">
+              Computing learning state...
+            </h2>
+            <p className="text-sm text-white/50 leading-relaxed">
+              Analyzing your recent practice sessions and historical patterns.
+              This usually takes 5–15 seconds.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (status === "error" && !data) {
+    return (
+      <div className="max-w-7xl mx-auto">
+        <div className="panel max-w-2xl mx-auto p-8 text-center">
+          <p className="text-red-400 mb-2">Failed to load learning state</p>
+          <p className="text-sm text-white/40 mb-4">{error || "Please try again."}</p>
+          <button 
+            onClick={refresh}
+            className="px-4 py-2 rounded-lg bg-[#4E9E7A] hover:bg-[#5BAE8C] text-[#0C0C0E] font-semibold text-sm transition"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // No data state (shouldn't happen with calibration mode, but keep as fallback)
   if (!data) {
     return (
       <div className="max-w-7xl mx-auto">
@@ -312,13 +373,17 @@ export default function PerformancePage() {
     );
   }
   
+  // Extract snapshot metadata
+  const snapshotId = data.snapshot_id || data.snapshot?.id || null;
+  const generatedAt = data.generated_at || data.snapshot?.generated_at || null;
+  
   // Safely extract momentum (can be object with .dot, number, or null)
   const rawMomentum = data.overall?.momentum || data.momentum;
   const momentum = typeof rawMomentum === 'object' && rawMomentum !== null 
     ? (rawMomentum.dot ?? 0) 
     : (rawMomentum ?? 0);
   
-  const transitionHistory = apiHistory || data.transition || data.transition_history || [];
+  const transitionHistory = Array.isArray(apiHistory) ? apiHistory : (data.transition || data.transition_history || []);
   const chronicRisk = data.chronic_risk;
   const daysInState = data.days_in_state || 0;
   
@@ -326,6 +391,7 @@ export default function PerformancePage() {
   const copy = getMicrocopy(data);
   
   // Extract primary risk fields (handle both old flat structure and new structured)
+  const primaryRiskConceptId = data.primary_risk?.concept_id || null;
   const primaryRiskConceptName = data.primary_risk?.concept_name || data.primary_risk_concept || "Unknown";
   const primaryRiskAccuracy = data.primary_risk?.accuracy ?? null;
   const primaryRiskAttempts = data.primary_risk?.attempts ?? null;
@@ -336,9 +402,10 @@ export default function PerformancePage() {
     ? data.primary_risk.risk_reasons
     : (data.primary_risk?.risk_reasons || data.root_cause || "");
   
-  // Safely extract evidence fields if they exist (can be null in INSUFFICIENT_DATA)
-  const primaryRiskEvidence = data.primary_risk?.evidence ?? {};
-  const avgTimeLast7d = primaryRiskEvidence.avg_time_ms_last_7d ?? 0;
+  // Extract primary_risk_evidence array (defensive default)
+  const primaryRiskEvidenceList = Array.isArray(data.primary_risk_evidence) 
+    ? data.primary_risk_evidence 
+    : [];
   
   // Extract prescription fields (handle structured object)
   const prescriptionData = typeof data.prescription === 'object' && data.prescription !== null
@@ -354,39 +421,37 @@ export default function PerformancePage() {
     ? data.root_cause 
     : null;
   
-  const conceptBreakdown = data.concept_breakdown || [];
-  const sessionAccuracy = data.session_accuracy || [];
+  // Defensive defaults for all arrays
+  const conceptBreakdown = Array.isArray(data.concept_breakdown) ? data.concept_breakdown : [];
+  const sessionAccuracy = Array.isArray(data.session_accuracy) ? data.session_accuracy : [];
   const cohortPercentile = data.cohort_percentile || 0;
   const sessionEfficiency = data.session_efficiency || 0;
-
-  // DEBUG: Data source tracing
-  const dataSource = data ? "API" : "NONE";
-  const endpoint1 = "/api/learning/state";
-  const endpoint2 = "/api/learning/history?limit=30";
-  const dataKeys = data ? Object.keys(data).sort().join(", ") : "none";
-  const historyKeys = apiHistory ? Object.keys(apiHistory).sort().join(", ") : "none";
-  const hasHardcodedQuestions = true; // Lines 632-635 have hardcoded drill-down questions
+  
+  // Handler for prescription CTA
+  const handlePrescriptionClick = () => {
+    if (prescriptionTarget?.kind === "concept") {
+      // Switch to concepts tab
+      setActiveTab("concepts");
+      // Try to find the target concept in breakdown
+      const targetConceptIndex = conceptBreakdown.findIndex(
+        c => c.concept_id === prescriptionTarget.id || c.concept_id === primaryRiskConceptId || c.concept_name === primaryRiskConceptName
+      );
+      // Expand either the target or primary risk concept
+      if (targetConceptIndex !== -1) {
+        setExpandedConcept(targetConceptIndex);
+      } else {
+        // Default to first concept (likely primary risk)
+        setExpandedConcept(0);
+      }
+    } else {
+      // For other kinds, show a placeholder message
+      console.log("Prescription action:", prescriptionTarget);
+      // Could add a toast here if toast library is available
+    }
+  };
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
-      {/* DEBUG BANNER - Data Source Tracing */}
-      <div className="panel p-4 bg-[#1a1a2e] border-2 border-[#4E9E7A]">
-        <div className="font-mono text-xs">
-          <div className="flex items-center gap-2 mb-2">
-            <div className={`w-2 h-2 rounded-full ${dataSource === "API" ? "bg-green-500" : "bg-red-500"}`} />
-            <span className="text-white font-bold">DATA_SOURCE: {dataSource}</span>
-          </div>
-          <div className="text-white/60 space-y-1">
-            <div>📡 Endpoint 1: <span className="text-[#4E9E7A]">{endpoint1}</span></div>
-            <div>📡 Endpoint 2: <span className="text-[#4E9E7A]">{endpoint2}</span></div>
-            <div>🔑 State keys: <span className="text-white/80">{dataKeys}</span></div>
-            <div>🔑 History keys: <span className="text-white/80">{historyKeys}</span></div>
-            {hasHardcodedQuestions && (
-              <div className="text-yellow-500 mt-2">⚠️ MOCK: Question-level evidence (lines 632-635) uses hardcoded data</div>
-            )}
-          </div>
-        </div>
-      </div>
       <style>{`
         .tab-btn {
           padding: 6px 0; border: none; background: transparent;
@@ -427,8 +492,25 @@ export default function PerformancePage() {
             </span>
             <span className="w-px h-3 bg-white/10" />
             <span className="font-mono text-xs text-white/25">
-              {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase()}
+              Last computed: {getRelativeTime(generatedAt)}
             </span>
+            {snapshotId && (
+              <>
+                <span className="w-px h-3 bg-white/10" />
+                <span className="font-mono text-xs text-white/15" title={snapshotId}>
+                  {snapshotId.slice(0, 8)}
+                </span>
+              </>
+            )}
+            {isUpdating && (
+              <>
+                <span className="w-px h-3 bg-white/10" />
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#4E9E7A]/10 border border-[#4E9E7A]/25">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#4E9E7A] animate-pulse" />
+                  <span className="font-mono text-xs text-[#4E9E7A] tracking-wider">UPDATING</span>
+                </span>
+              </>
+            )}
           </div>
           <UrgencyBadge urgency={copy.urgency} />
         </div>
@@ -554,7 +636,10 @@ export default function PerformancePage() {
           )}
           
           {prescriptionCtaLabel && (
-            <button className="mt-3 px-3.5 py-1.5 rounded bg-[#4E9E7A]/[0.12] border border-[#4E9E7A]/[0.35] text-[#4E9E7A] font-mono text-xs cursor-pointer tracking-wide">
+            <button 
+              onClick={handlePrescriptionClick}
+              className="mt-3 px-3.5 py-1.5 rounded bg-[#4E9E7A]/[0.12] border border-[#4E9E7A]/[0.35] text-[#4E9E7A] font-mono text-xs cursor-pointer tracking-wide hover:bg-[#4E9E7A]/[0.18] transition-colors"
+            >
               {prescriptionCtaLabel}
             </button>
           )}
@@ -624,7 +709,12 @@ export default function PerformancePage() {
               <div className="font-mono text-xs text-white/25 mb-3 tracking-wide">
                 TAP A CONCEPT TO SEE QUESTION-LEVEL EVIDENCE
               </div>
-              {conceptBreakdown.map((concept, i) => (
+              {conceptBreakdown.length === 0 ? (
+                <div className="text-center py-8 text-sm text-white/40">
+                  No concept data available yet.
+                </div>
+              ) : (
+                conceptBreakdown.map((concept, i) => (
                 <div 
                   key={i} 
                   className="concept-row" 
@@ -637,7 +727,7 @@ export default function PerformancePage() {
                           className="text-sm font-medium"
                           style={{ color: concept.accuracy < 60 ? "#E55A4E" : concept.accuracy < 75 ? "#C4A84F" : "#4E9E7A" }}
                         >
-                          {concept.name}
+                          {concept.concept_name || concept.name}
                         </span>
                         <span className="font-mono text-xs text-white/25 px-1.5 py-px border border-white/[0.08] rounded-sm">
                           {concept.facet}
@@ -655,31 +745,48 @@ export default function PerformancePage() {
                   {expandedConcept === i && (
                     <div className="p-2.5 px-3 rounded bg-white/[0.025] border border-white/[0.06]">
                       <div className="font-mono text-xs text-white/30 mb-2 tracking-wide">QUESTION-LEVEL EVIDENCE</div>
-                      {[
-                        { q: "A 22-year-old presents with pH 7.28, PCO₂ 18 mmHg, HCO₃ 8 mEq/L. What is the primary disorder?", attempts: 5, correct: 1, time: "3.2 min avg", page: "Costanzo p. 302" },
-                        { q: "Which buffer system provides the fastest response to acute acidosis?", attempts: 3, correct: 0, time: "4.1 min avg", page: "Costanzo p. 289" },
-                      ].map((q, qi) => (
-                        <div 
-                          key={qi} 
-                          className={qi === 0 ? "mb-2.5 pb-2.5 border-b border-white/[0.05]" : ""}
-                        >
-                          <p className="m-0 mb-1.5 text-xs text-white/70 leading-[1.45]">{q.q}</p>
-                          <div className="flex gap-3">
-                            <span 
-                              className="font-mono text-xs"
-                              style={{ color: q.correct === 0 ? "#E55A4E" : "#C4A84F" }}
+                      {concept.concept_id === primaryRiskConceptId && primaryRiskEvidenceList.length > 0 ? (
+                        <>
+                          {primaryRiskEvidenceList.map((evidence, qi) => (
+                            <div 
+                              key={qi} 
+                              className={qi < primaryRiskEvidenceList.length - 1 ? "mb-2.5 pb-2.5 border-b border-white/[0.05]" : ""}
                             >
-                              {q.correct}/{q.attempts} correct
-                            </span>
-                            <span className="font-mono text-xs text-white/25">{q.time}</span>
-                            <span className="font-mono text-xs text-[#4E9E7A]/70">→ {q.page}</span>
-                          </div>
+                              <p className="m-0 mb-1.5 text-xs text-white/70 leading-[1.45]">
+                                {evidence.question_text_preview || "Question text not available"}
+                              </p>
+                              <div className="flex gap-3">
+                                <span className="font-mono text-xs text-[#E55A4E]">
+                                  {evidence.miss_count || 0} {evidence.miss_count === 1 ? 'miss' : 'misses'}
+                                </span>
+                                {evidence.last_missed_at && (
+                                  <span className="font-mono text-xs text-white/25">
+                                    {getRelativeTime(evidence.last_missed_at)}
+                                  </span>
+                                )}
+                                {evidence.source_page_numbers && (
+                                  <span className="font-mono text-xs text-[#4E9E7A]/70">
+                                    → p. {evidence.source_page_numbers}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </>
+                      ) : concept.concept_id === primaryRiskConceptId && primaryRiskEvidenceList.length === 0 ? (
+                        <div className="text-xs text-white/40 py-2">
+                          No question evidence available yet for this concept.
                         </div>
-                      ))}
+                      ) : (
+                        <div className="text-xs text-white/40 py-2">
+                          Evidence drill-down currently available for the primary risk concept only.
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
-              ))}
+                ))
+              )}
             </div>
           )}
 
@@ -687,9 +794,15 @@ export default function PerformancePage() {
           {activeTab === "session" && (
             <div className="p-4 px-5">
               <div className="font-mono text-xs text-white/25 mb-3.5 tracking-wide">8-SESSION ACCURACY HISTORY</div>
-              {/* Session chart */}
-              <div className="flex items-end gap-1.5 h-20 mb-2">
-                {sessionAccuracy.map((v, i) => {
+              {sessionAccuracy.length === 0 ? (
+                <div className="text-center py-8 text-sm text-white/40">
+                  No session history available yet.
+                </div>
+              ) : (
+                <>
+                  {/* Session chart */}
+                  <div className="flex items-end gap-1.5 h-20 mb-2">
+                    {sessionAccuracy.map((v, i) => {
                   const isLast = i === sessionAccuracy.length - 1;
                   const color = v >= 75 ? "#4E9E7A" : v >= 60 ? "#C4A84F" : "#E55A4E";
                   return (
@@ -728,6 +841,8 @@ export default function PerformancePage() {
                     : "Efficiency is acceptable. Accuracy is the limiting factor, not cognitive speed."}
                 </p>
               </div>
+                </>
+              )}
             </div>
           )}
         </div>
