@@ -425,7 +425,16 @@ export default function PerformancePage() {
   const conceptBreakdown = Array.isArray(data.concept_breakdown) ? data.concept_breakdown : [];
   const sessionAccuracy = Array.isArray(data.session_accuracy) ? data.session_accuracy : [];
   const cohortPercentile = data.cohort_percentile || 0;
-  const sessionEfficiency = data.session_efficiency || 0;
+  
+  // Handle session_efficiency shape (can be number or object)
+  const sessionEfficiencyRaw = data.session_efficiency;
+  const sessionEfficiency = typeof sessionEfficiencyRaw === 'object' && sessionEfficiencyRaw !== null
+    ? sessionEfficiencyRaw
+    : { efficiency: typeof sessionEfficiencyRaw === 'number' ? sessionEfficiencyRaw : null, total_correct: 0, total_time_ms: 0 };
+  
+  const efficiencyValue = typeof sessionEfficiency?.efficiency === 'number' 
+    ? sessionEfficiency.efficiency 
+    : null;
   
   // Handler for prescription CTA
   const handlePrescriptionClick = () => {
@@ -667,7 +676,7 @@ export default function PerformancePage() {
               <div className="grid grid-cols-3 gap-3 mb-4">
                 {[
                   { label: "COHORT RANK", value: `${cohortPercentile}th`, sub: "percentile among peers" },
-                  { label: "EFFICIENCY", value: `${sessionEfficiency.toFixed(1)}`, sub: "correct / min this week" },
+                  { label: "EFFICIENCY", value: efficiencyValue !== null ? efficiencyValue.toFixed(1) : "—", sub: "correct / min this week" },
                   { label: "ATTEMPTS", value: conceptBreakdown.reduce((a, c) => a + c.attempts, 0), sub: "on risk concept cluster" },
                 ].map((s, i) => (
                   <div key={i} className="py-3">
@@ -832,14 +841,18 @@ export default function PerformancePage() {
               <div className="mt-5 pt-3 border-t border-white/[0.06]">
                 <div className="font-mono text-xs text-white/25 mb-2.5 tracking-widest">SESSION EFFICIENCY (correct / min)</div>
                 <div className="flex items-baseline gap-2">
-                  <span className="font-mono text-3xl">{sessionEfficiency.toFixed(1)}</span>
+                  <span className="font-mono text-3xl">
+                    {efficiencyValue !== null ? efficiencyValue.toFixed(1) : "—"}
+                  </span>
                   <span className="text-xs text-white/35">correct answers per minute</span>
                 </div>
-                <p className="mt-2 mb-0 text-xs text-white/35 leading-[1.5]">
-                  {sessionEfficiency < 2.5
-                    ? "Low efficiency suggests extended hesitation or guessing. Speed-accuracy balance is off."
-                    : "Efficiency is acceptable. Accuracy is the limiting factor, not cognitive speed."}
-                </p>
+                {efficiencyValue !== null && (
+                  <p className="mt-2 mb-0 text-xs text-white/35 leading-[1.5]">
+                    {efficiencyValue < 2.5
+                      ? "Low efficiency suggests extended hesitation or guessing. Speed-accuracy balance is off."
+                      : "Efficiency is acceptable. Accuracy is the limiting factor, not cognitive speed."}
+                  </p>
+                )}
               </div>
                 </>
               )}
