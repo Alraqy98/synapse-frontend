@@ -459,6 +459,46 @@ export default function PerformancePage() {
     ? sessionEfficiency.efficiency 
     : null;
   
+  // ─── PERFORMANCE SUMMARY INTERPRETATION ─────────────────────────────────
+  const buildPerformanceSummary = () => {
+    let rankText = "";
+    if (cohortPercentile !== null && cohortPercentile !== 0) {
+      if (cohortPercentile < 30) {
+        rankText = "You are currently below most peers at your study stage.";
+      } else if (cohortPercentile < 60) {
+        rankText = "You are performing around the median compared to peers.";
+      } else {
+        rankText = "You are performing above most peers at your study stage.";
+      }
+    } else {
+      rankText = "Peer comparison data is not yet available.";
+    }
+
+    let speedText = "";
+    if (efficiencyValue !== null) {
+      if (efficiencyValue < 2) {
+        speedText = "Your solving speed is slow.";
+      } else if (efficiencyValue < 4) {
+        speedText = "Your solving speed is balanced.";
+      } else {
+        speedText = "You are answering quickly.";
+      }
+    } else {
+      speedText = "Efficiency data is not yet available.";
+    }
+
+    let riskText = "";
+    if (primaryRiskConceptName && primaryRiskConceptName !== "Unknown") {
+      riskText = `Accuracy in ${primaryRiskConceptName} is currently unstable and limiting progress.`;
+    } else {
+      riskText = "No critical instability detected.";
+    }
+
+    return `${rankText} ${speedText} ${riskText}`;
+  };
+
+  const performanceSummary = buildPerformanceSummary();
+  
   // Handler for prescription CTA
   const handlePrescriptionClick = () => {
     if (prescriptionTarget?.kind === "concept") {
@@ -695,6 +735,16 @@ export default function PerformancePage() {
           {/* Tab: STATUS */}
           {activeTab === "status" && (
             <div className="p-4 px-5">
+              {/* Performance Summary */}
+              <div className="mb-5 pb-4 border-b border-white/[0.06]">
+                <div className="font-mono text-xs text-white/25 tracking-widest mb-2.5">
+                  PERFORMANCE SUMMARY
+                </div>
+                <p className="text-sm text-white/60 leading-relaxed m-0">
+                  {performanceSummary}
+                </p>
+              </div>
+
               {/* 3-stat row */}
               <div className="grid grid-cols-3 gap-3 mb-4">
                 {/* Cohort Rank */}
