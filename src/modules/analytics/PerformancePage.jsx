@@ -847,37 +847,6 @@ export default function PerformancePage() {
           )}
         </div>
       </div>
-
-      {/* Spec Annotations */}
-      <div className="max-w-4xl mx-auto">
-        <div className="border-t border-white/[0.06] pt-8">
-          <div className="font-mono text-xs text-white/20 tracking-[0.12em] mb-5">DESIGN SPEC — COMPONENT BLUEPRINT</div>
-
-          {[
-            { block: "BLOCK 1", name: "Identity Header", source: "analytics_snapshots.created_at, urgency computed from state + momentum", note: "Always visible. Date grounds the data in time. Badge communicates triage level before anything else is read." },
-            { block: "BLOCK 2", name: "State Signal", source: "overall_state, momentum, session_accuracy[], days_in_state", note: "Largest type on the panel. State + momentum is the only thing that matters for opening read. Sparkline shows trajectory, not just position." },
-            { block: "BLOCK 3", name: "Primary Risk", source: "primary_risk_concept, root_cause, chronic_risk", note: "Left border color matches state. Chronic badge only appears when chronic_risk=true. Root cause explains why — not just what." },
-            { block: "BLOCK 4", name: "Prescription", source: "prescription", note: "Distinct background color. Green = forward action, not alarm. CTA is a soft directive, not a CTA button. Medical tone, not growth-hacking tone." },
-            { block: "BLOCK 5a", name: "Status Tab", source: "cohort_percentile, session_efficiency, concept_breakdown[].attempts", note: "Three numbers. Cohort bar shows relative position with median marker. Context is everything — 62% means nothing without the median." },
-            { block: "BLOCK 5b", name: "Concepts Tab", source: "concept_breakdown[], mcq_user_answers, mcq_question_concept_mentions", note: "Every concept is tappable. Drill-down shows actual question text + attempt history + source page. This is the proof layer." },
-            { block: "BLOCK 5c", name: "Session Tab", source: "session_accuracy[], session_efficiency", note: "8-session bar chart. No line chart — bars communicate discreteness of sessions. Efficiency metric contextualizes accuracy." },
-          ].map((s, i) => (
-            <div 
-              key={i} 
-              className="grid grid-cols-[80px_1fr] gap-3 mb-4 pb-4 border-b border-white/[0.04]"
-            >
-              <div>
-                <div className="font-mono text-xs text-white/25 tracking-wide">{s.block}</div>
-                <div className="text-xs font-medium text-white/60 mt-0.5">{s.name}</div>
-              </div>
-              <div>
-                <div className="font-mono text-xs text-[#4E9E7A]/60 mb-1">{s.source}</div>
-                <div className="text-xs text-white/35 leading-[1.55]">{s.note}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }
