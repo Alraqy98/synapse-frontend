@@ -2,6 +2,29 @@ import { useState } from "react";
 import useLearningState from "./hooks/useLearningState";
 import useLearningHistory from "./hooks/useLearningHistory";
 
+// ─── SIMPLE TOOLTIP COMPONENT ──────────────────────────────────────────────
+function InfoTooltip({ content }) {
+  const [show, setShow] = useState(false);
+  return (
+    <span className="relative inline-block">
+      <span 
+        className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-white/20 text-white/30 hover:text-white/60 hover:border-white/40 cursor-help transition-colors"
+        style={{ fontSize: "9px", lineHeight: "1" }}
+        onMouseEnter={() => setShow(true)}
+        onMouseLeave={() => setShow(false)}
+      >
+        ⓘ
+      </span>
+      {show && (
+        <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 px-3 py-2 bg-[#1a1d24] border border-white/20 rounded-lg shadow-2xl text-xs text-white/70 leading-relaxed">
+          {content}
+          <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-white/20" />
+        </div>
+      )}
+    </span>
+  );
+}
+
 // ─── RELATIVE TIME HELPER ──────────────────────────────────────────────────
 function getRelativeTime(timestamp) {
   if (!timestamp) return "recently";
@@ -674,17 +697,51 @@ export default function PerformancePage() {
             <div className="p-4 px-5">
               {/* 3-stat row */}
               <div className="grid grid-cols-3 gap-3 mb-4">
-                {[
-                  { label: "COHORT RANK", value: `${cohortPercentile}th`, sub: "percentile among peers" },
-                  { label: "EFFICIENCY", value: efficiencyValue !== null ? efficiencyValue.toFixed(1) : "—", sub: "correct / min this week" },
-                  { label: "ATTEMPTS", value: conceptBreakdown.reduce((a, c) => a + c.attempts, 0), sub: "on risk concept cluster" },
-                ].map((s, i) => (
-                  <div key={i} className="py-3">
-                    <div className="font-mono text-xs text-white/25 tracking-widest mb-1.5">{s.label}</div>
-                    <div className="font-mono text-xl font-medium mb-0.5">{s.value}</div>
-                    <div className="text-xs text-white/30">{s.sub}</div>
+                {/* Cohort Rank */}
+                <div className="py-3">
+                  <div className="font-mono text-xs text-white/25 tracking-widest mb-1.5 flex items-center gap-1.5">
+                    COHORT RANK
+                    <InfoTooltip content="Cohort rank compares your recent performance to students at the same study stage. 50th percentile = median." />
                   </div>
-                ))}
+                  <div className="font-mono text-xl font-medium mb-0.5">{cohortPercentile}th</div>
+                  <div className="text-xs text-white/30">
+                    {cohortPercentile >= 50 
+                      ? "You're above the median of your peers." 
+                      : `Your performance is lower than ${100 - cohortPercentile}% of students at your stage.`}
+                  </div>
+                </div>
+
+                {/* Session Efficiency */}
+                <div className="py-3">
+                  <div className="font-mono text-xs text-white/25 tracking-widest mb-1.5 flex items-center gap-1.5">
+                    EFFICIENCY
+                    <InfoTooltip content="Efficiency measures how many questions you answer correctly per minute of active solving time." />
+                  </div>
+                  <div className="font-mono text-xl font-medium mb-0.5">
+                    {efficiencyValue !== null ? efficiencyValue.toFixed(1) : "—"}
+                  </div>
+                  <div className="text-xs text-white/30">
+                    {efficiencyValue !== null 
+                      ? (efficiencyValue < 2 
+                          ? "Consider improving decision speed." 
+                          : efficiencyValue > 4 
+                            ? "Answering quickly. Ensure accuracy stays stable." 
+                            : "Speed is balanced. Accuracy may be the limiting factor.")
+                      : "Not enough data yet"}
+                  </div>
+                </div>
+
+                {/* Attempts */}
+                <div className="py-3">
+                  <div className="font-mono text-xs text-white/25 tracking-widest mb-1.5 flex items-center gap-1.5">
+                    ATTEMPTS
+                    <InfoTooltip content="High-risk concepts are topics where your accuracy or trend indicates instability." />
+                  </div>
+                  <div className="font-mono text-xl font-medium mb-0.5">
+                    {conceptBreakdown.reduce((a, c) => a + c.attempts, 0)}
+                  </div>
+                  <div className="text-xs text-white/30">questions across high-risk concepts</div>
+                </div>
               </div>
 
               {/* Cohort bar */}
@@ -802,7 +859,12 @@ export default function PerformancePage() {
           {/* Tab: SESSION */}
           {activeTab === "session" && (
             <div className="p-4 px-5">
-              <div className="font-mono text-xs text-white/25 mb-3.5 tracking-wide">8-SESSION ACCURACY HISTORY</div>
+              <div className="font-mono text-xs text-white/25 mb-1.5 tracking-wide">
+                Recent Session Accuracy (last 8 study blocks)
+              </div>
+              <div className="text-xs text-white/20 mb-3 leading-relaxed">
+                Each bar represents one focused study session. Sessions are separated by &gt;2 hours of inactivity.
+              </div>
               {sessionAccuracy.length === 0 ? (
                 <div className="text-center py-8 text-sm text-white/40">
                   No session history available yet.
@@ -843,7 +905,10 @@ export default function PerformancePage() {
               </div>
 
               <div className="mt-5 pt-3 border-t border-white/[0.06]">
-                <div className="font-mono text-xs text-white/25 mb-2.5 tracking-widest">SESSION EFFICIENCY (correct / min)</div>
+                <div className="font-mono text-xs text-white/25 mb-2.5 tracking-widest flex items-center gap-1.5">
+                  SESSION EFFICIENCY (correct / min)
+                  <InfoTooltip content="Efficiency measures how many questions you answer correctly per minute of active solving time." />
+                </div>
                 <div className="flex items-baseline gap-2">
                   <span className="font-mono text-3xl">
                     {efficiencyValue !== null ? efficiencyValue.toFixed(1) : "—"}
@@ -852,9 +917,11 @@ export default function PerformancePage() {
                 </div>
                 {efficiencyValue !== null && (
                   <p className="mt-2 mb-0 text-xs text-white/35 leading-[1.5]">
-                    {efficiencyValue < 2.5
-                      ? "Low efficiency suggests extended hesitation or guessing. Speed-accuracy balance is off."
-                      : "Efficiency is acceptable. Accuracy is the limiting factor, not cognitive speed."}
+                    {efficiencyValue < 2
+                      ? "You're spending longer per question. Consider improving decision speed."
+                      : efficiencyValue <= 4
+                        ? "Your speed is balanced. Accuracy may be the limiting factor."
+                        : "You're answering quickly. Ensure accuracy remains stable."}
                   </p>
                 )}
               </div>
