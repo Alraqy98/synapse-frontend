@@ -499,6 +499,89 @@ export default function PerformancePage() {
 
   const performanceSummary = buildPerformanceSummary();
   
+  // ─── DYNAMIC CTA LABEL ──────────────────────────────────────────────────
+  const getInterventionCtaLabel = () => {
+    if (!prescriptionType) return prescriptionCtaLabel;
+    
+    const duration = prescriptionDuration || 15;
+    
+    if (prescriptionType.includes("REINFORCE_WEAKNESS") || prescriptionType.includes("REINFORCE")) {
+      return `Start ${duration}-Minute Focus Session`;
+    }
+    if (prescriptionType.includes("MAINTAIN")) {
+      return "Run Consolidation Session";
+    }
+    if (prescriptionType.includes("ACCELERATE")) {
+      return "Advance to Challenge Set";
+    }
+    
+    // Default fallback
+    return prescriptionCtaLabel || `Start ${duration}-Min Session`;
+  };
+  
+  const interventionCtaLabel = getInterventionCtaLabel();
+  
+  // Framing sentence for intervention
+  const interventionFraming = primaryRiskConceptName && primaryRiskConceptName !== "Unknown"
+    ? "Targeting this instability should improve your overall trajectory."
+    : "This reinforcement is designed to consolidate recent gains.";
+  
+  // ─── RISK REASONS TRANSLATION ───────────────────────────────────────────
+  const translateRiskReason = (reason) => {
+    const translations = {
+      LOW_ACCURACY: "Low accuracy trend",
+      HIGH_VOLATILITY: "Performance fluctuating",
+      RUSHED: "Frequent rushed errors",
+      OVERTHINKING: "Extended solve time",
+    };
+    return translations[reason] || reason;
+  };
+  
+  // ─── SEVERITY STATEMENT ─────────────────────────────────────────────────
+  const getSeverityStatement = (riskLevel) => {
+    const statements = {
+      HIGH_RISK: {
+        text: "This concept is actively limiting your performance.",
+        color: "#E55A4E",
+      },
+      MODERATE_RISK: {
+        text: "This concept shows instability and needs reinforcement.",
+        color: "#C4A84F",
+      },
+      LOW_RISK: {
+        text: "Minor inconsistency detected.",
+        color: "rgba(255,255,255,0.4)",
+      },
+    };
+    return statements[riskLevel] || { text: "", color: "rgba(255,255,255,0.4)" };
+  };
+  
+  const severityInfo = getSeverityStatement(primaryRiskLevel);
+  
+  // ─── STABILITY CLASSIFICATION ───────────────────────────────────────────
+  const getStabilityClassification = (accuracy) => {
+    if (accuracy < 40) {
+      return { label: "Unstable", color: "#E55A4E" };
+    }
+    if (accuracy <= 70) {
+      return { label: "Developing", color: "#C4A84F" };
+    }
+    return { label: "Stable", color: "#4E9E7A" };
+  };
+  
+  // ─── STATE FRAMING ──────────────────────────────────────────────────────
+  const getStateFraming = (state) => {
+    const framings = {
+      IMPROVING: "You are in a recovery phase. Focus on stabilizing weak concepts to accelerate upward momentum.",
+      DECLINING: "Your performance is currently unstable. Immediate reinforcement of high-risk concepts is recommended.",
+      STABLE: "Your performance is stable. Controlled progression is appropriate.",
+      INSUFFICIENT_DATA: "Not enough data yet. Complete more sessions to activate adaptive guidance.",
+    };
+    return framings[state] || "";
+  };
+  
+  const stateFraming = getStateFraming(overallState);
+  
   // Handler for prescription CTA
   const handlePrescriptionClick = () => {
     if (prescriptionTarget?.kind === "concept") {
@@ -613,6 +696,11 @@ export default function PerformancePage() {
               <p className="m-0 text-base font-normal leading-[1.45] max-w-[380px]">
                 {copy.headline} <span className="text-white/50">{copy.subline}</span>
               </p>
+              {stateFraming && (
+                <p className="m-0 mt-3 text-sm font-medium text-white/70 leading-relaxed max-w-[420px]">
+                  {stateFraming}
+                </p>
+              )}
             </div>
             <div className="text-right shrink-0">
               <div className="font-mono text-xs text-white/30 mb-0.5">DAY {daysInState}</div>
@@ -631,40 +719,43 @@ export default function PerformancePage() {
           <div className="flex gap-3">
             <div className="flex-1">
               <div className="font-mono text-xs text-white/30 tracking-widest mb-1.5">PRIMARY RISK</div>
-              <div className="flex items-baseline gap-2 mb-1">
-                <div className="text-sm font-medium" style={{ color: cfg.color }}>
-                  {primaryRiskConceptName}
-                </div>
-                {primaryRiskAccuracy != null && (
-                  <span className="font-mono text-xs text-white/40">
-                    {primaryRiskAccuracy}%
-                  </span>
-                )}
-                {primaryRiskAttempts != null && (
-                  <span className="font-mono text-xs text-white/25">
-                    {primaryRiskAttempts} attempts
-                  </span>
-                )}
-                {primaryRiskLevel && (
-                  <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-white/[0.05] border border-white/[0.1] text-white/50">
-                    {primaryRiskLevel}
-                  </span>
-                )}
+              
+              {/* Concept name */}
+              <div className="text-sm font-medium mb-1" style={{ color: cfg.color }}>
+                {primaryRiskConceptName}
               </div>
               
-              {/* Render risk_reasons: handle both string and array */}
-              {Array.isArray(primaryRiskReasons) ? (
+              {/* Severity statement */}
+              {severityInfo.text && (
+                <p className="text-xs mb-2 leading-relaxed m-0" style={{ color: severityInfo.color }}>
+                  {severityInfo.text}
+                </p>
+              )}
+              
+              {/* Accuracy + Attempts */}
+              {primaryRiskAccuracy != null && (
+                <div className="font-mono text-xs text-white/40 mb-1.5">
+                  {primaryRiskAccuracy}% accuracy
+                  {primaryRiskAttempts != null && ` (${primaryRiskAttempts} attempts)`}
+                </div>
+              )}
+              
+              {/* Translated risk_reasons badges */}
+              {Array.isArray(primaryRiskReasons) && primaryRiskReasons.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mt-1.5">
                   {primaryRiskReasons.map((reason, idx) => (
                     <span 
                       key={idx}
                       className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-white/[0.04] border border-white/[0.08] text-white/50"
                     >
-                      {reason}
+                      {translateRiskReason(reason)}
                     </span>
                   ))}
                 </div>
-              ) : (
+              )}
+              
+              {/* String fallback for legacy risk_reasons */}
+              {!Array.isArray(primaryRiskReasons) && primaryRiskReasons && (
                 <div className="text-xs text-white/45 leading-[1.5]">{primaryRiskReasons}</div>
               )}
             </div>
@@ -677,10 +768,10 @@ export default function PerformancePage() {
           </div>
         </div>
 
-        {/* BLOCK 4: Prescription */}
+        {/* BLOCK 4: Intervention Plan */}
         <div className="px-5 py-3.5 mb-px bg-[#0F1612] border-b border-[#4E9E7A]/20">
           <div className="flex items-center justify-between mb-1.5">
-            <span className="font-mono text-xs text-[#4E9E7A]/60 tracking-widest">PRESCRIBED ACTION</span>
+            <span className="font-mono text-xs text-[#4E9E7A]/60 tracking-widest font-semibold">INTERVENTION PLAN</span>
             {prescriptionDuration && (
               <span className="font-mono text-xs text-[#4E9E7A]/40">
                 {prescriptionDuration} minutes
@@ -707,12 +798,17 @@ export default function PerformancePage() {
             </div>
           )}
           
-          {prescriptionCtaLabel && (
+          {/* Framing sentence */}
+          <p className="mt-2.5 mb-0 text-xs text-[#4E9E7A]/50 leading-relaxed">
+            {interventionFraming}
+          </p>
+          
+          {interventionCtaLabel && (
             <button 
               onClick={handlePrescriptionClick}
               className="mt-3 px-3.5 py-1.5 rounded bg-[#4E9E7A]/[0.12] border border-[#4E9E7A]/[0.35] text-[#4E9E7A] font-mono text-xs cursor-pointer tracking-wide hover:bg-[#4E9E7A]/[0.18] transition-colors"
             >
-              {prescriptionCtaLabel}
+              {interventionCtaLabel}
             </button>
           )}
         </div>
@@ -830,38 +926,62 @@ export default function PerformancePage() {
                   No concept data available yet.
                 </div>
               ) : (
-                conceptBreakdown.map((concept, i) => (
-                <div 
-                  key={i} 
-                  className="concept-row" 
-                  onClick={() => setExpandedConcept(expandedConcept === i ? null : i)}
-                >
-                  <div className={`flex items-center gap-2.5 ${expandedConcept === i ? "mb-2.5" : ""}`}>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <span 
-                          className="text-sm font-medium"
-                          style={{ color: concept.accuracy < 60 ? "#E55A4E" : concept.accuracy < 75 ? "#C4A84F" : "#4E9E7A" }}
-                        >
-                          {concept.concept_name || concept.name}
-                        </span>
-                        <span className="font-mono text-xs text-white/25 px-1.5 py-px border border-white/[0.08] rounded-sm">
-                          {concept.facet}
-                        </span>
+                conceptBreakdown.map((concept, i) => {
+                  const isPrimaryRisk = concept.concept_id === primaryRiskConceptId;
+                  const stability = getStabilityClassification(concept.accuracy);
+                  
+                  return (
+                    <div 
+                      key={i} 
+                      className={`concept-row ${isPrimaryRisk ? "border-l-2 pl-3 bg-[#E55A4E]/[0.03]" : ""}`}
+                      style={isPrimaryRisk ? { borderLeftColor: "#E55A4E" } : {}}
+                      onClick={() => setExpandedConcept(expandedConcept === i ? null : i)}
+                    >
+                      <div className={`flex items-center gap-2.5 ${expandedConcept === i ? "mb-2.5" : ""}`}>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <span 
+                              className="text-sm font-medium"
+                              style={{ color: concept.accuracy < 60 ? "#E55A4E" : concept.accuracy < 75 ? "#C4A84F" : "#4E9E7A" }}
+                            >
+                              {concept.concept_name || concept.name}
+                            </span>
+                            {isPrimaryRisk && (
+                              <span className="font-mono text-xs px-1.5 py-px rounded bg-[#E55A4E]/10 border border-[#E55A4E]/30 text-[#E55A4E]">
+                                Primary Risk
+                              </span>
+                            )}
+                            <span className="font-mono text-xs text-white/25 px-1.5 py-px border border-white/[0.08] rounded-sm">
+                              {concept.facet}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1">
+                              <AccuracyBar value={concept.accuracy} trend={concept.trend} />
+                            </div>
+                            <span 
+                              className="font-mono text-xs px-1.5 py-px rounded-sm"
+                              style={{ 
+                                color: stability.color,
+                                backgroundColor: `${stability.color}15`,
+                                border: `1px solid ${stability.color}30`
+                              }}
+                            >
+                              {stability.label}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <div className="font-mono text-xs text-white/25 mb-0.5">{concept.attempts} attempts</div>
+                          <div className="text-white/15 text-xs">{expandedConcept === i ? "▲" : "▼"}</div>
+                        </div>
                       </div>
-                      <AccuracyBar value={concept.accuracy} trend={concept.trend} />
-                    </div>
-                    <div className="text-right shrink-0">
-                      <div className="font-mono text-xs text-white/25 mb-0.5">{concept.attempts} attempts</div>
-                      <div className="text-white/15 text-xs">{expandedConcept === i ? "▲" : "▼"}</div>
-                    </div>
-                  </div>
 
-                  {/* Drill-down proof layer */}
-                  {expandedConcept === i && (
-                    <div className="p-2.5 px-3 rounded bg-white/[0.025] border border-white/[0.06]">
-                      <div className="font-mono text-xs text-white/30 mb-2 tracking-wide">QUESTION-LEVEL EVIDENCE</div>
-                      {concept.concept_id === primaryRiskConceptId && primaryRiskEvidenceList.length > 0 ? (
+                      {/* Drill-down proof layer */}
+                      {expandedConcept === i && (
+                        <div className="p-2.5 px-3 rounded bg-white/[0.025] border border-white/[0.06]">
+                          <div className="font-mono text-xs text-white/30 mb-2 tracking-wide">QUESTION-LEVEL EVIDENCE</div>
+                          {concept.concept_id === primaryRiskConceptId && primaryRiskEvidenceList.length > 0 ? (
                         <>
                           {primaryRiskEvidenceList.map((evidence, qi) => (
                             <div 
@@ -889,19 +1009,21 @@ export default function PerformancePage() {
                             </div>
                           ))}
                         </>
-                      ) : concept.concept_id === primaryRiskConceptId && primaryRiskEvidenceList.length === 0 ? (
-                        <div className="text-xs text-white/40 py-2">
-                          No question evidence available yet for this concept.
-                        </div>
-                      ) : (
-                        <div className="text-xs text-white/40 py-2">
-                          Evidence drill-down currently available for the primary risk concept only.
+                          ) : concept.concept_id === primaryRiskConceptId && primaryRiskEvidenceList.length === 0 ? (
+                            <div className="text-xs text-white/40 py-2">
+                              No question evidence available yet for this concept.
+                            </div>
+                          ) : (
+                            <div className="text-xs text-white/40 py-2">
+                              Evidence drill-down currently available for the primary risk concept only.
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
-                  )}
-                </div>
-                ))
+                  );
+                })
+              )}
               )}
             </div>
           )}
