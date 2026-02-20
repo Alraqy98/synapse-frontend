@@ -811,22 +811,26 @@ export default function PerformancePage() {
                 <>
                   {/* Session chart */}
                   <div className="flex items-end gap-1.5 h-20 mb-2">
-                    {sessionAccuracy.map((v, i) => {
+                    {sessionAccuracy.map((session, i) => {
+                  // Extract accuracy from object (can be { accuracy, total_attempts, timestamp } or just number)
+                  const accuracy = typeof session === 'object' && session !== null 
+                    ? (session.accuracy ?? 0) 
+                    : (typeof session === 'number' ? session : 0);
                   const isLast = i === sessionAccuracy.length - 1;
-                  const color = v >= 75 ? "#4E9E7A" : v >= 60 ? "#C4A84F" : "#E55A4E";
+                  const color = accuracy >= 75 ? "#4E9E7A" : accuracy >= 60 ? "#C4A84F" : "#E55A4E";
                   return (
                     <div key={i} className="flex-1 flex flex-col items-center gap-1">
                       <span 
                         className="font-mono text-xs"
                         style={{ color: isLast ? color : "rgba(255,255,255,0.2)" }}
                       >
-                        {v}
+                        {Math.round(accuracy)}
                       </span>
                       <div 
                         className="w-full rounded-sm transition-all duration-400"
                         style={{ 
                           background: isLast ? color : "rgba(255,255,255,0.08)", 
-                          height: `${(v / 100) * 60}px` 
+                          height: `${(accuracy / 100) * 60}px` 
                         }} 
                       />
                     </div>
