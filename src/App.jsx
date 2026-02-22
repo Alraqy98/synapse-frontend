@@ -73,6 +73,7 @@ import FileAnalyticsPage from "./modules/analytics/pages/FileAnalyticsPage";
 import ConceptDetailPage from "./modules/analytics/pages/ConceptDetailPage";
 import DeckRushedMistakesPage from "./modules/analytics/pages/DeckRushedMistakesPage";
 import PerformancePage from "./modules/analytics/PerformancePage";
+import ReinforcementSession from "./modules/analytics/ReinforcementSession";
 
 // COMPONENTS
 import SidebarItem from "./components/SidebarItem";
@@ -1171,6 +1172,11 @@ const SynapseOS = () => {
             <Route path="/learning" element={
               <div className="flex-1 overflow-y-auto p-6">
                 <PerformancePage />
+              </div>
+            } />
+            <Route path="/learning/reinforce/:conceptId" element={
+              <div className="flex-1 overflow-y-auto p-6">
+                <ReinforcementSession />
               </div>
             } />
             <Route path="/settings" element={

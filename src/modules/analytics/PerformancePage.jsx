@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import useLearningState from "./hooks/useLearningState";
 import useLearningHistory from "./hooks/useLearningHistory";
 
@@ -244,6 +245,7 @@ function UrgencyBadge({ urgency }) {
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────
 export default function PerformancePage() {
+  const navigate = useNavigate();
   const { data, loading, error, status, isUpdating, refresh } = useLearningState();
   const { history: apiHistory, loading: historyLoading } = useLearningHistory();
   const [activeTab, setActiveTab] = useState("status");
@@ -585,23 +587,28 @@ export default function PerformancePage() {
   // Handler for prescription CTA
   const handlePrescriptionClick = () => {
     if (prescriptionTarget?.kind === "concept") {
-      // Switch to concepts tab
+      // If prescription is REINFORCE type, navigate to reinforcement session
+      if (prescriptionType && (prescriptionType.includes("REINFORCE") || prescriptionType.includes("WEAKNESS"))) {
+        const targetConceptId = prescriptionTarget.id || primaryRiskConceptId;
+        if (targetConceptId) {
+          navigate(`/learning/reinforce/${targetConceptId}`);
+          return;
+        }
+      }
+      
+      // Otherwise, switch to concepts tab and expand
       setActiveTab("concepts");
-      // Try to find the target concept in breakdown
       const targetConceptIndex = conceptBreakdown.findIndex(
         c => c.concept_id === prescriptionTarget.id || c.concept_id === primaryRiskConceptId || c.concept_name === primaryRiskConceptName
       );
-      // Expand either the target or primary risk concept
       if (targetConceptIndex !== -1) {
         setExpandedConcept(targetConceptIndex);
       } else {
-        // Default to first concept (likely primary risk)
         setExpandedConcept(0);
       }
     } else {
       // For other kinds, show a placeholder message
       console.log("Prescription action:", prescriptionTarget);
-      // Could add a toast here if toast library is available
     }
   };
 
