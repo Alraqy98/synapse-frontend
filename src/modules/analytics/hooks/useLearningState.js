@@ -35,22 +35,29 @@ export default function useLearningState(options = {}) {
 
       const response = await api.get("/api/learning/state");
       
-      // Check if response is pending (202 status OR data.status === "pending")
-      const isPending = response.status === 202 || response.data?.data?.status === "pending";
-
       if (!isMountedRef.current) return;
 
-      if (isPending) {
-        // In passive mode, don't poll - just return pending status
-        if (passive) {
-          setStatus("pending");
-          setLoading(false);
+      // PASSIVE MODE: Accept any 200 response as ready (read-only snapshot fetch)
+      if (passive) {
+        if (response.data?.success && response.data?.data) {
+          setData(response.data.data);
+          setStatus("ready");
+          setError(null);
+        } else {
           setData(null);
-          setIsUpdating(false);
-          return;
+          setStatus("pending");
+          setError(null);
         }
-        
-        // Start polling if not already polling (active mode only)
+        setLoading(false);
+        setIsUpdating(false);
+        return;
+      }
+
+      // ACTIVE MODE: Check for pending and poll if needed
+      const isPending = response.status === 202 || response.data?.data?.status === "pending";
+
+      if (isPending) {
+        // Start polling if not already polling
         if (!isPolling) {
           setStatus("pending");
           setLoading(false);

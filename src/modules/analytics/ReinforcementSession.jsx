@@ -5,10 +5,10 @@ import useLearningState from "./hooks/useLearningState";
 export default function ReinforcementSession() {
   const { conceptId } = useParams();
   const navigate = useNavigate();
-  const { data: learningState, loading, status } = useLearningState({ passive: true });
+  const { data: learningState, loading } = useLearningState({ passive: true });
 
-  // Safety fallback: if pending or no snapshot, show gentle message
-  if (loading || status === "pending" || !learningState) {
+  // Safety fallback: if loading or no snapshot, show gentle message
+  if (loading || !learningState) {
     return (
       <div className="max-w-3xl mx-auto">
         <button
