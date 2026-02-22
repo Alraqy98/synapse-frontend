@@ -5,7 +5,9 @@ import useLearningState from "./hooks/useLearningState";
 export default function ReinforcementSession() {
   const { conceptId } = useParams();
   const navigate = useNavigate();
-  const { data: learningState, loading } = useLearningState({ passive: true });
+  const { data: learningState, loading, status, error } = useLearningState({ passive: true });
+
+  console.log("ReinforcementSession - loading:", loading, "status:", status, "hasData:", !!learningState);
 
   // Safety fallback: if loading or no snapshot, show gentle message
   if (loading || !learningState) {

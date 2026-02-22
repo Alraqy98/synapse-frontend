@@ -25,6 +25,12 @@ export default function useLearningState(options = {}) {
   const pollingTimeoutRef = useRef(null);
   const pollStartTimeRef = useRef(null);
   const isMountedRef = useRef(true);
+  const dataRef = useRef(null);
+  
+  // Keep dataRef in sync with data state
+  useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
 
   const fetchLearningState = useCallback(async (isPolling = false) => {
     try {
@@ -62,7 +68,7 @@ export default function useLearningState(options = {}) {
           setStatus("pending");
           setLoading(false);
           // If we have previous data, keep it and mark as updating
-          if (data) {
+          if (dataRef.current) {
             setIsUpdating(true);
           } else {
             setData(null);
@@ -103,7 +109,7 @@ export default function useLearningState(options = {}) {
       setLoading(false);
       setIsUpdating(false);
     }
-  }, [data, passive]);
+  }, [passive]);
 
   const getCurrentDelay = () => {
     if (!pollStartTimeRef.current) return 1000;
