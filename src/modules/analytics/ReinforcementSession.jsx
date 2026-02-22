@@ -5,13 +5,31 @@ import useLearningState from "./hooks/useLearningState";
 export default function ReinforcementSession() {
   const { conceptId } = useParams();
   const navigate = useNavigate();
-  const { data: learningState, loading } = useLearningState();
+  const { data: learningState, loading, status } = useLearningState({ passive: true });
 
-  if (loading) {
+  // Safety fallback: if pending or no snapshot, show gentle message
+  if (loading || status === "pending" || !learningState) {
     return (
       <div className="max-w-3xl mx-auto">
-        <div className="flex items-center justify-center py-20">
-          <div className="w-10 h-10 border-[3px] border-white/10 border-t-[#4E9E7A] rounded-full animate-spin" />
+        <button
+          onClick={() => navigate("/learning")}
+          className="flex items-center gap-2 text-sm text-white/50 hover:text-white/80 transition-colors mb-6"
+        >
+          <ArrowLeft size={16} />
+          Back to Learning Status
+        </button>
+        
+        <div className="panel p-8 text-center">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#4E9E7A]/10 border border-[#4E9E7A]/25 mb-4">
+            <div className="w-2 h-2 rounded-full bg-[#4E9E7A] animate-pulse" />
+            <span className="font-mono text-xs text-[#4E9E7A] tracking-wider">PREPARING</span>
+          </div>
+          <h2 className="text-lg font-semibold text-white mb-2">
+            Preparing your session...
+          </h2>
+          <p className="text-sm text-white/50 max-w-md mx-auto">
+            Loading your learning profile and concept analytics.
+          </p>
         </div>
       </div>
     );

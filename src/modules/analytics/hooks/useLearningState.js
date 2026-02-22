@@ -3,6 +3,8 @@ import api from "../../../lib/api";
 
 /**
  * Custom hook to fetch learning state data from backend with snapshot-first + async support
+ * @param {object} options - Hook options
+ * @param {boolean} options.passive - If true, don't enqueue new job or poll. Only fetch existing snapshot.
  * @returns {{ 
  *   data: object | null, 
  *   loading: boolean, 
@@ -12,7 +14,8 @@ import api from "../../../lib/api";
  *   refresh: () => void
  * }}
  */
-export default function useLearningState() {
+export default function useLearningState(options = {}) {
+  const { passive = false } = options;
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -38,7 +41,16 @@ export default function useLearningState() {
       if (!isMountedRef.current) return;
 
       if (isPending) {
-        // Start polling if not already polling
+        // In passive mode, don't poll - just return pending status
+        if (passive) {
+          setStatus("pending");
+          setLoading(false);
+          setData(null);
+          setIsUpdating(false);
+          return;
+        }
+        
+        // Start polling if not already polling (active mode only)
         if (!isPolling) {
           setStatus("pending");
           setLoading(false);
@@ -84,7 +96,7 @@ export default function useLearningState() {
       setLoading(false);
       setIsUpdating(false);
     }
-  }, [data]);
+  }, [data, passive]);
 
   const getCurrentDelay = () => {
     if (!pollStartTimeRef.current) return 1000;
