@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import useLearningState from "./hooks/useLearningState";
 import useLearningHistory from "./hooks/useLearningHistory";
+import ReinforcementPlanPanel from './ReinforcementPlanPanel';
 
 // ─── SIMPLE TOOLTIP COMPONENT ──────────────────────────────────────────────
 function InfoTooltip({ content }) {
@@ -460,6 +461,11 @@ export default function PerformancePage() {
   const efficiencyValue = typeof sessionEfficiency?.efficiency === 'number' 
     ? sessionEfficiency.efficiency 
     : null;
+  
+  // Extract primary concept ID for reinforcement plan
+  const primaryConceptId = data.primary_risk?.concept_id 
+    ?? data.concept_breakdown?.[0]?.concept_id 
+    ?? null;
   
   // ─── PERFORMANCE SUMMARY INTERPRETATION ─────────────────────────────────
   const buildPerformanceSummary = () => {
@@ -1109,6 +1115,16 @@ export default function PerformancePage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Reinforcement Plan Panel */}
+      <div className="anim max-w-4xl mx-auto">
+        <ReinforcementPlanPanel
+          primaryConceptId={primaryConceptId}
+          onStartSession={(plan) => {
+            console.log("Start session with:", plan);
+          }}
+        />
       </div>
     </div>
   );
