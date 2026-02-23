@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import useLearningState from "./hooks/useLearningState";
+import TraceabilityPanel from "./TraceabilityPanel";
 
 export default function ReinforcementSession() {
   const { conceptId } = useParams();
@@ -44,6 +45,7 @@ export default function ReinforcementSession() {
   
   const primaryRisk = learningState?.primary_risk;
   const prescription = learningState?.prescription;
+  const primaryRiskEvidence = learningState?.primary_risk_evidence || [];
   
   const conceptName = conceptData?.concept_name || primaryRisk?.concept_name || "Unknown Concept";
   const accuracy = conceptData?.accuracy ?? primaryRisk?.accuracy ?? 0;
@@ -127,6 +129,16 @@ export default function ReinforcementSession() {
             and help stabilize performance in this area.
           </p>
         </div>
+
+        {/* Traceability */}
+        {primaryRiskEvidence.length > 0 && (
+          <div className="px-6 py-5 bg-[#111114]/30 border-b border-white/[0.07]">
+            <TraceabilityPanel 
+              primaryRiskEvidence={primaryRiskEvidence}
+              primaryConceptName={conceptName}
+            />
+          </div>
+        )}
 
         {/* Action */}
         <div className="px-6 py-6 bg-[#0F1612]">
