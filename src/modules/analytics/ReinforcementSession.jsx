@@ -9,10 +9,15 @@ import api from "../../lib/api";
 export default function ReinforcementSession() {
   const { conceptId } = useParams();
   const navigate = useNavigate();
-  const { data: learningState, loading, status, error, refresh } = useLearningState({ passive: true });
   const [sessionData, setSessionData] = useState(null);
   const [isLoadingSession, setIsLoadingSession] = useState(false);
   const [sessionError, setSessionError] = useState(null);
+
+  // Pause learning state polling when session is active
+  const { data: learningState, loading, status, error, refresh } = useLearningState({ 
+    passive: true,
+    enabled: !sessionData 
+  });
 
   console.log("ReinforcementSession - loading:", loading, "status:", status, "hasData:", !!learningState);
 

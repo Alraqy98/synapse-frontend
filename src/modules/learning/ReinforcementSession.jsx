@@ -44,7 +44,7 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
     const selectedOption = currentQuestion.options.find(
       (opt) => opt.id === selectedOptionId
     );
-    const isCorrect = selectedOption?.is_correct || false;
+    const isCorrect = selectedOption?.is_correct ?? false;
 
     // Update local state
     setShowFeedback(true);
@@ -120,64 +120,112 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
     const correctCount = answers.filter((a) => a.is_correct).length;
     const totalAnswered = answers.length;
     const percentage = totalAnswered > 0 ? Math.round((correctCount / totalAnswered) * 100) : 0;
-    const timeUsed = sessionData.duration_minutes * 60 - timeLeft;
-    const timeUsedMins = Math.floor(timeUsed / 60);
-    const timeUsedSecs = timeUsed % 60;
-
-    // Extract unique concepts from answered questions
-    const conceptsSet = new Set();
-    sessionData.questions.slice(0, totalAnswered).forEach((q) => {
-      if (q.concept_name) conceptsSet.add(q.concept_name);
-    });
-    const conceptsCovered = Array.from(conceptsSet);
 
     return (
       <div className="max-w-3xl mx-auto py-8">
         <div className="panel p-8">
-          {/* Header */}
-          <div className="text-center mb-8">
+          {/* Score Header */}
+          <div className="text-center mb-8 pb-6 border-b border-white/[0.07]">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#4E9E7A]/10 border border-[#4E9E7A]/25 mb-4">
               <div className="w-2 h-2 rounded-full bg-[#4E9E7A]" />
               <span className="font-mono text-xs text-[#4E9E7A] tracking-wider">
                 SESSION COMPLETE
               </span>
             </div>
-            <h2 className="text-3xl font-semibold text-white mb-2">
-              Session Complete
-            </h2>
-          </div>
-
-          {/* Score */}
-          <div className="text-center mb-8 pb-8 border-b border-white/[0.07]">
-            <div className="text-6xl font-bold text-white mb-2">
-              {correctCount} / {totalAnswered}
+            <div className="text-5xl font-bold text-white mb-2">
+              {correctCount} / {totalAnswered} Correct
             </div>
-            <div className="text-2xl text-[#4E9E7A] font-semibold mb-4">
-              {percentage}% Correct
-            </div>
-            <div className="text-sm text-white/50">
-              Time used: {timeUsedMins}m {timeUsedSecs}s
+            <div className="text-2xl text-[#4E9E7A] font-semibold">
+              {percentage}%
             </div>
           </div>
 
-          {/* Concepts Covered */}
-          {conceptsCovered.length > 0 && (
-            <div className="mb-8">
-              <div className="font-mono text-xs text-white/40 mb-3 tracking-wider">
-                CONCEPTS COVERED
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {conceptsCovered.map((concept, i) => (
-                  <span
-                    key={i}
-                    className="px-3 py-1.5 rounded-lg bg-white/[0.05] border border-white/[0.1] text-sm text-white/70"
-                  >
-                    {concept}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Per-Question Review */}
+          <div className="space-y-6 mb-8">
+            {sessionData.questions.slice(0, totalAnswered).map((question, qIndex) => {
+              const answer = answers.find((a) => a.question_id === question.id);
+              const selectedOption = question.options.find(
+                (opt) => opt.id === answer?.selected_option_id
+              );
+              const correctOption = question.options.find((opt) => opt.is_correct);
+              const wasCorrect = answer?.is_correct ?? false;
+
+              return (
+                <div
+                  key={question.id}
+                  className="p-5 rounded-lg border border-white/[0.07] bg-[#111114]/30"
+                >
+                  {/* Question Number + Text */}
+                  <div className="mb-4">
+                    <div className="font-mono text-xs text-white/30 mb-2 tracking-wider">
+                      QUESTION {qIndex + 1}
+                    </div>
+                    <p className="text-base text-white leading-relaxed">
+                      {question.question_text}
+                    </p>
+                  </div>
+
+                  {/* User's Answer */}
+                  {selectedOption && (
+                    <div
+                      className="mb-3 p-3 rounded-lg border"
+                      style={{
+                        backgroundColor: wasCorrect
+                          ? "rgba(78, 158, 122, 0.15)"
+                          : "rgba(229, 90, 78, 0.15)",
+                        borderColor: wasCorrect ? "#4E9E7A" : "#E55A4E",
+                      }}
+                    >
+                      <div className="font-mono text-xs mb-1 tracking-wider"
+                        style={{ color: wasCorrect ? "#4E9E7A" : "#E55A4E" }}
+                      >
+                        YOUR ANSWER {wasCorrect ? "✓" : "✗"}
+                      </div>
+                      <p className="text-sm" style={{ color: wasCorrect ? "#4E9E7A" : "#E55A4E" }}>
+                        {selectedOption.option_text}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Correct Answer (if user was wrong) */}
+                  {!wasCorrect && correctOption && (
+                    <div
+                      className="mb-3 p-3 rounded-lg border"
+                      style={{
+                        backgroundColor: "rgba(78, 158, 122, 0.15)",
+                        borderColor: "#4E9E7A",
+                      }}
+                    >
+                      <div className="font-mono text-xs text-[#4E9E7A] mb-1 tracking-wider">
+                        CORRECT ANSWER
+                      </div>
+                      <p className="text-sm text-[#4E9E7A]">
+                        {correctOption.option_text}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Explanation */}
+                  {question.explanation && (
+                    <div
+                      className="p-3 rounded-lg border"
+                      style={{
+                        backgroundColor: "rgba(0, 0, 0, 0.2)",
+                        borderColor: "rgba(255, 255, 255, 0.1)",
+                      }}
+                    >
+                      <div className="font-mono text-xs text-white/40 mb-1 tracking-wider">
+                        EXPLANATION
+                      </div>
+                      <p className="text-sm text-white/70 leading-relaxed">
+                        {question.explanation}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
 
           {/* Return Button */}
           <button
@@ -236,8 +284,7 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
 
           {/* Options */}
           <div className="space-y-3">
-            {currentQuestion.options.map((option, index) => {
-              const optionLabel = String.fromCharCode(65 + index); // A, B, C, D, E
+            {currentQuestion.options.map((option) => {
               const isSelected = option.id === selectedOptionId;
               const isCorrect = option.is_correct;
 
@@ -280,9 +327,6 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
                     cursor: showFeedback ? "default" : "pointer",
                   }}
                 >
-                  <span className="font-mono text-sm font-semibold mr-3">
-                    {optionLabel}.
-                  </span>
                   <span className="text-sm">{option.option_text}</span>
                 </button>
               );
