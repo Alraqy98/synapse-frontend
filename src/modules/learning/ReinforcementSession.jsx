@@ -3,16 +3,52 @@ import { supabase } from "../../lib/supabaseClient";
 import api from "../../lib/api";
 
 export default function ReinforcementSession({ sessionData, onComplete }) {
-  const [currentIndex, setCurrentIndex] = useState(0);
+  // Restore progress from sessionStorage if available
+  const getInitialState = () => {
+    try {
+      const saved = sessionStorage.getItem('reinforcementProgress');
+      if (saved) {
+        const { currentIndex, answers } = JSON.parse(saved);
+        return { currentIndex: currentIndex || 0, answers: answers || [] };
+      }
+    } catch (err) {
+      console.error("Failed to restore session progress:", err);
+    }
+    return { currentIndex: 0, answers: [] };
+  };
+
+  const { currentIndex: initialIndex, answers: initialAnswers } = getInitialState();
+
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [selectedOptionId, setSelectedOptionId] = useState(null);
   const [showFeedback, setShowFeedback] = useState(false);
-  const [answers, setAnswers] = useState([]);
+  const [answers, setAnswers] = useState(initialAnswers);
   const [timeLeft, setTimeLeft] = useState(sessionData.duration_minutes * 60);
   const [sessionComplete, setSessionComplete] = useState(false);
+  const [aiTeaching, setAiTeaching] = useState(null);
+  const [loadingAiTeaching, setLoadingAiTeaching] = useState(false);
 
   const currentQuestion = sessionData.questions[currentIndex];
   const totalQuestions = sessionData.questions.length;
   const isLastQuestion = currentIndex === totalQuestions - 1;
+
+  // Save sessionData to sessionStorage on mount
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('activeReinforcementSession', JSON.stringify(sessionData));
+    } catch (err) {
+      console.error("Failed to save session to storage:", err);
+    }
+  }, [sessionData]);
+
+  // Save progress whenever currentIndex or answers changes
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('reinforcementProgress', JSON.stringify({ currentIndex, answers }));
+    } catch (err) {
+      console.error("Failed to save progress to storage:", err);
+    }
+  }, [currentIndex, answers]);
 
   // Timer countdown
   useEffect(() => {
@@ -113,6 +149,79 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
     }
 
     setSessionComplete(true);
+    
+    // Generate AI teaching summary
+    generateAiTeachingSummary();
+  };
+
+  const generateAiTeachingSummary = async () => {
+    setLoadingAiTeaching(true);
+
+    try {
+      // Build question review data
+      const wrongQuestions = [];
+      const rightQuestions = [];
+
+      sessionData.questions.forEach((question, index) => {
+        const answer = answers.find((a) => a.question_id === question.id);
+        const selectedOption = question.options.find(
+          (opt) => opt.id === answer?.selected_option_id
+        );
+        const correctOption = question.options.find((opt) => opt.is_correct);
+        const isCorrect = answer?.is_correct ?? false;
+
+        const questionData = {
+          question_id: question.id,
+          question_text: question.question_text,
+          concept_name: question.concept_name,
+          selected_answer: selectedOption?.option_text || "Not answered",
+          correct_answer: correctOption?.option_text || "Unknown",
+        };
+
+        if (isCorrect) {
+          rightQuestions.push(questionData);
+        } else {
+          wrongQuestions.push(questionData);
+        }
+      });
+
+      // Get auth token
+      const session = await supabase.auth.getSession();
+      const token = session?.data?.session?.access_token;
+
+      // Call backend endpoint
+      const response = await api.post(
+        "/api/ai/teaching-summary",
+        {
+          session_id: sessionData.session_id,
+          primary_concept_name: sessionData.primary_concept_name,
+          questions: {
+            correct: rightQuestions,
+            wrong: wrongQuestions,
+          },
+          score: answers.filter((a) => a.is_correct).length,
+          total: answers.length,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.data?.success && response.data?.data) {
+        setAiTeaching({
+          performance_summary: response.data.data.performance_summary,
+          focus_tip: response.data.data.focus_tip,
+          question_teachings: response.data.data.question_teachings,
+        });
+      }
+    } catch (err) {
+      console.error("Failed to generate AI teaching summary:", err);
+      // Fail silently - will use static explanations as fallback
+    } finally {
+      setLoadingAiTeaching(false);
+    }
   };
 
   // Completion screen
@@ -140,6 +249,43 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
             </div>
           </div>
 
+          {/* AI Teaching Summary */}
+          {loadingAiTeaching && (
+            <div className="mb-8 p-6 rounded-lg border border-[#4E9E7A]/20 bg-[#111114]/30">
+              <div className="flex items-center gap-3 text-sm text-white/50">
+                <div className="w-4 h-4 rounded-full border-2 border-[#4E9E7A] border-t-transparent animate-spin" />
+                <span>Generating personalized teaching summary...</span>
+              </div>
+            </div>
+          )}
+
+          {aiTeaching && (
+            <div className="mb-8 p-6 rounded-lg border border-[#4E9E7A]/20 bg-[#111114]/30">
+              <div className="font-mono text-xs text-[#4E9E7A]/60 mb-3 tracking-wider">
+                AI TEACHING SUMMARY
+              </div>
+              
+              {/* Performance Summary */}
+              {aiTeaching.performance_summary && (
+                <p className="text-sm text-white/80 leading-relaxed mb-5">
+                  {aiTeaching.performance_summary}
+                </p>
+              )}
+
+              {/* Focus Tip */}
+              {aiTeaching.focus_tip && (
+                <div className="mt-4 p-3 rounded-lg bg-[#4E9E7A]/5 border border-[#4E9E7A]/15">
+                  <div className="font-mono text-xs text-[#4E9E7A]/60 mb-1 tracking-wider">
+                    RECOMMENDED FOCUS
+                  </div>
+                  <p className="text-sm text-white/70">
+                    {aiTeaching.focus_tip}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Per-Question Review */}
           <div className="space-y-6 mb-8">
             {sessionData.questions.slice(0, totalAnswered).map((question, qIndex) => {
@@ -149,6 +295,12 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
               );
               const correctOption = question.options.find((opt) => opt.is_correct);
               const wasCorrect = answer?.is_correct ?? false;
+
+              // Get AI teaching explanation if available, else use static
+              const aiExplanation = aiTeaching?.question_teachings?.find(
+                (qt) => qt.question_id === question.id
+              )?.teaching;
+              const explanationText = aiExplanation || question.explanation;
 
               return (
                 <div
@@ -205,8 +357,8 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
                     </div>
                   )}
 
-                  {/* Explanation */}
-                  {question.explanation && (
+                  {/* Explanation - AI teaching if available, else static */}
+                  {explanationText && (
                     <div
                       className="p-3 rounded-lg border"
                       style={{
@@ -215,10 +367,10 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
                       }}
                     >
                       <div className="font-mono text-xs text-white/40 mb-1 tracking-wider">
-                        EXPLANATION
+                        {aiExplanation ? "AI TEACHING" : "EXPLANATION"}
                       </div>
                       <p className="text-sm text-white/70 leading-relaxed">
-                        {question.explanation}
+                        {explanationText}
                       </p>
                     </div>
                   )}
@@ -229,7 +381,16 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
 
           {/* Return Button */}
           <button
-            onClick={onComplete}
+            onClick={() => {
+              // Clear session persistence
+              try {
+                sessionStorage.removeItem('activeReinforcementSession');
+                sessionStorage.removeItem('reinforcementProgress');
+              } catch (err) {
+                console.error("Failed to clear session storage:", err);
+              }
+              onComplete();
+            }}
             className="w-full px-6 py-4 rounded-lg bg-[#4E9E7A] hover:bg-[#5BAE8C] text-[#0C0C0E] font-semibold text-base transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]"
           >
             Return to Learning

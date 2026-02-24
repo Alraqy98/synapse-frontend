@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import useLearningState from "./hooks/useLearningState";
@@ -9,7 +9,21 @@ import api from "../../lib/api";
 export default function ReinforcementSession() {
   const { conceptId } = useParams();
   const navigate = useNavigate();
-  const [sessionData, setSessionData] = useState(null);
+  
+  // Restore session from sessionStorage if available
+  const getInitialSessionData = () => {
+    try {
+      const saved = sessionStorage.getItem('activeReinforcementSession');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (err) {
+      console.error("Failed to restore session from storage:", err);
+    }
+    return null;
+  };
+
+  const [sessionData, setSessionData] = useState(getInitialSessionData());
   const [isLoadingSession, setIsLoadingSession] = useState(false);
   const [sessionError, setSessionError] = useState(null);
 
@@ -96,6 +110,14 @@ export default function ReinforcementSession() {
   };
 
   const handleSessionComplete = () => {
+    // Clear session persistence
+    try {
+      sessionStorage.removeItem('activeReinforcementSession');
+      sessionStorage.removeItem('reinforcementProgress');
+    } catch (err) {
+      console.error("Failed to clear session storage:", err);
+    }
+
     setSessionData(null);
     // Optionally refresh learning state
     if (refresh) {
