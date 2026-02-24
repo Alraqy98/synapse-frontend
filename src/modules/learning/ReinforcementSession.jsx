@@ -195,10 +195,10 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
         {
           session_id: sessionData.session_id,
           primary_concept_name: sessionData.primary_concept_name,
-          questions: {
-            correct: rightQuestions,
-            wrong: wrongQuestions,
-          },
+          questions: [
+            ...rightQuestions.map(q => ({ ...q, is_correct: true })),
+            ...wrongQuestions.map(q => ({ ...q, is_correct: false }))
+          ],
           score: answers.filter((a) => a.is_correct).length,
           total: answers.length,
         },
