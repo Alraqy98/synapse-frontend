@@ -3,26 +3,10 @@ import { supabase } from "../../lib/supabaseClient";
 import api from "../../lib/api";
 
 export default function ReinforcementSession({ sessionData, onComplete }) {
-  // Restore progress from sessionStorage if available
-  const getInitialState = () => {
-    try {
-      const saved = sessionStorage.getItem('reinforcementProgress');
-      if (saved) {
-        const { currentIndex, answers } = JSON.parse(saved);
-        return { currentIndex: currentIndex || 0, answers: answers || [] };
-      }
-    } catch (err) {
-      console.error("Failed to restore session progress:", err);
-    }
-    return { currentIndex: 0, answers: [] };
-  };
-
-  const { currentIndex: initialIndex, answers: initialAnswers } = getInitialState();
-
-  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedOptionId, setSelectedOptionId] = useState(null);
   const [showFeedback, setShowFeedback] = useState(false);
-  const [answers, setAnswers] = useState(initialAnswers);
+  const [answers, setAnswers] = useState([]);
   const [timeLeft, setTimeLeft] = useState(sessionData.duration_minutes * 60);
   const [sessionComplete, setSessionComplete] = useState(false);
   const [aiTeaching, setAiTeaching] = useState(null);
@@ -32,7 +16,7 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
   const totalQuestions = sessionData.questions.length;
   const isLastQuestion = currentIndex === totalQuestions - 1;
 
-  // Save sessionData to sessionStorage on mount
+  // Save sessionData to sessionStorage on mount (for full page refresh recovery)
   useEffect(() => {
     try {
       sessionStorage.setItem('activeReinforcementSession', JSON.stringify(sessionData));
@@ -40,15 +24,6 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
       console.error("Failed to save session to storage:", err);
     }
   }, [sessionData]);
-
-  // Save progress whenever currentIndex or answers changes
-  useEffect(() => {
-    try {
-      sessionStorage.setItem('reinforcementProgress', JSON.stringify({ currentIndex, answers }));
-    } catch (err) {
-      console.error("Failed to save progress to storage:", err);
-    }
-  }, [currentIndex, answers]);
 
   // Timer countdown
   useEffect(() => {
@@ -200,7 +175,7 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
             ...wrongQuestions.map(q => ({ ...q, is_correct: false }))
           ],
           score: answers.filter((a) => a.is_correct).length,
-          total: answers.length,
+          total: sessionData.questions.length,
         },
         {
           headers: {
@@ -227,7 +202,7 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
   // Completion screen
   if (sessionComplete) {
     const correctCount = answers.filter((a) => a.is_correct).length;
-    const totalAnswered = answers.length;
+    const totalAnswered = sessionData.questions.length;
     const percentage = totalAnswered > 0 ? Math.round((correctCount / totalAnswered) * 100) : 0;
 
     return (
@@ -385,7 +360,6 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
               // Clear session persistence
               try {
                 sessionStorage.removeItem('activeReinforcementSession');
-                sessionStorage.removeItem('reinforcementProgress');
               } catch (err) {
                 console.error("Failed to clear session storage:", err);
               }
