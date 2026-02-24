@@ -10,22 +10,36 @@ export default function ReinforcementSession() {
   const { conceptId } = useParams();
   const navigate = useNavigate();
   
-  // Restore session from sessionStorage if available
-  const getInitialSessionData = () => {
-    try {
-      const saved = sessionStorage.getItem('activeReinforcementSession');
-      if (saved) {
-        return JSON.parse(saved);
-      }
-    } catch (err) {
-      console.error("Failed to restore session from storage:", err);
-    }
-    return null;
-  };
-
-  const [sessionData, setSessionData] = useState(getInitialSessionData());
+  const [sessionData, setSessionData] = useState(null);
   const [isLoadingSession, setIsLoadingSession] = useState(false);
   const [sessionError, setSessionError] = useState(null);
+
+  // Restore session from DB if session_id exists in sessionStorage
+  useEffect(() => {
+    const restoreSession = async () => {
+      try {
+        const savedSessionId = sessionStorage.getItem('activeReinforcementSessionId');
+        if (!savedSessionId || sessionData) return;
+
+        setIsLoadingSession(true);
+        const response = await api.get(`/api/learning/reinforcement-session/${savedSessionId}`);
+
+        if (response.data?.success && response.data?.data) {
+          setSessionData(response.data.data);
+        } else {
+          // Session not found or invalid - clear storage
+          sessionStorage.removeItem('activeReinforcementSessionId');
+        }
+      } catch (err) {
+        console.error("Failed to restore session from DB:", err);
+        sessionStorage.removeItem('activeReinforcementSessionId');
+      } finally {
+        setIsLoadingSession(false);
+      }
+    };
+
+    restoreSession();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Pause learning state polling when session is active
   const { data: learningState, loading, status, error, refresh } = useLearningState({ 
@@ -97,7 +111,15 @@ export default function ReinforcementSession() {
       });
 
       if (response.data?.success && response.data?.data) {
-        setSessionData(response.data.data);
+        const session = response.data.data;
+        setSessionData(session);
+        
+        // Store only session_id in sessionStorage for recovery
+        try {
+          sessionStorage.setItem('activeReinforcementSessionId', session.session_id);
+        } catch (storageErr) {
+          console.error("Failed to save session ID to storage:", storageErr);
+        }
       } else {
         setSessionError("Failed to create reinforcement session");
       }
@@ -110,11 +132,9 @@ export default function ReinforcementSession() {
   };
 
   const handleSessionComplete = () => {
-    // Clear all session persistence
+    // Clear session persistence
     try {
-      sessionStorage.removeItem('activeReinforcementSession');
-      sessionStorage.removeItem('reinforcementProgress');
-      sessionStorage.removeItem('reinforcementStartTime');
+      sessionStorage.removeItem('activeReinforcementSessionId');
     } catch (err) {
       console.error("Failed to clear session storage:", err);
     }

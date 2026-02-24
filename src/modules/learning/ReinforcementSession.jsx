@@ -3,83 +3,51 @@ import { supabase } from "../../lib/supabaseClient";
 import api from "../../lib/api";
 
 export default function ReinforcementSession({ sessionData, onComplete }) {
-  // Restore progress from sessionStorage
-  const getInitialProgress = () => {
-    try {
-      const saved = sessionStorage.getItem('reinforcementProgress');
-      if (saved) {
-        const { currentIndex, answers, showFeedback } = JSON.parse(saved);
-        return { 
-          currentIndex: currentIndex ?? 0, 
-          answers: answers || [], 
-          showFeedback: showFeedback ?? false 
-        };
-      }
-    } catch (err) {
-      console.error("Failed to restore progress:", err);
-    }
-    return { currentIndex: 0, answers: [], showFeedback: false };
+  // Compute initial state from sessionData (DB is source of truth)
+  const getInitialState = () => {
+    // Find first unanswered question
+    const firstUnansweredIndex = sessionData.questions.findIndex(
+      q => !q.user_answer
+    );
+    const startIndex = firstUnansweredIndex >= 0 ? firstUnansweredIndex : 0;
+
+    // Build answers array from questions that have user_answer
+    const previousAnswers = sessionData.questions
+      .filter(q => q.user_answer)
+      .map(q => ({
+        question_id: q.id,
+        selected_option_id: q.user_answer.selected_option_id,
+        is_correct: q.user_answer.is_correct ?? false,
+      }));
+
+    // Check if all questions answered
+    const allAnswered = sessionData.questions.every(q => q.user_answer);
+
+    return { startIndex, previousAnswers, allAnswered };
   };
 
-  // Initialize or restore start time
-  const getStartTime = () => {
-    try {
-      const saved = sessionStorage.getItem('reinforcementStartTime');
-      if (saved) {
-        return parseInt(saved, 10);
-      }
-    } catch (err) {
-      console.error("Failed to restore start time:", err);
-    }
-    const now = Date.now();
-    try {
-      sessionStorage.setItem('reinforcementStartTime', now.toString());
-    } catch (err) {
-      console.error("Failed to save start time:", err);
-    }
-    return now;
-  };
+  const { startIndex, previousAnswers, allAnswered } = getInitialState();
 
-  const startTime = getStartTime();
-  const { currentIndex: initialIndex, answers: initialAnswers, showFeedback: initialShowFeedback } = getInitialProgress();
+  // Parse started_at timestamp for timer
+  const startTime = sessionData.started_at 
+    ? new Date(sessionData.started_at).getTime() 
+    : Date.now();
 
-  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const [currentIndex, setCurrentIndex] = useState(startIndex);
   const [selectedOptionId, setSelectedOptionId] = useState(null);
-  const [showFeedback, setShowFeedback] = useState(initialShowFeedback);
-  const [answers, setAnswers] = useState(initialAnswers);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [answers, setAnswers] = useState(previousAnswers);
   const [timeLeft, setTimeLeft] = useState(() => {
     const elapsed = Math.floor((Date.now() - startTime) / 1000);
     return Math.max(0, sessionData.duration_minutes * 60 - elapsed);
   });
-  const [sessionComplete, setSessionComplete] = useState(false);
+  const [sessionComplete, setSessionComplete] = useState(allAnswered);
   const [aiTeaching, setAiTeaching] = useState(null);
   const [loadingAiTeaching, setLoadingAiTeaching] = useState(false);
 
   const currentQuestion = sessionData.questions[currentIndex];
   const totalQuestions = sessionData.questions.length;
   const isLastQuestion = currentIndex === totalQuestions - 1;
-
-  // Save sessionData to sessionStorage on mount (for full page refresh recovery)
-  useEffect(() => {
-    try {
-      sessionStorage.setItem('activeReinforcementSession', JSON.stringify(sessionData));
-    } catch (err) {
-      console.error("Failed to save session to storage:", err);
-    }
-  }, [sessionData]);
-
-  // Save progress whenever currentIndex, answers, or showFeedback changes
-  useEffect(() => {
-    try {
-      sessionStorage.setItem('reinforcementProgress', JSON.stringify({ 
-        currentIndex, 
-        answers, 
-        showFeedback 
-      }));
-    } catch (err) {
-      console.error("Failed to save progress:", err);
-    }
-  }, [currentIndex, answers, showFeedback]);
 
   // Check if time already expired on mount
   useEffect(() => {
@@ -88,7 +56,7 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Timer countdown based on start timestamp
+  // Timer countdown based on started_at timestamp
   useEffect(() => {
     if (sessionComplete) return;
 
@@ -105,6 +73,13 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
 
     return () => clearInterval(interval);
   }, [sessionComplete, startTime, sessionData.duration_minutes]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Generate AI teaching summary if session was already complete on mount
+  useEffect(() => {
+    if (allAnswered && !aiTeaching && !loadingAiTeaching) {
+      generateAiTeachingSummary();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Format timer MM:SS
   const formatTime = (seconds) => {
@@ -421,11 +396,9 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
           {/* Return Button */}
           <button
             onClick={() => {
-              // Clear all session persistence
+              // Clear session persistence
               try {
-                sessionStorage.removeItem('activeReinforcementSession');
-                sessionStorage.removeItem('reinforcementProgress');
-                sessionStorage.removeItem('reinforcementStartTime');
+                sessionStorage.removeItem('activeReinforcementSessionId');
               } catch (err) {
                 console.error("Failed to clear session storage:", err);
               }
