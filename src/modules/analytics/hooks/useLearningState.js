@@ -5,6 +5,7 @@ import api from "../../../lib/api";
  * Custom hook to fetch learning state data from backend with snapshot-first + async support
  * @param {object} options - Hook options
  * @param {boolean} options.passive - If true, don't enqueue new job or poll. Only fetch existing snapshot.
+ * @param {boolean} options.enabled - If false, skip fetching and window focus listener.
  * @returns {{ 
  *   data: object | null, 
  *   loading: boolean, 
@@ -15,7 +16,7 @@ import api from "../../../lib/api";
  * }}
  */
 export default function useLearningState(options = {}) {
-  const { passive = false } = options;
+  const { passive = false, enabled = true } = options;
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -147,6 +148,8 @@ export default function useLearningState(options = {}) {
 
   // Initial fetch on mount
   useEffect(() => {
+    if (!enabled) return;
+    
     fetchLearningState(false);
 
     return () => {
@@ -155,10 +158,12 @@ export default function useLearningState(options = {}) {
         clearTimeout(pollingTimeoutRef.current);
       }
     };
-  }, [fetchLearningState]);
+  }, [fetchLearningState, enabled]);
 
   // Refetch on window focus (if not pending)
   useEffect(() => {
+    if (!enabled) return;
+    
     const handleFocus = () => {
       if (status !== "pending" && isMountedRef.current) {
         refresh();
@@ -167,7 +172,7 @@ export default function useLearningState(options = {}) {
 
     window.addEventListener("focus", handleFocus);
     return () => window.removeEventListener("focus", handleFocus);
-  }, [status, refresh]);
+  }, [status, refresh, enabled]);
 
   return { data, loading, error, status, isUpdating, refresh };
 }

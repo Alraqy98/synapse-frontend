@@ -7,39 +7,40 @@ import SessionExecutionUI from "../learning/ReinforcementSession";
 import api from "../../lib/api";
 
 export default function ReinforcementSession() {
-  const { conceptId } = useParams();
+  const { conceptId, sessionId } = useParams();
   const navigate = useNavigate();
   
   const [sessionData, setSessionData] = useState(null);
   const [isLoadingSession, setIsLoadingSession] = useState(false);
   const [sessionError, setSessionError] = useState(null);
 
-  // Restore session from DB if session_id exists in sessionStorage
+  // Restore session from DB if sessionId is in URL
   useEffect(() => {
     const restoreSession = async () => {
-      try {
-        const savedSessionId = sessionStorage.getItem('activeReinforcementSessionId');
-        if (!savedSessionId || sessionData) return;
+      if (!sessionId || sessionData) return;
 
-        setIsLoadingSession(true);
-        const response = await api.get(`/api/learning/reinforcement-session/${savedSessionId}`);
+      setIsLoadingSession(true);
+      try {
+        const response = await api.get(`/api/learning/reinforcement-session/${sessionId}`);
 
         if (response.data?.success && response.data?.data) {
           setSessionData(response.data.data);
         } else {
-          // Session not found or invalid - clear storage
-          sessionStorage.removeItem('activeReinforcementSessionId');
+          // Session not found - navigate back to prep screen
+          navigate(`/learning/reinforce/${conceptId}`, { replace: true });
         }
       } catch (err) {
         console.error("Failed to restore session from DB:", err);
-        sessionStorage.removeItem('activeReinforcementSessionId');
+        setSessionError("Failed to load session");
+        // Navigate back to prep screen
+        navigate(`/learning/reinforce/${conceptId}`, { replace: true });
       } finally {
         setIsLoadingSession(false);
       }
     };
 
     restoreSession();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sessionId, conceptId, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Pause learning state polling when session is active
   const { data: learningState, loading, status, error, refresh } = useLearningState({ 
@@ -49,8 +50,8 @@ export default function ReinforcementSession() {
 
   console.log("ReinforcementSession - loading:", loading, "status:", status, "hasData:", !!learningState);
 
-  // Safety fallback: if loading or no snapshot, show gentle message
-  if (loading || !learningState) {
+  // Safety fallback: if loading or no snapshot, show gentle message (but only if no active session)
+  if (!sessionData && (loading || !learningState)) {
     return (
       <div className="max-w-3xl mx-auto">
         <button
@@ -112,14 +113,8 @@ export default function ReinforcementSession() {
 
       if (response.data?.success && response.data?.data) {
         const session = response.data.data;
-        setSessionData(session);
-        
-        // Store only session_id in sessionStorage for recovery
-        try {
-          sessionStorage.setItem('activeReinforcementSessionId', session.session_id);
-        } catch (storageErr) {
-          console.error("Failed to save session ID to storage:", storageErr);
-        }
+        // Navigate to URL with session_id - this will trigger session restore
+        navigate(`/learning/reinforce/${conceptId}/session/${session.session_id}`);
       } else {
         setSessionError("Failed to create reinforcement session");
       }
@@ -132,19 +127,14 @@ export default function ReinforcementSession() {
   };
 
   const handleSessionComplete = () => {
-    // Clear session persistence
-    try {
-      sessionStorage.removeItem('activeReinforcementSessionId');
-    } catch (err) {
-      console.error("Failed to clear session storage:", err);
-    }
-
+    // Navigate back to prep screen (strips session_id from URL)
+    navigate(`/learning/reinforce/${conceptId}`);
+    
     setSessionData(null);
     // Optionally refresh learning state
     if (refresh) {
       refresh();
     }
-    // Stay on same page - user can navigate back manually
   };
 
   // If session is active, show session execution UI

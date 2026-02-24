@@ -395,15 +395,7 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
 
           {/* Return Button */}
           <button
-            onClick={() => {
-              // Clear session persistence
-              try {
-                sessionStorage.removeItem('activeReinforcementSessionId');
-              } catch (err) {
-                console.error("Failed to clear session storage:", err);
-              }
-              onComplete();
-            }}
+            onClick={onComplete}
             className="w-full px-6 py-4 rounded-lg bg-[#4E9E7A] hover:bg-[#5BAE8C] text-[#0C0C0E] font-semibold text-base transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]"
           >
             Return to Learning

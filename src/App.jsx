@@ -1174,6 +1174,11 @@ const SynapseOS = () => {
                 <PerformancePage />
               </div>
             } />
+            <Route path="/learning/reinforce/:conceptId/session/:sessionId" element={
+              <div className="flex-1 overflow-y-auto p-6">
+                <ReinforcementSession />
+              </div>
+            } />
             <Route path="/learning/reinforce/:conceptId" element={
               <div className="flex-1 overflow-y-auto p-6">
                 <ReinforcementSession />
