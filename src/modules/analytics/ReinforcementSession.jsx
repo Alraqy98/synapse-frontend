@@ -110,9 +110,11 @@ export default function ReinforcementSession() {
   };
 
   const handleSessionComplete = () => {
-    // Clear session persistence
+    // Clear all session persistence
     try {
       sessionStorage.removeItem('activeReinforcementSession');
+      sessionStorage.removeItem('reinforcementProgress');
+      sessionStorage.removeItem('reinforcementStartTime');
     } catch (err) {
       console.error("Failed to clear session storage:", err);
     }

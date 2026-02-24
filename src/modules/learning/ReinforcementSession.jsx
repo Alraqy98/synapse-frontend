@@ -3,11 +3,54 @@ import { supabase } from "../../lib/supabaseClient";
 import api from "../../lib/api";
 
 export default function ReinforcementSession({ sessionData, onComplete }) {
-  const [currentIndex, setCurrentIndex] = useState(0);
+  // Restore progress from sessionStorage
+  const getInitialProgress = () => {
+    try {
+      const saved = sessionStorage.getItem('reinforcementProgress');
+      if (saved) {
+        const { currentIndex, answers, showFeedback } = JSON.parse(saved);
+        return { 
+          currentIndex: currentIndex ?? 0, 
+          answers: answers || [], 
+          showFeedback: showFeedback ?? false 
+        };
+      }
+    } catch (err) {
+      console.error("Failed to restore progress:", err);
+    }
+    return { currentIndex: 0, answers: [], showFeedback: false };
+  };
+
+  // Initialize or restore start time
+  const getStartTime = () => {
+    try {
+      const saved = sessionStorage.getItem('reinforcementStartTime');
+      if (saved) {
+        return parseInt(saved, 10);
+      }
+    } catch (err) {
+      console.error("Failed to restore start time:", err);
+    }
+    const now = Date.now();
+    try {
+      sessionStorage.setItem('reinforcementStartTime', now.toString());
+    } catch (err) {
+      console.error("Failed to save start time:", err);
+    }
+    return now;
+  };
+
+  const startTime = getStartTime();
+  const { currentIndex: initialIndex, answers: initialAnswers, showFeedback: initialShowFeedback } = getInitialProgress();
+
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [selectedOptionId, setSelectedOptionId] = useState(null);
-  const [showFeedback, setShowFeedback] = useState(false);
-  const [answers, setAnswers] = useState([]);
-  const [timeLeft, setTimeLeft] = useState(sessionData.duration_minutes * 60);
+  const [showFeedback, setShowFeedback] = useState(initialShowFeedback);
+  const [answers, setAnswers] = useState(initialAnswers);
+  const [timeLeft, setTimeLeft] = useState(() => {
+    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+    return Math.max(0, sessionData.duration_minutes * 60 - elapsed);
+  });
   const [sessionComplete, setSessionComplete] = useState(false);
   const [aiTeaching, setAiTeaching] = useState(null);
   const [loadingAiTeaching, setLoadingAiTeaching] = useState(false);
@@ -25,22 +68,43 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
     }
   }, [sessionData]);
 
-  // Timer countdown
+  // Save progress whenever currentIndex, answers, or showFeedback changes
   useEffect(() => {
-    if (sessionComplete || timeLeft <= 0) return;
+    try {
+      sessionStorage.setItem('reinforcementProgress', JSON.stringify({ 
+        currentIndex, 
+        answers, 
+        showFeedback 
+      }));
+    } catch (err) {
+      console.error("Failed to save progress:", err);
+    }
+  }, [currentIndex, answers, showFeedback]);
+
+  // Check if time already expired on mount
+  useEffect(() => {
+    if (timeLeft <= 0 && !sessionComplete) {
+      handleSessionComplete();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Timer countdown based on start timestamp
+  useEffect(() => {
+    if (sessionComplete) return;
 
     const interval = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          handleSessionComplete();
-          return 0;
-        }
-        return prev - 1;
-      });
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      const remaining = Math.max(0, sessionData.duration_minutes * 60 - elapsed);
+      
+      setTimeLeft(remaining);
+      
+      if (remaining <= 0) {
+        handleSessionComplete();
+      }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [sessionComplete, timeLeft]);
+  }, [sessionComplete, startTime, sessionData.duration_minutes]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Format timer MM:SS
   const formatTime = (seconds) => {
@@ -357,9 +421,11 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
           {/* Return Button */}
           <button
             onClick={() => {
-              // Clear session persistence
+              // Clear all session persistence
               try {
                 sessionStorage.removeItem('activeReinforcementSession');
+                sessionStorage.removeItem('reinforcementProgress');
+                sessionStorage.removeItem('reinforcementStartTime');
               } catch (err) {
                 console.error("Failed to clear session storage:", err);
               }
