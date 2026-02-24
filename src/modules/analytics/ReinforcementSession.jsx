@@ -1,12 +1,18 @@
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import useLearningState from "./hooks/useLearningState";
 import TraceabilityPanel from "./TraceabilityPanel";
+import SessionExecutionUI from "../learning/ReinforcementSession";
+import api from "../../lib/api";
 
 export default function ReinforcementSession() {
   const { conceptId } = useParams();
   const navigate = useNavigate();
-  const { data: learningState, loading, status, error } = useLearningState({ passive: true });
+  const { data: learningState, loading, status, error, refresh } = useLearningState({ passive: true });
+  const [sessionData, setSessionData] = useState(null);
+  const [isLoadingSession, setIsLoadingSession] = useState(false);
+  const [sessionError, setSessionError] = useState(null);
 
   console.log("ReinforcementSession - loading:", loading, "status:", status, "hasData:", !!learningState);
 
@@ -62,11 +68,46 @@ export default function ReinforcementSession() {
 
   const mastery = getMasteryLevel(accuracy);
 
-  const handleStartSession = () => {
-    // TODO: Navigate to actual session or trigger generation
-    console.log("Start reinforcement for concept", conceptId);
-    // Future: navigate(`/practice/reinforcement/${conceptId}`)
+  const handleStartSession = async () => {
+    setIsLoadingSession(true);
+    setSessionError(null);
+
+    try {
+      const response = await api.post("/api/learning/reinforcement-session", {
+        primary_concept_id: conceptId,
+      });
+
+      if (response.data?.success && response.data?.data) {
+        setSessionData(response.data.data);
+      } else {
+        setSessionError("Failed to create reinforcement session");
+      }
+    } catch (err) {
+      console.error("Failed to start reinforcement session:", err);
+      setSessionError(err.response?.data?.message || err.message || "Failed to start session");
+    } finally {
+      setIsLoadingSession(false);
+    }
   };
+
+  const handleSessionComplete = () => {
+    setSessionData(null);
+    // Optionally refresh learning state
+    if (refresh) {
+      refresh();
+    }
+    // Stay on same page - user can navigate back manually
+  };
+
+  // If session is active, show session execution UI
+  if (sessionData) {
+    return (
+      <SessionExecutionUI
+        sessionData={sessionData}
+        onComplete={handleSessionComplete}
+      />
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -142,26 +183,22 @@ export default function ReinforcementSession() {
 
         {/* Action */}
         <div className="px-6 py-6 bg-[#0F1612]">
+          {sessionError && (
+            <div className="mb-4 p-3 rounded-lg bg-[#E55A4E]/10 border border-[#E55A4E]/30 text-sm text-[#E55A4E]">
+              {sessionError}
+            </div>
+          )}
           <button
             onClick={handleStartSession}
-            className="w-full px-6 py-4 rounded-lg bg-[#4E9E7A] hover:bg-[#5BAE8C] text-[#0C0C0E] font-semibold text-base transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]"
+            disabled={isLoadingSession}
+            className="w-full px-6 py-4 rounded-lg bg-[#4E9E7A] hover:bg-[#5BAE8C] text-[#0C0C0E] font-semibold text-base transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Start {duration} Minute Session
+            {isLoadingSession ? "Generating Questions..." : `Start ${duration} Minute Session`}
           </button>
           <p className="text-center text-xs text-white/35 mt-3 m-0">
             Targeted questions will be generated based on your error patterns
           </p>
         </div>
-      </div>
-
-      {/* Session Container Placeholder */}
-      <div className="panel mt-6 p-8 text-center">
-        <div className="font-mono text-xs text-white/25 tracking-wider mb-3">
-          SESSION CONTAINER
-        </div>
-        <p className="text-sm text-white/40 m-0">
-          Session will generate targeted MCQs here.
-        </p>
       </div>
     </div>
   );
