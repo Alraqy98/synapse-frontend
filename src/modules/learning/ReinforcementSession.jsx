@@ -45,6 +45,8 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
   const [sessionComplete, setSessionComplete] = useState(allAnswered);
   const [aiTeaching, setAiTeaching] = useState(null);
   const [loadingAiTeaching, setLoadingAiTeaching] = useState(false);
+  const [outcomeData, setOutcomeData] = useState(null);
+  const [loadingOutcome, setLoadingOutcome] = useState(false);
 
   const currentQuestion = sessionData.questions[currentIndex];
   const totalQuestions = sessionData.questions.length;
@@ -69,10 +71,15 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
     return () => clearInterval(interval);
   }, [sessionComplete, startTime, sessionData.duration_minutes]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Generate AI teaching summary if session was already complete on mount
+  // Generate AI teaching summary and fetch outcome if session was already complete on mount
   useEffect(() => {
-    if (allAnswered && !aiTeaching && !loadingAiTeaching) {
-      generateAiTeachingSummary();
+    if (allAnswered) {
+      if (!aiTeaching && !loadingAiTeaching) {
+        generateAiTeachingSummary();
+      }
+      if (!outcomeData && !loadingOutcome) {
+        fetchOutcomeData();
+      }
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -159,8 +166,36 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
 
     setSessionComplete(true);
     
-    // Generate AI teaching summary
+    // Generate AI teaching summary and fetch outcome data
     generateAiTeachingSummary();
+    fetchOutcomeData();
+  };
+
+  const fetchOutcomeData = async () => {
+    setLoadingOutcome(true);
+
+    try {
+      const session = await supabase.auth.getSession();
+      const token = session?.data?.session?.access_token;
+
+      const response = await api.get(
+        `/api/learning/reinforcement-session/${sessionData.session_id}/outcome`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.data?.success && response.data?.data) {
+        setOutcomeData(response.data.data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch outcome data:", err);
+      // Fail silently - outcome panel won't show
+    } finally {
+      setLoadingOutcome(false);
+    }
   };
 
   const generateAiTeachingSummary = async () => {
@@ -294,6 +329,137 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
               )}
             </div>
           )}
+
+          {/* Impact Panel */}
+          {loadingOutcome && (
+            <div className="mb-8 p-6 rounded-lg border border-[#4E9E7A]/20 bg-[#111114]/30">
+              <div className="flex items-center gap-3 text-sm text-white/50">
+                <div className="w-4 h-4 rounded-full border-2 border-[#4E9E7A] border-t-transparent animate-spin" />
+                <span>Loading outcome analysis...</span>
+              </div>
+            </div>
+          )}
+
+          {outcomeData && (() => {
+            const accuracy = outcomeData.accuracy ?? 0;
+            const improvementDelta = outcomeData.improvement_delta;
+            const decayAfter = outcomeData.decay_after ?? 0;
+            const confidenceScore = outcomeData.confidence_score ?? 0;
+            const sessionsCount = outcomeData.sessions_count ?? 0;
+
+            // Status badge logic
+            let statusLabel = "INSUFFICIENT DATA";
+            let statusColor = "rgba(255, 255, 255, 0.3)";
+            let statusBg = "rgba(255, 255, 255, 0.05)";
+
+            if (accuracy >= 0.8 && improvementDelta >= 0) {
+              statusLabel = "REPAIRED";
+              statusColor = "#4E9E7A";
+              statusBg = "rgba(78, 158, 122, 0.15)";
+            } else if (accuracy >= 0.5) {
+              statusLabel = "PARTIALLY STABILIZED";
+              statusColor = "#C4A84F";
+              statusBg = "rgba(196, 168, 79, 0.15)";
+            } else if (accuracy < 0.5 && sessionsCount >= 2) {
+              statusLabel = "UNSTABLE";
+              statusColor = "#E55A4E";
+              statusBg = "rgba(229, 90, 78, 0.15)";
+            }
+
+            // Decay risk color
+            const getDecayColor = (decay) => {
+              if (decay < 0.3) return { color: "#4E9E7A", bg: "rgba(78, 158, 122, 0.15)" };
+              if (decay <= 0.6) return { color: "#C4A84F", bg: "rgba(196, 168, 79, 0.15)" };
+              return { color: "#E55A4E", bg: "rgba(229, 90, 78, 0.15)" };
+            };
+
+            // Confidence color
+            const getConfidenceColor = (conf) => {
+              if (conf > 0.6) return { color: "#4E9E7A", bg: "rgba(78, 158, 122, 0.15)" };
+              if (conf >= 0.3) return { color: "#C4A84F", bg: "rgba(196, 168, 79, 0.15)" };
+              return { color: "#E55A4E", bg: "rgba(229, 90, 78, 0.15)" };
+            };
+
+            const decayStyle = getDecayColor(decayAfter);
+            const confidenceStyle = getConfidenceColor(confidenceScore);
+
+            return (
+              <div className="mb-8 p-6 rounded-lg border border-[#4E9E7A]/20 bg-[#111114]/30">
+                <div className="font-mono text-xs text-[#4E9E7A]/60 mb-5 tracking-wider">
+                  IMPACT ANALYSIS
+                </div>
+
+                {/* 2x2 Grid */}
+                <div className="grid grid-cols-2 gap-4 mb-5">
+                  {/* Accuracy */}
+                  <div className="p-4 rounded-lg bg-[#0F1612] border border-white/[0.07]">
+                    <div className="font-mono text-xs text-white/40 mb-2 tracking-wider">
+                      ACCURACY
+                    </div>
+                    <div className="text-3xl font-bold text-white">
+                      {Math.round(accuracy * 100)}%
+                    </div>
+                  </div>
+
+                  {/* Improvement */}
+                  <div className="p-4 rounded-lg bg-[#0F1612] border border-white/[0.07]">
+                    <div className="font-mono text-xs text-white/40 mb-2 tracking-wider">
+                      IMPROVEMENT
+                    </div>
+                    <div className="text-3xl font-bold text-white">
+                      {improvementDelta != null 
+                        ? `${improvementDelta >= 0 ? '+' : ''}${Math.round(improvementDelta * 100)}%` 
+                        : '—'}
+                    </div>
+                  </div>
+
+                  {/* Decay Risk */}
+                  <div 
+                    className="p-4 rounded-lg border"
+                    style={{ backgroundColor: decayStyle.bg, borderColor: decayStyle.color + '40' }}
+                  >
+                    <div className="font-mono text-xs mb-2 tracking-wider"
+                      style={{ color: decayStyle.color + 'aa' }}
+                    >
+                      DECAY RISK
+                    </div>
+                    <div className="text-3xl font-bold" style={{ color: decayStyle.color }}>
+                      {Math.round(decayAfter * 100)}%
+                    </div>
+                  </div>
+
+                  {/* Confidence */}
+                  <div 
+                    className="p-4 rounded-lg border"
+                    style={{ backgroundColor: confidenceStyle.bg, borderColor: confidenceStyle.color + '40' }}
+                  >
+                    <div className="font-mono text-xs mb-2 tracking-wider"
+                      style={{ color: confidenceStyle.color + 'aa' }}
+                    >
+                      CONFIDENCE
+                    </div>
+                    <div className="text-3xl font-bold" style={{ color: confidenceStyle.color }}>
+                      {Math.round(confidenceScore * 100)}%
+                    </div>
+                  </div>
+                </div>
+
+                {/* Status Badge */}
+                <div className="flex justify-center">
+                  <div 
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border font-mono text-sm font-semibold tracking-wider"
+                    style={{
+                      backgroundColor: statusBg,
+                      borderColor: statusColor + '50',
+                      color: statusColor,
+                    }}
+                  >
+                    {statusLabel}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Per-Question Review */}
           <div className="space-y-6 mb-8">
