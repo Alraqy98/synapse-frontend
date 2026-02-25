@@ -39,7 +39,8 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
   const [answers, setAnswers] = useState(previousAnswers);
   const [timeLeft, setTimeLeft] = useState(() => {
     const elapsed = Math.floor((Date.now() - startTime) / 1000);
-    return Math.max(0, sessionData.duration_minutes * 60 - elapsed);
+    const remaining = sessionData.duration_minutes * 60 - elapsed;
+    return Math.max(0, remaining);
   });
   const [sessionComplete, setSessionComplete] = useState(allAnswered);
   const [aiTeaching, setAiTeaching] = useState(null);
@@ -48,13 +49,6 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
   const currentQuestion = sessionData.questions[currentIndex];
   const totalQuestions = sessionData.questions.length;
   const isLastQuestion = currentIndex === totalQuestions - 1;
-
-  // Check if time already expired on mount
-  useEffect(() => {
-    if (timeLeft <= 0 && !sessionComplete) {
-      handleSessionComplete();
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Timer countdown based on started_at timestamp
   useEffect(() => {
@@ -66,6 +60,7 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
       
       setTimeLeft(remaining);
       
+      // Only auto-complete via timer if actively in session (not on mount)
       if (remaining <= 0) {
         handleSessionComplete();
       }
