@@ -17,7 +17,7 @@ export default function ReinforcementSession() {
   // Restore session from DB if sessionId is in URL
   useEffect(() => {
     const restoreSession = async () => {
-      if (!sessionId || sessionData) return;
+      if (!sessionId) return;
 
       setIsLoadingSession(true);
       try {
@@ -113,6 +113,8 @@ export default function ReinforcementSession() {
 
       if (response.data?.success && response.data?.data) {
         const session = response.data.data;
+        // Clear old session state before navigating to new session URL
+        setSessionData(null);
         // Navigate to URL with session_id - this will trigger session restore
         navigate(`/learning/reinforce/${conceptId}/session/${session.session_id}`);
       } else {
