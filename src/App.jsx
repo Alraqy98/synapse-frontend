@@ -122,7 +122,7 @@ const SummariesModule = () => {
   return <SummariesTab />;
 };
 
-const PlannerModule = () => <Placeholder label="Planner" />;
+import PlannerPage from "./modules/planner/PlannerPage";
 
 const SettingsModule = ({ onLogout }) => (
   <div className="flex-center flex-col gap-4 text-muted">
@@ -1165,8 +1165,8 @@ const SynapseOS = () => {
               </div>
             } />
             <Route path="/planner" element={
-              <div className="flex-1 overflow-y-auto p-6">
-                <PlannerModule />
+              <div className="flex-1 overflow-y-auto p-6" style={{ background: "#0C0C0E" }}>
+                <PlannerPage />
               </div>
             } />
             <Route path="/learning" element={
