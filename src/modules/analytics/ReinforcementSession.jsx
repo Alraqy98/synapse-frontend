@@ -129,8 +129,8 @@ export default function ReinforcementSession() {
   };
 
   const handleSessionComplete = () => {
-    // Navigate back to prep screen (strips session_id from URL)
-    navigate(`/learning/reinforce/${conceptId}`);
+    // Navigate back to main learning page
+    navigate('/learning');
     
     setSessionData(null);
     // Optionally refresh learning state

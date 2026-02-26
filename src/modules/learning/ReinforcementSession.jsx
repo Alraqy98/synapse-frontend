@@ -555,12 +555,46 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
           </div>
 
           {/* Return Button */}
-          <button
-            onClick={onComplete}
-            className="w-full px-6 py-4 rounded-lg bg-[#4E9E7A] hover:bg-[#5BAE8C] text-[#0C0C0E] font-semibold text-base transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]"
-          >
-            Return to Learning
-          </button>
+          {(() => {
+            // Compute next action from outcome data
+            let nextActionLabel = "Return to Learning";
+            let nextActionSubtext = null;
+
+            if (outcomeData) {
+              const accuracy = outcomeData.accuracy ?? 0;
+              const improvementDelta = outcomeData.improvement_delta;
+              const sessionsCount = outcomeData.sessions_count ?? 0;
+
+              if (accuracy >= 0.8 && improvementDelta >= 0) {
+                nextActionLabel = "Continue to Next Concept";
+                nextActionSubtext = "Great work — Synapse will surface your next priority.";
+              } else if (accuracy >= 0.5) {
+                nextActionLabel = "Schedule Next Session";
+                nextActionSubtext = outcomeData.next_review_at
+                  ? `Next review recommended: ${new Date(outcomeData.next_review_at).toLocaleDateString()}`
+                  : "Come back tomorrow for your next session.";
+              } else if (accuracy < 0.5 && sessionsCount >= 2) {
+                nextActionLabel = "Review Source Material";
+                nextActionSubtext = "Revisit your notes on this concept before retrying.";
+              }
+            }
+
+            return (
+              <div>
+                <button
+                  onClick={onComplete}
+                  className="w-full px-6 py-4 rounded-lg bg-[#4E9E7A] hover:bg-[#5BAE8C] text-[#0C0C0E] font-semibold text-base transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]"
+                >
+                  {nextActionLabel}
+                </button>
+                {nextActionSubtext && (
+                  <p className="text-xs text-white/40 text-center mt-2">
+                    {nextActionSubtext}
+                  </p>
+                )}
+              </div>
+            );
+          })()}
         </div>
       </div>
     );
