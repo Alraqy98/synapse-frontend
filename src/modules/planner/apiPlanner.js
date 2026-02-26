@@ -24,6 +24,15 @@ export const EVENT_TYPES = [
   { value: "deadline", label: "Deadline" },
 ];
 
+export const KEY_DATE_TYPES = [
+  { value: "exam", label: "Exam" },
+  { value: "deadline", label: "Deadline" },
+  { value: "clinical-skills", label: "Clinical Skills" },
+  { value: "oral-exam", label: "Oral Exam" },
+  { value: "project", label: "Project" },
+  { value: "other", label: "Other" },
+];
+
 export const PERIOD_TYPES = [
   { value: "rotation", label: "Rotation" },
   { value: "block", label: "Block" },

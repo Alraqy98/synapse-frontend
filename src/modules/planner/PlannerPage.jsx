@@ -11,13 +11,12 @@ import api from "../../lib/api";
 import {
   EVENT_TYPE_COLORS,
   EVENT_TYPES,
+  KEY_DATE_TYPES,
   PERIOD_TYPES,
   COLOR_SWATCHES,
-  fetchEvents,
   createEvent,
   updateEvent,
   deleteEvent,
-  fetchPeriods,
   createPeriod,
   updatePeriod,
   deletePeriod,
@@ -112,6 +111,22 @@ function isPeriodStartDate(dateKey, period) {
   const startStr = period.start_date ?? period.startDate;
   if (!startStr) return false;
   const k = typeof startStr === "string" ? startStr.split("T")[0] : formatDateKey(new Date(startStr));
+  return k === dateKey;
+}
+
+/** Returns true if dateKey matches period's end_date */
+function isPeriodEndDate(dateKey, period) {
+  const endStr = period.end_date ?? period.endDate;
+  if (!endStr) return false;
+  const k = typeof endStr === "string" ? endStr.split("T")[0] : formatDateKey(new Date(endStr));
+  return k === dateKey;
+}
+
+/** Returns true if dateKey matches period's exam_date */
+function isPeriodExamDate(dateKey, period) {
+  const examStr = period.exam_date ?? period.examDate;
+  if (!examStr) return false;
+  const k = typeof examStr === "string" ? examStr.split("T")[0] : formatDateKey(new Date(examStr));
   return k === dateKey;
 }
 
@@ -342,7 +357,7 @@ function EventDrawer({ open, onClose, event, date, periods, onSaved, onDeleted }
 }
 
 // ─── PERIOD DRAWER ─────────────────────────────────────────────────────────
-function PeriodDrawer({ open, onClose, period, onSaved, onDeleted }) {
+function PeriodDrawer({ open, onClose, period, events = [], onSaved, onDeleted }) {
   const [name, setName] = useState("");
   const [periodType, setPeriodType] = useState("rotation");
   const [specialty, setSpecialty] = useState("");
@@ -355,7 +370,17 @@ function PeriodDrawer({ open, onClose, period, onSaved, onDeleted }) {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  const [showAddKeyDate, setShowAddKeyDate] = useState(false);
+  const [keyDateTitle, setKeyDateTitle] = useState("");
+  const [keyDateDate, setKeyDateDate] = useState("");
+  const [keyDateType, setKeyDateType] = useState("exam");
+  const [savingKeyDate, setSavingKeyDate] = useState(false);
+
   const isEdit = !!period?.id;
+
+  const keyDates = (events || []).filter(
+    (e) => (e.academic_period_id ?? e.academicPeriodId ?? e.period_id ?? e.periodId) === period?.id
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -421,6 +446,40 @@ function PeriodDrawer({ open, onClose, period, onSaved, onDeleted }) {
       console.error("Period delete failed:", err);
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleAddKeyDate = async () => {
+    if (!period?.id || !keyDateTitle.trim() || !keyDateDate) return;
+    setSavingKeyDate(true);
+    try {
+      await createEvent({
+        title: keyDateTitle.trim(),
+        event_date: keyDateDate,
+        event_type: keyDateType,
+        academic_period_id: period.id,
+        is_all_day: true,
+      });
+      setKeyDateTitle("");
+      setKeyDateDate("");
+      setKeyDateType("exam");
+      setShowAddKeyDate(false);
+      onSaved?.();
+    } catch (err) {
+      console.error("Key date add failed:", err);
+    } finally {
+      setSavingKeyDate(false);
+    }
+  };
+
+  const handleDeleteKeyDate = async (e, eventId) => {
+    e?.stopPropagation?.();
+    if (!eventId) return;
+    try {
+      await deleteEvent(eventId);
+      onSaved?.();
+    } catch (err) {
+      console.error("Key date delete failed:", err);
     }
   };
 
@@ -551,6 +610,106 @@ function PeriodDrawer({ open, onClose, period, onSaved, onDeleted }) {
               </label>
             </div>
           </div>
+
+          {isEdit && (
+            <div className="mt-6 pt-4 border-t border-[rgba(255,255,255,0.06)]">
+              <div className="font-mono text-xs text-white/50 tracking-wider mb-3">KEY DATES</div>
+              <div className="space-y-2 mb-3">
+                {keyDates.map((kd) => {
+                  const d = kd.date ?? kd.event_date ?? kd.start_date ?? kd.start;
+                  const dateStr = d ? (typeof d === "string" ? d.split("T")[0] : formatDateKey(new Date(d))) : "—";
+                  const typeVal = kd.event_type ?? kd.eventType ?? "other";
+                  return (
+                    <div
+                      key={kd.id}
+                      className="flex items-center justify-between gap-2 py-2 px-3 rounded-lg bg-[#0C0C0E] border border-[rgba(255,255,255,0.06)]"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <span className="text-sm text-white truncate block">{kd.title || "Untitled"}</span>
+                        <span className="font-mono text-xs text-white/40">{dateStr}</span>
+                      </div>
+                      <span
+                        className="font-mono text-[10px] px-1.5 py-0.5 rounded shrink-0"
+                        style={{
+                          background: (EVENT_TYPE_COLORS[typeVal] || "#6B7280") + "30",
+                          color: EVENT_TYPE_COLORS[typeVal] || "#6B7280",
+                        }}
+                      >
+                        {typeVal.replace(/-/g, " ")}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteKeyDate(e, kd.id)}
+                        className="p-1 rounded text-white/40 hover:text-red-400 hover:bg-red-500/10 shrink-0"
+                        aria-label="Delete"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+              {!showAddKeyDate ? (
+                <button
+                  type="button"
+                  onClick={() => setShowAddKeyDate(true)}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[rgba(255,255,255,0.06)] text-white/50 hover:text-white/70 hover:bg-white/[0.03] font-mono text-xs"
+                >
+                  <Plus size={12} />
+                  Add Key Date
+                </button>
+              ) : (
+                <div className="p-3 rounded-lg bg-[#0C0C0E] border border-[rgba(255,255,255,0.06)] space-y-3">
+                  <input
+                    type="text"
+                    value={keyDateTitle}
+                    onChange={(e) => setKeyDateTitle(e.target.value)}
+                    placeholder="Title"
+                    className="w-full px-3 py-2 rounded-lg bg-[#1A1A1F] border border-[rgba(255,255,255,0.06)] text-white text-sm"
+                  />
+                  <input
+                    type="date"
+                    value={keyDateDate}
+                    onChange={(e) => setKeyDateDate(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg bg-[#1A1A1F] border border-[rgba(255,255,255,0.06)] text-white text-sm"
+                  />
+                  <select
+                    value={keyDateType}
+                    onChange={(e) => setKeyDateType(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg bg-[#1A1A1F] border border-[rgba(255,255,255,0.06)] text-white text-sm"
+                  >
+                    {KEY_DATE_TYPES.map((t) => (
+                      <option key={t.value} value={t.value}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleAddKeyDate}
+                      disabled={savingKeyDate || !keyDateTitle.trim() || !keyDateDate}
+                      className="px-3 py-1.5 rounded-lg bg-[#4E9E7A] hover:bg-[#5BAE8C] text-[#0C0C0E] font-mono text-xs font-semibold disabled:opacity-50"
+                    >
+                      {savingKeyDate ? "Saving…" : "Save"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAddKeyDate(false);
+                        setKeyDateTitle("");
+                        setKeyDateDate("");
+                        setKeyDateType("exam");
+                      }}
+                      className="px-3 py-1.5 rounded-lg border border-[rgba(255,255,255,0.06)] text-white/50 font-mono text-xs hover:bg-white/[0.03]"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="mt-8 flex gap-3">
             <button
@@ -791,6 +950,40 @@ export default function PlannerPage() {
                                   +{dayEvents.length - 3} more
                                 </div>
                               )}
+                              {(periods || []).map((p) => {
+                                const pColor = p.color || "#4E9E7A";
+                                if (dateKey && isPeriodEndDate(dateKey, p)) {
+                                  return (
+                                    <div
+                                      key={`end-${p.id}`}
+                                      className="px-2 py-0.5 rounded text-xs truncate"
+                                      style={{
+                                        backgroundColor: pColor + "30",
+                                        color: pColor,
+                                        borderLeft: `3px solid ${pColor}`,
+                                      }}
+                                    >
+                                      End
+                                    </div>
+                                  );
+                                }
+                                if (dateKey && isPeriodExamDate(dateKey, p)) {
+                                  return (
+                                    <div
+                                      key={`exam-${p.id}`}
+                                      className="px-2 py-0.5 rounded text-xs truncate"
+                                      style={{
+                                        backgroundColor: "#EF444430",
+                                        color: "#EF4444",
+                                        borderLeft: "3px solid #EF4444",
+                                      }}
+                                    >
+                                      Exam
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              })}
                             </div>
                           </>
                         )}
@@ -814,17 +1007,16 @@ export default function PlannerPage() {
                 <div className="space-y-3">
                   {(periods || []).map((p) => {
                     const countdown = getExamCountdown(p.exam_date);
-                    const isActive = p.is_active ?? p.isActive;
+                    const isActive = p.is_active === true || p.isActive === true;
                     return (
                       <div
                         key={p.id}
                         onClick={() => openEditPeriod(p)}
-                        className={`p-4 rounded-xl border cursor-pointer transition hover:border-white/10 ${
-                          isActive ? "border-l-4 border-l-[#4E9E7A]" : ""
-                        }`}
+                        className="p-4 rounded-xl border cursor-pointer transition hover:border-white/10"
                         style={{
-                          background: "#1A1A1F",
-                          borderColor: isActive ? "rgba(78,158,122,0.4)" : "rgba(255,255,255,0.06)",
+                          background: isActive ? "#4E9E7A0D" : "#1A1A1F",
+                          borderColor: "rgba(255,255,255,0.06)",
+                          borderLeft: isActive ? "3px solid #4E9E7A" : undefined,
                         }}
                       >
                         <div className="flex items-center justify-between mb-2">
@@ -968,6 +1160,7 @@ export default function PlannerPage() {
         open={periodDrawer.open}
         onClose={closePeriodDrawer}
         period={periodDrawer.period}
+        events={events}
         onSaved={loadData}
         onDeleted={loadData}
       />
