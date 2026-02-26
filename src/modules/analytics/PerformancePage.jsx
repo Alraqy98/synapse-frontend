@@ -248,9 +248,27 @@ function getWeaknessSummary(concept) {
   const accuracy = concept.accuracy ?? 0;
   const attempts = concept.attempts ?? 0;
   const trend = concept.trend;
-  const reason = accuracy < 20 ? 'Very low accuracy' : accuracy < 50 ? 'Below average accuracy' : 'Moderate accuracy';
-  const trendNote = trend === null ? '' : trend < 30 ? ' with a declining trend' : trend > 70 ? ' and an improving trend' : '';
-  return `${reason}${trendNote} across ${attempts} attempts.`;
+  const conceptName = concept.concept_name || concept.name || 'this concept';
+
+  if (attempts < 5) {
+    return `You've only seen this concept ${attempts} time${attempts === 1 ? '' : 's'}. More exposure is needed before Synapse can assess your understanding.`;
+  }
+
+  if (accuracy === 0) {
+    return `You haven't answered any ${conceptName} questions correctly yet across ${attempts} attempts. This is a critical gap that needs immediate attention.`;
+  }
+
+  if (accuracy < 30) {
+    const trendNote = trend !== null && trend < 30 ? " and your trend is getting worse, not better" : "";
+    return `You're getting ${conceptName} wrong most of the time (${accuracy.toFixed(0)}% accuracy across ${attempts} attempts)${trendNote}. Focused reinforcement is needed.`;
+  }
+
+  if (accuracy < 60) {
+    const trendNote = trend !== null && trend > 60 ? " — the good news is your trend is improving" : trend !== null && trend < 30 ? " — and your recent trend is declining" : "";
+    return `Your understanding of ${conceptName} is inconsistent at ${accuracy.toFixed(0)}% across ${attempts} attempts${trendNote}. You know parts of it but it's not solid yet.`;
+  }
+
+  return `You're at ${accuracy.toFixed(0)}% on ${conceptName} across ${attempts} attempts. You're developing but need more consistency to reach mastery.`;
 }
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────
