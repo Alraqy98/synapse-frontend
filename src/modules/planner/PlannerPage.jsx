@@ -23,6 +23,21 @@ import {
 } from "./apiPlanner";
 
 // ─── HELPERS ────────────────────────────────────────────────────────────────
+function toISODate(val) {
+  if (!val) return null;
+  // Already YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
+  // DD.MM.YYYY
+  if (/^\d{2}\.\d{2}\.\d{4}$/.test(val)) {
+    const [d, m, y] = val.split(".");
+    return `${y}-${m}-${d}`;
+  }
+  // Fallback: let Date parse it
+  const d = new Date(val);
+  if (!isNaN(d.getTime())) return d.toISOString().split("T")[0];
+  return null;
+}
+
 function getEventColor(event) {
   return event.color ?? EVENT_TYPE_COLORS[event.event_type] ?? "#6B7280";
 }
@@ -177,10 +192,11 @@ function EventDrawer({ open, onClose, event, date, periods, onSaved, onDeleted }
   const handleSave = async () => {
     setSaving(true);
     try {
+      const isoDate = toISODate(dateVal);
       const payload = {
         title,
         event_type: eventType,
-        date: dateVal,
+        date: isoDate ?? dateVal,
         start_time: startTime || undefined,
         end_time: endTime || undefined,
         period_id: periodId || undefined,
@@ -414,9 +430,9 @@ function PeriodDrawer({ open, onClose, period, events = [], onSaved, onDeleted }
         name,
         period_type: periodType,
         specialty: specialty || undefined,
-        start_date: startDate || undefined,
-        end_date: endDate || undefined,
-        exam_date: examDate || undefined,
+        start_date: toISODate(startDate) ?? startDate || undefined,
+        end_date: toISODate(endDate) ?? endDate || undefined,
+        exam_date: toISODate(examDate) ?? examDate || undefined,
         color: color || undefined,
         notes: notes || undefined,
         is_active: isActive,
@@ -453,9 +469,10 @@ function PeriodDrawer({ open, onClose, period, events = [], onSaved, onDeleted }
     if (!period?.id || !keyDateTitle.trim() || !keyDateDate) return;
     setSavingKeyDate(true);
     try {
+      const isoDate = toISODate(keyDateDate);
       await createEvent({
         title: keyDateTitle.trim(),
-        event_date: keyDateDate,
+        event_date: isoDate ?? keyDateDate,
         event_type: keyDateType,
         academic_period_id: period.id,
         is_all_day: true,
