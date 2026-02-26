@@ -85,6 +85,36 @@ function getExamCountdown(examDate) {
   return diff;
 }
 
+/** Returns all periods where start_date <= date <= end_date */
+function getPeriodsForDate(date, periods) {
+  if (!date || !periods?.length) return [];
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  const dTime = d.getTime();
+  return periods.filter((p) => {
+    const startStr = p.start_date ?? p.startDate;
+    const endStr = p.end_date ?? p.endDate;
+    if (!startStr) return false;
+    const start = new Date(startStr);
+    start.setHours(0, 0, 0, 0);
+    if (dTime < start.getTime()) return false;
+    if (endStr) {
+      const end = new Date(endStr);
+      end.setHours(0, 0, 0, 0);
+      if (dTime > end.getTime()) return false;
+    }
+    return true;
+  });
+}
+
+/** Returns true if dateKey matches period's start_date (first day of period) */
+function isPeriodStartDate(dateKey, period) {
+  const startStr = period.start_date ?? period.startDate;
+  if (!startStr) return false;
+  const k = typeof startStr === "string" ? startStr.split("T")[0] : formatDateKey(new Date(startStr));
+  return k === dateKey;
+}
+
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
@@ -703,6 +733,10 @@ export default function PlannerPage() {
                       : null;
                     const dateKey = d ? formatDateKey(d) : null;
                     const dayEvents = dateKey ? getEventsForDate(events, dateKey) : [];
+                    const matchingPeriods = d ? getPeriodsForDate(d, periods || []) : [];
+                    const firstPeriod = matchingPeriods[0];
+                    const periodColor = firstPeriod?.color || "#4E9E7A";
+                    const showPeriodChip = firstPeriod && dateKey && isPeriodStartDate(dateKey, firstPeriod);
 
                     return (
                       <div
@@ -713,11 +747,30 @@ export default function PlannerPage() {
                         className={`min-h-[100px] p-2 cursor-pointer transition ${
                           isCurrentMonth ? "hover:bg-white/[0.03]" : "opacity-40"
                         }`}
-                        style={{ background: "#1A1A1F" }}
+                        style={{
+                          background: firstPeriod
+                            ? `${periodColor}14`
+                            : "#1A1A1F",
+                          borderLeft: firstPeriod ? `3px solid ${periodColor}` : undefined,
+                        }}
                       >
                         {isCurrentMonth && (
                           <>
-                            <div className="font-mono text-xs text-white/50 mb-1">{dayNum}</div>
+                            <div className="flex items-start justify-between gap-1 mb-1">
+                              <div className="font-mono text-xs text-white/50">{dayNum}</div>
+                              {showPeriodChip && (
+                                <span
+                                  className="font-mono text-[10px] px-1.5 py-0.5 rounded truncate max-w-[4.5rem]"
+                                  style={{
+                                    backgroundColor: `${periodColor}33`,
+                                    color: periodColor,
+                                  }}
+                                  title={firstPeriod.name}
+                                >
+                                  {(firstPeriod.name || "").slice(0, 10)}
+                                </span>
+                              )}
+                            </div>
                             <div className="space-y-1">
                               {dayEvents.slice(0, 3).map((ev) => (
                                 <div
