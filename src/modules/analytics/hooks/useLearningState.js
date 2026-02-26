@@ -6,6 +6,7 @@ import api from "../../../lib/api";
  * @param {object} options - Hook options
  * @param {boolean} options.passive - If true, don't enqueue new job or poll. Only fetch existing snapshot.
  * @param {boolean} options.enabled - If false, skip fetching and window focus listener.
+ * @param {string} options.sort - Sort parameter for concepts ("priority" or "recent")
  * @returns {{ 
  *   data: object | null, 
  *   loading: boolean, 
@@ -16,7 +17,7 @@ import api from "../../../lib/api";
  * }}
  */
 export default function useLearningState(options = {}) {
-  const { passive = false, enabled = true } = options;
+  const { passive = false, enabled = true, sort = "priority" } = options;
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -40,7 +41,8 @@ export default function useLearningState(options = {}) {
         setError(null);
       }
 
-      const response = await api.get("/api/learning/state");
+      const params = sort ? { sort } : {};
+      const response = await api.get("/api/learning/state", { params });
       
       if (!isMountedRef.current) return;
 
@@ -110,7 +112,7 @@ export default function useLearningState(options = {}) {
       setLoading(false);
       setIsUpdating(false);
     }
-  }, [passive]);
+  }, [passive, sort]);
 
   const getCurrentDelay = () => {
     if (!pollStartTimeRef.current) return 1000;

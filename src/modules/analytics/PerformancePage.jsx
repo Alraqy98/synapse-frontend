@@ -243,10 +243,21 @@ function UrgencyBadge({ urgency }) {
   );
 }
 
+// ─── WEAKNESS SUMMARY GENERATOR ────────────────────────────────────────────
+function getWeaknessSummary(concept) {
+  const accuracy = concept.accuracy ?? 0;
+  const attempts = concept.attempts ?? 0;
+  const trend = concept.trend;
+  const reason = accuracy < 20 ? 'Very low accuracy' : accuracy < 50 ? 'Below average accuracy' : 'Moderate accuracy';
+  const trendNote = trend === null ? '' : trend < 30 ? ' with a declining trend' : trend > 70 ? ' and an improving trend' : '';
+  return `${reason}${trendNote} across ${attempts} attempts.`;
+}
+
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────
 export default function PerformancePage() {
   const navigate = useNavigate();
-  const { data, loading, error, status, isUpdating, refresh } = useLearningState();
+  const [conceptSort, setConceptSort] = useState("priority");
+  const { data, loading, error, status, isUpdating, refresh } = useLearningState({ sort: conceptSort });
   const { history: apiHistory, loading: historyLoading } = useLearningHistory();
   const [activeTab, setActiveTab] = useState("status");
   const [expandedConcept, setExpandedConcept] = useState(null);
@@ -925,8 +936,32 @@ export default function PerformancePage() {
           {/* Tab: CONCEPTS */}
           {activeTab === "concepts" && (
             <div className="p-3 px-5">
+              {/* Sort Toggle */}
+              <div className="flex items-center gap-2 mb-4">
+                <button
+                  onClick={() => setConceptSort("priority")}
+                  className={`px-3 py-1.5 rounded-full font-mono text-xs transition ${
+                    conceptSort === "priority"
+                      ? "bg-[#4E9E7A] text-[#0C0C0E]"
+                      : "border border-white/[0.15] text-white/50 hover:text-white/70"
+                  }`}
+                >
+                  Priority
+                </button>
+                <button
+                  onClick={() => setConceptSort("recent")}
+                  className={`px-3 py-1.5 rounded-full font-mono text-xs transition ${
+                    conceptSort === "recent"
+                      ? "bg-[#4E9E7A] text-[#0C0C0E]"
+                      : "border border-white/[0.15] text-white/50 hover:text-white/70"
+                  }`}
+                >
+                  Recent
+                </button>
+              </div>
+              
               <div className="font-mono text-xs text-white/25 mb-3 tracking-wide">
-                TAP A CONCEPT TO SEE QUESTION-LEVEL EVIDENCE
+                TAP A CONCEPT TO START A REINFORCEMENT SESSION
               </div>
               {conceptBreakdown.length === 0 ? (
                 <div className="text-center py-8 text-sm text-white/40">
@@ -984,47 +1019,22 @@ export default function PerformancePage() {
                         </div>
                       </div>
 
-                      {/* Drill-down proof layer */}
+                      {/* Concept expansion: weakness summary + start session */}
                       {expandedConcept === i && (
-                        <div className="p-2.5 px-3 rounded bg-white/[0.025] border border-white/[0.06]">
-                          <div className="font-mono text-xs text-white/30 mb-2 tracking-wide">QUESTION-LEVEL EVIDENCE</div>
-                          {concept.concept_id === primaryRiskConceptId && primaryRiskEvidenceList.length > 0 ? (
-                        <>
-                          {primaryRiskEvidenceList.map((evidence, qi) => (
-                            <div 
-                              key={qi} 
-                              className={qi < primaryRiskEvidenceList.length - 1 ? "mb-2.5 pb-2.5 border-b border-white/[0.05]" : ""}
-                            >
-                              <p className="m-0 mb-1.5 text-xs text-white/70 leading-[1.45]">
-                                {evidence.question_text_preview || "Question text not available"}
-                              </p>
-                              <div className="flex gap-3">
-                                <span className="font-mono text-xs text-[#E55A4E]">
-                                  {evidence.miss_count || 0} {evidence.miss_count === 1 ? 'miss' : 'misses'}
-                                </span>
-                                {evidence.last_missed_at && (
-                                  <span className="font-mono text-xs text-white/25">
-                                    {getRelativeTime(evidence.last_missed_at)}
-                                  </span>
-                                )}
-                                {evidence.source_page_numbers && (
-                                  <span className="font-mono text-xs text-[#4E9E7A]/70">
-                                    → p. {evidence.source_page_numbers}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </>
-                          ) : concept.concept_id === primaryRiskConceptId && primaryRiskEvidenceList.length === 0 ? (
-                            <div className="text-xs text-white/40 py-2">
-                              No question evidence available yet for this concept.
-                            </div>
-                          ) : (
-                            <div className="text-xs text-white/40 py-2">
-                              Evidence drill-down currently available for the primary risk concept only.
-                            </div>
-                          )}
+                        <div className="p-3 px-4 rounded bg-white/[0.025] border border-white/[0.06]">
+                          <div className="font-mono text-xs text-white/30 mb-2 tracking-wide">WEAKNESS SUMMARY</div>
+                          <p className="text-sm text-white/70 mb-4 leading-relaxed">
+                            {getWeaknessSummary(concept)}
+                          </p>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/learning/reinforce/${concept.concept_id}`);
+                            }}
+                            className="w-full px-4 py-2 rounded-lg bg-[#4E9E7A] hover:bg-[#5BAE8C] text-[#0C0C0E] font-semibold text-sm transition"
+                          >
+                            Start Session
+                          </button>
                         </div>
                       )}
                     </div>
