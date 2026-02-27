@@ -209,11 +209,10 @@ function EventDrawer({ open, onClose, event, date, periods, onSaved, onDeleted }
   const handleSave = async () => {
     setSaving(true);
     try {
-      const isoDate = toISODate(dateVal);
       const payload = {
         title,
         event_type: eventType,
-        date: isoDate ?? dateVal,
+        event_date: toISODate(dateVal) ?? dateVal,
         start_time: startTime || undefined,
         end_time: endTime || undefined,
         period_id: periodId || undefined,
