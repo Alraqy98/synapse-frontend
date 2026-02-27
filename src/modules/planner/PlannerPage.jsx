@@ -435,8 +435,8 @@ function EventDrawer({ open, onClose, event, date, periods, onSaved, onDeleted }
       }
       const merged = {
         ...updated,
-        file_id: updated?.file_id ?? fileId || undefined,
-        file_name: updated?.file_name ?? fileName || undefined,
+        file_id: (updated?.file_id ?? fileId) || undefined,
+        file_name: (updated?.file_name ?? fileName) || undefined,
       };
       onSaved?.(merged);
       onClose();
