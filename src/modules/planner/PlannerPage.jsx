@@ -898,6 +898,7 @@ function PeriodDrawer({ open, onClose, period, events = [], onSaved, onDeleted }
         notes: notes || undefined,
         is_active: isActive,
       };
+      console.log("[PeriodDrawer] Save payload:", payload);
       if (isEdit) {
         await updatePeriod(period.id, payload);
       } else {
