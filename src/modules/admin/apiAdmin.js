@@ -256,3 +256,22 @@ export const getAdminFiles = async () => {
     throw err;
   }
 };
+
+/**
+ * Run concept mention backfill for all users
+ * POST /api/admin/backfill-concept-mentions-all-users
+ *
+ * Response: { users_processed, concepts_extracted }
+ */
+export const runBackfillConceptMentionsAllUsers = async () => {
+  try {
+    const res = await api.post("/api/admin/backfill-concept-mentions-all-users");
+    return res.data;
+  } catch (err) {
+    if (err.response?.status === 403) {
+      window.location.href = "/dashboard";
+      throw new Error("Access denied");
+    }
+    throw err;
+  }
+};
