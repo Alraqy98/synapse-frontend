@@ -298,7 +298,6 @@ export default function PerformancePage() {
   console.log("Status:", status, "isUpdating:", isUpdating);
   console.log("[PLANNER-DEBUG] Full learning state keys:", Object.keys(data || {}));
   console.log("[PLANNER-DEBUG] plannerContext:", data?.plannerContext);
-  console.log("[PLANNER-DEBUG] payload.plannerContext:", data?.payload?.plannerContext);
 
   // Loading state (initial load only)
   if (loading && !data) {
@@ -630,8 +629,8 @@ export default function PerformancePage() {
   
   const stateFraming = getStateFraming(overallState);
 
-  // Planner context (exam mode, upcoming file events) — check payload nesting
-  const plannerContext = data?.payload?.plannerContext ?? data?.plannerContext ?? data?.payload?.planner_context ?? data?.planner_context ?? null;
+  // Planner context — at top level of learning state response
+  const plannerContext = data?.plannerContext;
   const examMode = plannerContext?.examMode ?? plannerContext?.exam_mode ?? false;
   const daysUntilExam = plannerContext?.daysUntilExam ?? plannerContext?.days_until_exam ?? null;
   const activePeriod = plannerContext?.activePeriod ?? plannerContext?.active_period ?? null;
@@ -737,6 +736,25 @@ export default function PerformancePage() {
           </div>
           <UrgencyBadge urgency={copy.urgency} />
         </div>
+
+        {/* Active period badge */}
+        {activePeriod && (
+          <div className="px-5 pt-3 pb-1">
+            <span
+              className="font-mono text-xs inline-block"
+              style={{
+                color: "#4E9E7A",
+                background: "rgba(78, 158, 122, 0.08)",
+                border: "1px solid rgba(78, 158, 122, 0.4)",
+                borderRadius: 20,
+                padding: "4px 12px",
+              }}
+            >
+              {activePeriod.name}
+              {activePeriod.specialty ? ` · ${activePeriod.specialty}` : ""}
+            </span>
+          </div>
+        )}
 
         {/* Exam Mode Banner */}
         {showExamBanner && (
@@ -1117,6 +1135,13 @@ export default function PerformancePage() {
                           >
                             Start Session
                           </button>
+                          {activePeriod && (
+                            <div className="mt-3 pt-3 border-t border-white/[0.06]">
+                              <span className="text-[10px] text-white/30">
+                                📍 {activePeriod.name} rotation active
+                              </span>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
