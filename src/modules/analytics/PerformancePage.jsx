@@ -127,19 +127,32 @@ function getMicrocopy(data) {
   };
 }
 
+// ─── CHART DATA SANITIZER ───────────────────────────────────────────────────
+/** Extract numeric y-values from session data, filter null/undefined/NaN. Returns empty array if all invalid. */
+function sanitizeChartData(data) {
+  if (!Array.isArray(data)) return [];
+  const values = data
+    .map((item) => {
+      const v = typeof item === "object" && item !== null ? item.accuracy : item;
+      return typeof v === "number" ? v : null;
+    })
+    .filter((v) => v != null && !Number.isNaN(v));
+  return values;
+}
+
 // ─── MINI SPARKLINE ────────────────────────────────────────────────────────
 function Sparkline({ data, color, height = 36 }) {
-  // Guard against null/undefined/empty data
-  if (!Array.isArray(data) || data.length === 0) {
+  const values = sanitizeChartData(data);
+  if (values.length === 0) {
     return null;
   }
 
   const w = 120, h = height;
-  const min = Math.min(...data);
-  const max = Math.max(...data);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
   const range = max - min || 1;
-  const pts = data.map((v, i) => {
-    const x = (i / (data.length - 1)) * w;
+  const pts = values.map((v, i) => {
+    const x = values.length === 1 ? w / 2 : (i / (values.length - 1)) * w;
     const y = h - ((v - min) / range) * (h - 4) - 2;
     return `${x},${y}`;
   });
@@ -478,6 +491,7 @@ export default function PerformancePage() {
   // Defensive defaults for all arrays
   const conceptBreakdown = Array.isArray(data.concept_breakdown) ? data.concept_breakdown : [];
   const sessionAccuracy = Array.isArray(data.session_accuracy) ? data.session_accuracy : [];
+  const sanitizedSessionAccuracy = sanitizeChartData(sessionAccuracy);
   const cohortPercentile = data.cohort_percentile || 0;
   
   // Handle session_efficiency shape (can be number or object)
@@ -787,7 +801,7 @@ export default function PerformancePage() {
             </div>
             <div className="text-right shrink-0">
               <div className="font-mono text-xs text-white/30 mb-0.5">DAY {daysInState}</div>
-              {sessionAccuracy.length > 0 && <Sparkline data={sessionAccuracy} color={cfg.color} height={40} />}
+              {sanitizedSessionAccuracy.length > 0 && <Sparkline data={sessionAccuracy} color={cfg.color} height={40} />}
             </div>
           </div>
 
@@ -1119,7 +1133,7 @@ export default function PerformancePage() {
               <div className="text-xs text-white/20 mb-3 leading-relaxed">
                 Each bar represents one focused study session. Sessions are separated by &gt;2 hours of inactivity.
               </div>
-              {sessionAccuracy.length === 0 ? (
+              {sanitizedSessionAccuracy.length === 0 ? (
                 <div className="text-center py-8 text-sm text-white/40">
                   No session history available yet.
                 </div>
@@ -1127,25 +1141,21 @@ export default function PerformancePage() {
                 <>
                   {/* Session chart */}
                   <div className="flex items-end gap-1.5 h-20 mb-2">
-                    {sessionAccuracy.map((session, i) => {
-                  // Extract accuracy from object (can be { accuracy, total_attempts, timestamp } or just number)
-                  const accuracy = typeof session === 'object' && session !== null 
-                    ? (session.accuracy ?? 0) 
-                    : (typeof session === 'number' ? session : 0);
-                  const isLast = i === sessionAccuracy.length - 1;
-                  const color = accuracy >= 75 ? "#4E9E7A" : accuracy >= 60 ? "#C4A84F" : "#E55A4E";
+                    {sanitizedSessionAccuracy.map((accuracy, i) => {
+                  const isLast = i === sanitizedSessionAccuracy.length - 1;
+                  const barColor = accuracy >= 75 ? "#4E9E7A" : accuracy >= 60 ? "#C4A84F" : "#E55A4E";
                   return (
                     <div key={i} className="flex-1 flex flex-col items-center gap-1">
                       <span 
                         className="font-mono text-xs"
-                        style={{ color: isLast ? color : "rgba(255,255,255,0.2)" }}
+                        style={{ color: isLast ? barColor : "rgba(255,255,255,0.2)" }}
                       >
                         {Math.round(accuracy)}
                       </span>
                       <div 
                         className="w-full rounded-sm transition-all duration-400"
                         style={{ 
-                          background: isLast ? color : "rgba(255,255,255,0.08)", 
+                          background: isLast ? barColor : "rgba(255,255,255,0.08)", 
                           height: `${(accuracy / 100) * 60}px` 
                         }} 
                       />
