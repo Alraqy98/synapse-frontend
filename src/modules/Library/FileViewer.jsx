@@ -26,6 +26,8 @@ import {
     ZoomOut,
     RotateCcw,
     Pen,
+    Tag,
+    X,
 } from "lucide-react";
 
 import GenerateFlashcardsModal from "../flashcards/GenerateFlashcardsModal";
@@ -36,6 +38,12 @@ import { apiMCQ } from "../mcq/apiMCQ";
 import { getFlashcardDecksByFile } from "../flashcards/apiFlashcards";
 
 import { performLibraryAction, renameItem } from "./apiLibrary";
+import {
+    fetchPeriods,
+    getPeriodFileTags,
+    createPeriodFileTag,
+    deletePeriodFileTag,
+} from "../planner/apiPlanner";
 import {
     sendMessageToTutor,
     createNewSession,
@@ -174,6 +182,12 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
 
     // Side panel state
     const [isSidePanelOpen, setIsSidePanelOpen] = useState(true);
+
+    // Tag to period
+    const [periodFileTag, setPeriodFileTag] = useState(null);
+    const [periods, setPeriods] = useState([]);
+    const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
+    const [periodTagLoading, setPeriodTagLoading] = useState(false);
 
     // Zoom centered on active page
     const zoomBy = (delta) => {
@@ -1033,6 +1047,27 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
         }
     }, [file?.title, isRenaming]);
 
+    // Fetch period file tag when file opens
+    useEffect(() => {
+        if (!file?.id) {
+            setPeriodFileTag(null);
+            return;
+        }
+        let cancelled = false;
+        getPeriodFileTags(file.id)
+            .then((tags) => {
+                if (!cancelled && Array.isArray(tags) && tags.length > 0) {
+                    setPeriodFileTag(tags[0]);
+                } else if (!cancelled) {
+                    setPeriodFileTag(null);
+                }
+            })
+            .catch(() => {
+                if (!cancelled) setPeriodFileTag(null);
+            });
+        return () => { cancelled = true; };
+    }, [file?.id]);
+
     const handleRenameStart = () => {
         setRenameValue(file?.title || "");
         setRenameError(null);
@@ -1538,6 +1573,99 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
             {/* RIGHT SIDEBAR */}
             {isSidePanelOpen && (
                 <aside className="w-[360px] border-l border-white/10 bg-[#1a1d24] flex flex-col overflow-hidden">
+                {/* Tag to Period */}
+                {file?.id && !isDemo && (
+                    <div className="p-3 border-b border-white/5">
+                        {periodFileTag ? (
+                            <div className="flex items-center justify-between gap-2">
+                                <span className="text-xs text-white/70 truncate">
+                                    {(periodFileTag.period?.name ?? periodFileTag.period_name) || "Tagged"}
+                                </span>
+                                <button
+                                    onClick={async (e) => {
+                                        e.stopPropagation();
+                                        if (!periodFileTag?.id) return;
+                                        setPeriodTagLoading(true);
+                                        try {
+                                            await deletePeriodFileTag(periodFileTag.id);
+                                            setPeriodFileTag(null);
+                                        } catch (err) {
+                                            console.error("Remove period tag failed:", err);
+                                        } finally {
+                                            setPeriodTagLoading(false);
+                                        }
+                                    }}
+                                    disabled={periodTagLoading}
+                                    className="p-1 rounded text-white/40 hover:text-red-400 hover:bg-red-500/10 shrink-0"
+                                    title="Remove tag"
+                                >
+                                    <X size={14} />
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="relative">
+                                <button
+                                    onClick={async () => {
+                                        setShowPeriodDropdown(true);
+                                        if (periods.length === 0) {
+                                            try {
+                                                const list = await fetchPeriods();
+                                                setPeriods(Array.isArray(list) ? list : []);
+                                            } catch (err) {
+                                                console.error("Fetch periods failed:", err);
+                                            }
+                                        }
+                                    }}
+                                    className="text-xs text-white/50 hover:text-teal transition-colors flex items-center gap-1"
+                                >
+                                    Tag to period →
+                                </button>
+                                {showPeriodDropdown && (
+                                    <>
+                                        <div
+                                            className="fixed inset-0 z-40"
+                                            onClick={() => setShowPeriodDropdown(false)}
+                                            aria-hidden="true"
+                                        />
+                                        <div className="absolute left-0 top-full mt-1 z-50 min-w-[200px] max-h-48 overflow-y-auto rounded-lg border border-white/10 bg-[#1a1d24] shadow-xl py-1">
+                                            {periods.length === 0 ? (
+                                                <div className="px-3 py-2 text-xs text-white/40">No periods</div>
+                                            ) : (
+                                                periods.map((p) => (
+                                                    <button
+                                                        key={p.id}
+                                                        onClick={async () => {
+                                                            setPeriodTagLoading(true);
+                                                            try {
+                                                                const created = await createPeriodFileTag({
+                                                                    period_id: p.id,
+                                                                    file_id: file.id,
+                                                                });
+                                                                setPeriodFileTag({
+                                                                    ...created,
+                                                                    period: { name: p.name, period_type: p.period_type ?? p.periodType },
+                                                                });
+                                                                setShowPeriodDropdown(false);
+                                                            } catch (err) {
+                                                                console.error("Tag to period failed:", err);
+                                                            } finally {
+                                                                setPeriodTagLoading(false);
+                                                            }
+                                                        }}
+                                                        disabled={periodTagLoading}
+                                                        className="w-full px-3 py-2 text-left text-xs text-white/80 hover:bg-white/10 transition-colors"
+                                                    >
+                                                        {p.name} · {p.period_type ?? p.periodType ?? "—"}
+                                                    </button>
+                                                ))
+                                            )}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
                 {/* AI Tools Section - Collapsible */}
                 <div className="border-b border-white/5">
                     <button

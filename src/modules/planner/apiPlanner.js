@@ -3,6 +3,7 @@ import api from "../../lib/api";
 
 const EVENTS_BASE = "/api/planner/events";
 const PERIODS_BASE = "/api/planner/periods";
+const PERIOD_FILE_TAGS_BASE = "/api/planner/period-file-tags";
 
 export const EVENT_TYPE_COLORS = {
   lecture: "#3B82F6",
@@ -86,4 +87,21 @@ export async function updatePeriod(id, payload) {
 
 export async function deletePeriod(id) {
   await api.delete(`${PERIODS_BASE}/${id}`);
+}
+
+export async function getPeriodFileTags(fileId) {
+  const { data } = await api.get(PERIOD_FILE_TAGS_BASE, {
+    params: { file_id: fileId },
+  });
+  const list = data?.data ?? data ?? [];
+  return Array.isArray(list) ? list : [];
+}
+
+export async function createPeriodFileTag(payload) {
+  const { data } = await api.post(PERIOD_FILE_TAGS_BASE, payload);
+  return data?.data ?? data;
+}
+
+export async function deletePeriodFileTag(tagId) {
+  await api.delete(`${PERIOD_FILE_TAGS_BASE}/${tagId}`);
 }
