@@ -347,6 +347,7 @@ function EventDrawer({ open, onClose, event, date, periods, onSaved, onDeleted }
 
   useEffect(() => {
     if (!open) return;
+    let cancelled = false;
     if (event) {
       setTitle(event.title ?? "");
       setEventType(event.event_type ?? "lecture");
@@ -360,6 +361,16 @@ function EventDrawer({ open, onClose, event, date, periods, onSaved, onDeleted }
       setFileId(event.file_id ?? event.fileId ?? "");
       setFileName(event.file_name ?? event.fileName ?? "");
       setTitleAutoFilledFromFile(false);
+
+      const fid = event.file_id ?? event.fileId;
+      const fname = event.file_name ?? event.fileName;
+      if (fid && !fname) {
+        getItemById(fid)
+          .then((item) => {
+            if (!cancelled && item?.title) setFileName(item.title);
+          })
+          .catch(() => {});
+      }
     } else {
       setTitle("");
       setEventType("lecture");
@@ -373,6 +384,9 @@ function EventDrawer({ open, onClose, event, date, periods, onSaved, onDeleted }
       setFileName("");
       setTitleAutoFilledFromFile(false);
     }
+    return () => {
+      cancelled = true;
+    };
   }, [open, event, date]);
 
   const handleFileSelectFromLibrary = (file) => {
