@@ -14,6 +14,7 @@ import {
   KEY_DATE_TYPES,
   PERIOD_TYPES,
   COLOR_SWATCHES,
+  fetchEvents,
   createEvent,
   updateEvent,
   deleteEvent,
@@ -143,6 +144,22 @@ function isPeriodExamDate(dateKey, period) {
   if (!examStr) return false;
   const k = typeof examStr === "string" ? examStr.split("T")[0] : formatDateKey(new Date(examStr));
   return k === dateKey;
+}
+
+/** Returns array of YYYY-MM strings for each month between start and end (inclusive) */
+function getMonthsBetween(startDate, endDate) {
+  if (!startDate || !endDate) return [];
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  if (start > end) return [];
+  const months = [];
+  const cur = new Date(start.getFullYear(), start.getMonth(), 1);
+  const endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
+  while (cur <= endMonth) {
+    months.push(`${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}`);
+    cur.setMonth(cur.getMonth() + 1);
+  }
+  return months;
 }
 
 const MONTHS = [
@@ -391,12 +408,43 @@ function PeriodDrawer({ open, onClose, period, events = [], onSaved, onDeleted }
   const [keyDateDate, setKeyDateDate] = useState("");
   const [keyDateType, setKeyDateType] = useState("exam");
   const [savingKeyDate, setSavingKeyDate] = useState(false);
+  const [periodKeyDates, setPeriodKeyDates] = useState([]);
 
   const isEdit = !!period?.id;
 
-  const keyDates = (events || []).filter(
-    (e) => (e.academic_period_id ?? e.academicPeriodId ?? e.period_id ?? e.periodId) === period?.id
-  );
+  const loadKeyDatesForPeriod = useCallback(async () => {
+    if (!period?.id) return;
+    const startStr = period.start_date ?? period.startDate;
+    const endStr = period.end_date ?? period.endDate;
+    let months = [];
+    if (startStr && endStr) {
+      months = getMonthsBetween(startStr, endStr);
+    } else {
+      const now = new Date();
+      months = [`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`];
+    }
+    try {
+      const results = await Promise.all(months.map((m) => fetchEvents(m)));
+      const merged = results.flat();
+      const filtered = merged.filter(
+        (e) => (e.academic_period_id ?? e.academicPeriodId ?? e.period_id ?? e.periodId) === period.id
+      );
+      setPeriodKeyDates(filtered);
+    } catch (err) {
+      console.error("Failed to load key dates:", err);
+      setPeriodKeyDates([]);
+    }
+  }, [period?.id, period?.start_date, period?.end_date, period?.startDate, period?.endDate]);
+
+  useEffect(() => {
+    if (open && period?.id) {
+      loadKeyDatesForPeriod();
+    } else {
+      setPeriodKeyDates([]);
+    }
+  }, [open, period?.id, loadKeyDatesForPeriod]);
+
+  const keyDates = period?.id ? periodKeyDates : [];
 
   useEffect(() => {
     if (!open) return;
@@ -485,6 +533,7 @@ function PeriodDrawer({ open, onClose, period, events = [], onSaved, onDeleted }
       setKeyDateType("exam");
       setShowAddKeyDate(false);
       onSaved?.();
+      await loadKeyDatesForPeriod();
     } catch (err) {
       console.error("Key date add failed:", err);
     } finally {
@@ -498,6 +547,7 @@ function PeriodDrawer({ open, onClose, period, events = [], onSaved, onDeleted }
     try {
       await deleteEvent(eventId);
       onSaved?.();
+      await loadKeyDatesForPeriod();
     } catch (err) {
       console.error("Key date delete failed:", err);
     }
@@ -775,11 +825,23 @@ export default function PlannerPage() {
     setLoading(true);
     setError(null);
     try {
-      const [evRes, perRes] = await Promise.all([
-        api.get("/api/planner/events").catch(() => ({ data: { data: [] } })),
+      const viewedMonth = `${viewDate.getFullYear()}-${String(viewDate.getMonth() + 1).padStart(2, "0")}`;
+      const now = new Date();
+      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+      const monthsToFetch = viewedMonth === currentMonth ? [viewedMonth] : [viewedMonth, currentMonth];
+      const [evResults, perRes] = await Promise.all([
+        Promise.all(monthsToFetch.map((m) => fetchEvents(m).catch(() => []))),
         api.get("/api/planner/periods").catch(() => ({ data: { data: [] } })),
       ]);
-      setEvents(evRes.data?.data ?? evRes.data ?? []);
+      const merged = evResults.flat();
+      const seen = new Set();
+      const deduped = merged.filter((e) => {
+        const id = e.id ?? e.event_id;
+        if (id && seen.has(id)) return false;
+        if (id) seen.add(id);
+        return true;
+      });
+      setEvents(deduped);
       setPeriods(perRes.data?.data ?? perRes.data ?? []);
     } catch (err) {
       setError(err.message || "Failed to load planner data");
@@ -788,7 +850,7 @@ export default function PlannerPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [viewDate]);
 
   useEffect(() => {
     loadData();

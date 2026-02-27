@@ -49,7 +49,8 @@ export const COLOR_SWATCHES = [
   "#EC4899",
 ];
 
-export async function fetchEvents(params = {}) {
+export async function fetchEvents(month) {
+  const params = month ? { month } : {};
   const { data } = await api.get(EVENTS_BASE, { params });
   return data?.data ?? data ?? [];
 }
