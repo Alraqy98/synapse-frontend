@@ -612,6 +612,21 @@ export default function PerformancePage() {
   };
   
   const stateFraming = getStateFraming(overallState);
+
+  // Planner context (exam mode, upcoming file events) — check payload nesting
+  const plannerContext = data?.payload?.plannerContext ?? data?.plannerContext ?? data?.payload?.planner_context ?? data?.planner_context ?? null;
+  const examMode = plannerContext?.examMode ?? plannerContext?.exam_mode ?? false;
+  const daysUntilExam = plannerContext?.daysUntilExam ?? plannerContext?.days_until_exam ?? null;
+  const activePeriod = plannerContext?.activePeriod ?? plannerContext?.active_period ?? null;
+  const upcomingFileEvents = Array.isArray(plannerContext?.upcomingFileEvents)
+    ? plannerContext.upcomingFileEvents
+    : Array.isArray(plannerContext?.upcoming_file_events)
+    ? plannerContext.upcoming_file_events
+    : [];
+  const showExamBanner = examMode && daysUntilExam != null && daysUntilExam <= 14;
+  const specialty = activePeriod?.specialty ?? activePeriod?.name ?? "your specialty";
+  const upcomingCount = upcomingFileEvents.length;
+  const showUpcomingLecturesRow = upcomingCount > 0;
   
   // Handler for prescription CTA
   const handlePrescriptionClick = () => {
@@ -705,6 +720,38 @@ export default function PerformancePage() {
           </div>
           <UrgencyBadge urgency={copy.urgency} />
         </div>
+
+        {/* Exam Mode Banner */}
+        {showExamBanner && (
+          <div
+            className="px-5 mb-4"
+          >
+            <div
+              style={{
+                background: "rgba(245, 158, 11, 0.10)",
+                border: "1px solid rgba(245, 158, 11, 0.30)",
+                borderRadius: 8,
+                padding: "12px 16px",
+              }}
+            >
+              <span className="text-sm text-white/90">
+                ⚡ Exam in {daysUntilExam} {daysUntilExam === 1 ? "day" : "days"} — sessions prioritized for {specialty}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Upcoming lectures info row */}
+        {showUpcomingLecturesRow && (
+          <div className="px-5 py-2">
+            <span
+              className="font-mono text-xs"
+              style={{ color: "rgba(20, 184, 166, 0.7)" }}
+            >
+              📖 {upcomingCount} upcoming lecture{upcomingCount === 1 ? "" : "s"} linked to your rotation
+            </span>
+          </div>
+        )}
 
         {/* BLOCK 2: State Signal */}
         <div 
