@@ -1579,7 +1579,7 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                         {periodFileTag ? (
                             <div className="flex items-center justify-between gap-2">
                                 <span className="text-xs text-white/70 truncate">
-                                    {(periodFileTag.period?.name ?? periodFileTag.period_name) || "Tagged"}
+                                    {periodFileTag?.academic_periods?.name ?? periodFileTag?.period?.name ?? periodFileTag?.period_name ?? "Tagged"}
                                 </span>
                                 <button
                                     onClick={async (e) => {
