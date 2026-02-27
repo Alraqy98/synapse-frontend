@@ -466,17 +466,20 @@ function PeriodDrawer({ open, onClose, period, events = [], onSaved, onDeleted }
   };
 
   const handleAddKeyDate = async () => {
-    if (!period?.id || !keyDateTitle.trim() || !keyDateDate) return;
+    const periodId = period?.id;
+    if (!periodId || !keyDateTitle.trim() || !keyDateDate) return;
     setSavingKeyDate(true);
     try {
       const isoDate = toISODate(keyDateDate);
-      await createEvent({
+      const payload = {
         title: keyDateTitle.trim(),
         event_date: isoDate ?? keyDateDate,
         event_type: keyDateType,
-        academic_period_id: period.id,
+        academic_period_id: periodId,
         is_all_day: true,
-      });
+      };
+      console.log("[Key Date] academic_period_id before POST:", payload.academic_period_id);
+      await createEvent(payload);
       setKeyDateTitle("");
       setKeyDateDate("");
       setKeyDateType("exam");
@@ -628,9 +631,12 @@ function PeriodDrawer({ open, onClose, period, events = [], onSaved, onDeleted }
             </div>
           </div>
 
-          {isEdit && (
-            <div className="mt-6 pt-4 border-t border-[rgba(255,255,255,0.06)]">
-              <div className="font-mono text-xs text-white/50 tracking-wider mb-3">KEY DATES</div>
+          <div className="mt-6 pt-4 border-t border-[rgba(255,255,255,0.06)]">
+            <div className="font-mono text-xs text-white/50 tracking-wider mb-3">KEY DATES</div>
+            {!period?.id && (
+              <p className="text-xs text-white/40 mb-3">Save the period first to add key dates.</p>
+            )}
+            {period?.id ? (
               <div className="space-y-2 mb-3">
                 {keyDates.map((kd) => {
                   const d = kd.date ?? kd.event_date ?? kd.start_date ?? kd.start;
@@ -666,67 +672,68 @@ function PeriodDrawer({ open, onClose, period, events = [], onSaved, onDeleted }
                   );
                 })}
               </div>
-              {!showAddKeyDate ? (
-                <button
-                  type="button"
-                  onClick={() => setShowAddKeyDate(true)}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[rgba(255,255,255,0.06)] text-white/50 hover:text-white/70 hover:bg-white/[0.03] font-mono text-xs"
+            ) : null}
+            {!showAddKeyDate ? (
+              <button
+                type="button"
+                onClick={() => period?.id && setShowAddKeyDate(true)}
+                disabled={!period?.id}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[rgba(255,255,255,0.06)] text-white/50 hover:text-white/70 hover:bg-white/[0.03] font-mono text-xs disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-white/50"
+              >
+                <Plus size={12} />
+                Add Key Date
+              </button>
+            ) : (
+              <div className="p-3 rounded-lg bg-[#0C0C0E] border border-[rgba(255,255,255,0.06)] space-y-3">
+                <input
+                  type="text"
+                  value={keyDateTitle}
+                  onChange={(e) => setKeyDateTitle(e.target.value)}
+                  placeholder="Title"
+                  className="w-full px-3 py-2 rounded-lg bg-[#1A1A1F] border border-[rgba(255,255,255,0.06)] text-white text-sm"
+                />
+                <input
+                  type="date"
+                  value={keyDateDate}
+                  onChange={(e) => setKeyDateDate(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-[#1A1A1F] border border-[rgba(255,255,255,0.06)] text-white text-sm"
+                />
+                <select
+                  value={keyDateType}
+                  onChange={(e) => setKeyDateType(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-[#1A1A1F] border border-[rgba(255,255,255,0.06)] text-white text-sm"
                 >
-                  <Plus size={12} />
-                  Add Key Date
-                </button>
-              ) : (
-                <div className="p-3 rounded-lg bg-[#0C0C0E] border border-[rgba(255,255,255,0.06)] space-y-3">
-                  <input
-                    type="text"
-                    value={keyDateTitle}
-                    onChange={(e) => setKeyDateTitle(e.target.value)}
-                    placeholder="Title"
-                    className="w-full px-3 py-2 rounded-lg bg-[#1A1A1F] border border-[rgba(255,255,255,0.06)] text-white text-sm"
-                  />
-                  <input
-                    type="date"
-                    value={keyDateDate}
-                    onChange={(e) => setKeyDateDate(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg bg-[#1A1A1F] border border-[rgba(255,255,255,0.06)] text-white text-sm"
-                  />
-                  <select
-                    value={keyDateType}
-                    onChange={(e) => setKeyDateType(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg bg-[#1A1A1F] border border-[rgba(255,255,255,0.06)] text-white text-sm"
+                  {KEY_DATE_TYPES.map((t) => (
+                    <option key={t.value} value={t.value}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleAddKeyDate}
+                    disabled={savingKeyDate || !keyDateTitle.trim() || !keyDateDate}
+                    className="px-3 py-1.5 rounded-lg bg-[#4E9E7A] hover:bg-[#5BAE8C] text-[#0C0C0E] font-mono text-xs font-semibold disabled:opacity-50"
                   >
-                    {KEY_DATE_TYPES.map((t) => (
-                      <option key={t.value} value={t.value}>
-                        {t.label}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={handleAddKeyDate}
-                      disabled={savingKeyDate || !keyDateTitle.trim() || !keyDateDate}
-                      className="px-3 py-1.5 rounded-lg bg-[#4E9E7A] hover:bg-[#5BAE8C] text-[#0C0C0E] font-mono text-xs font-semibold disabled:opacity-50"
-                    >
-                      {savingKeyDate ? "Saving…" : "Save"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowAddKeyDate(false);
-                        setKeyDateTitle("");
-                        setKeyDateDate("");
-                        setKeyDateType("exam");
-                      }}
-                      className="px-3 py-1.5 rounded-lg border border-[rgba(255,255,255,0.06)] text-white/50 font-mono text-xs hover:bg-white/[0.03]"
-                    >
-                      Cancel
-                    </button>
-                  </div>
+                    {savingKeyDate ? "Saving…" : "Save"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddKeyDate(false);
+                      setKeyDateTitle("");
+                      setKeyDateDate("");
+                      setKeyDateType("exam");
+                    }}
+                    className="px-3 py-1.5 rounded-lg border border-[rgba(255,255,255,0.06)] text-white/50 font-mono text-xs hover:bg-white/[0.03]"
+                  >
+                    Cancel
+                  </button>
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
 
           <div className="mt-8 flex gap-3">
             <button
