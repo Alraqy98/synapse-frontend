@@ -40,6 +40,7 @@ import { getFlashcardDecksByFile } from "../flashcards/apiFlashcards";
 import { performLibraryAction, renameItem } from "./apiLibrary";
 import {
     fetchPeriods,
+    fetchEvents,
     getPeriodFileTags,
     createPeriodFileTag,
     deletePeriodFileTag,
@@ -185,6 +186,7 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
 
     // Tag to period
     const [periodFileTag, setPeriodFileTag] = useState(null);
+    const [eventLinkedPeriodName, setEventLinkedPeriodName] = useState(null);
     const [periods, setPeriods] = useState([]);
     const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
     const [periodTagLoading, setPeriodTagLoading] = useState(false);
@@ -1047,24 +1049,60 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
         }
     }, [file?.title, isRenaming]);
 
-    // Fetch period file tag when file opens
+    // Fetch period file tag and event-linked period when file opens
     useEffect(() => {
         if (!file?.id) {
             setPeriodFileTag(null);
+            setEventLinkedPeriodName(null);
             return;
         }
         let cancelled = false;
-        getPeriodFileTags(file.id)
-            .then((tags) => {
-                if (!cancelled && Array.isArray(tags) && tags.length > 0) {
+
+        const loadPeriodContext = async () => {
+            try {
+                const [tags, periodsList] = await Promise.all([
+                    getPeriodFileTags(file.id),
+                    fetchPeriods(),
+                ]);
+
+                if (cancelled) return;
+
+                if (Array.isArray(tags) && tags.length > 0) {
                     setPeriodFileTag(tags[0]);
-                } else if (!cancelled) {
-                    setPeriodFileTag(null);
+                    setEventLinkedPeriodName(null);
+                    return;
                 }
-            })
-            .catch(() => {
-                if (!cancelled) setPeriodFileTag(null);
-            });
+                setPeriodFileTag(null);
+
+                const now = new Date();
+                const y = now.getFullYear();
+                const m = now.getMonth();
+                const months = [-1, 0, 1].map((i) => {
+                    const d = new Date(y, m + i, 1);
+                    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+                });
+                const evResults = await Promise.all(months.map((m) => fetchEvents(m).catch(() => [])));
+                const allEvents = evResults.flat();
+
+                if (cancelled) return;
+
+                const matchingEvent = allEvents.find(
+                    (e) => (e.file_id ?? e.fileId) === file.id
+                );
+                const periodId = matchingEvent?.academic_period_id ?? matchingEvent?.period_id ?? matchingEvent?.periodId;
+                const period = Array.isArray(periodsList)
+                    ? periodsList.find((p) => p.id === periodId)
+                    : null;
+                setEventLinkedPeriodName(period?.name ?? null);
+            } catch {
+                if (!cancelled) {
+                    setPeriodFileTag(null);
+                    setEventLinkedPeriodName(null);
+                }
+            }
+        };
+
+        loadPeriodContext();
         return () => { cancelled = true; };
     }, [file?.id]);
 
@@ -1602,6 +1640,10 @@ const FileViewer = ({ file, fileId, pageNumber, onBack, initialPage = 1 }) => {
                                     <X size={14} />
                                 </button>
                             </div>
+                        ) : eventLinkedPeriodName ? (
+                            <span className="text-xs text-white/70 truncate block">
+                                {eventLinkedPeriodName}
+                            </span>
                         ) : (
                             <div className="relative">
                                 <button
