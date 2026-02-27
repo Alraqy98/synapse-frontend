@@ -167,6 +167,32 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December",
 ];
 
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+/** Returns all display items for a day: events + synthetic end/exam chips */
+function getDayItems(dateKey, dayEvents, periods) {
+  const items = [];
+  dayEvents.forEach((ev) => {
+    items.push({ type: "event", item: ev, color: getEventColor(ev), key: ev.id ?? ev.title + ev.date });
+  });
+  (periods || []).forEach((p) => {
+    if (dateKey && isPeriodEndDate(dateKey, p)) {
+      items.push({ type: "end", item: p, color: p.color || "#4E9E7A", key: `end-${p.id}` });
+    }
+    if (dateKey && isPeriodExamDate(dateKey, p)) {
+      items.push({ type: "exam", item: p, color: "#EF4444", key: `exam-${p.id}` });
+    }
+  });
+  return items;
+}
+
+/** Format date for day detail title: "Monday, 16 February" */
+function formatDayDetailTitle(date) {
+  if (!date) return "";
+  const d = new Date(date);
+  return `${DAY_NAMES[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+}
+
 // ─── EVENT DRAWER ──────────────────────────────────────────────────────────
 function EventDrawer({ open, onClose, event, date, periods, onSaved, onDeleted }) {
   const [title, setTitle] = useState("");
@@ -380,6 +406,125 @@ function EventDrawer({ open, onClose, event, date, periods, onSaved, onDeleted }
               >
                 {deleting ? "…" : "Delete"}
               </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── DAY DETAIL DRAWER ─────────────────────────────────────────────────────
+function DayDetailDrawer({ open, onClose, date, events = [], periods = [], periodMap = {}, onAddEvent, onEditEvent }) {
+  if (!open || !date) return null;
+
+  const dateKey = formatDateKey(date);
+  const dayEvents = getEventsForDate(events, dateKey);
+  const dayItems = getDayItems(dateKey, dayEvents, periods);
+
+  const allDayItems = dayItems.filter((di) => {
+    if (di.type === "event") {
+      const t = di.item.start_time ?? di.item.startTime;
+      return !t;
+    }
+    return true;
+  });
+  const timedItems = dayItems.filter((di) => {
+    if (di.type !== "event") return false;
+    const t = di.item.start_time ?? di.item.startTime;
+    return !!t;
+  });
+  timedItems.sort((a, b) => {
+    const ta = a.item.start_time ?? a.item.startTime ?? "";
+    const tb = b.item.start_time ?? b.item.startTime ?? "";
+    return ta.localeCompare(tb);
+  });
+
+  const displayItems = [...allDayItems, ...timedItems];
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} aria-hidden="true" />
+      <div
+        className="fixed top-0 right-0 bottom-0 w-full max-w-md z-50 bg-[#1A1A1F] border-l border-[rgba(255,255,255,0.06)] shadow-2xl overflow-y-auto"
+        style={{ background: "#1A1A1F" }}
+      >
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-semibold text-white">{formatDayDetailTitle(date)}</h2>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  onAddEvent?.(date);
+                  onClose?.();
+                }}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#4E9E7A] hover:bg-[#5BAE8C] text-[#0C0C0E] font-mono text-xs font-semibold"
+                type="button"
+              >
+                <Plus size={14} />
+                Add Event
+              </button>
+              <button
+                onClick={onClose}
+                className="p-2 rounded-lg text-white/50 hover:text-white hover:bg-white/5"
+              >
+                <X size={20} />
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            {displayItems.length === 0 ? (
+              <p className="text-sm text-white/40 py-4">No events this day.</p>
+            ) : (
+              displayItems.map((di) => {
+                const isEvent = di.type === "event";
+                const isClickable = isEvent;
+                const periodId = isEvent && (di.item.period_id ?? di.item.periodId ?? di.item.academic_period_id ?? di.item.academicPeriodId);
+                const period = periodId ? periodMap[periodId] : null;
+                const timeStr =
+                  isEvent && (di.item.start_time ?? di.item.startTime)
+                    ? `${di.item.start_time ?? di.item.startTime}${di.item.end_time ?? di.item.endTime ? ` – ${di.item.end_time ?? di.item.endTime}` : ""}`
+                    : "All day";
+                const label =
+                  di.type === "event"
+                    ? di.item.title || "Untitled"
+                    : di.type === "end"
+                    ? `${di.item.name} – End`
+                    : di.type === "exam"
+                    ? `${di.item.name} – Exam`
+                    : "";
+
+                return (
+                  <div
+                    key={di.key}
+                    onClick={() => isClickable && onEditEvent?.(di.item, { stopPropagation: () => {} })}
+                    className={`flex items-center gap-3 p-3 rounded-lg border border-[rgba(255,255,255,0.06)] ${isClickable ? "cursor-pointer hover:bg-white/[0.03]" : ""}`}
+                  >
+                    <div
+                      className="w-2.5 h-2.5 rounded-full shrink-0"
+                      style={{ backgroundColor: di.color }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-white truncate">{label}</div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="font-mono text-xs text-white/40">{timeStr}</span>
+                        {period && (
+                          <span
+                            className="font-mono text-[10px] px-1.5 py-0.5 rounded"
+                            style={{
+                              background: (period.color || "#4E9E7A") + "25",
+                              color: period.color || "#4E9E7A",
+                            }}
+                          >
+                            {period.name}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
         </div>
@@ -821,6 +966,7 @@ export default function PlannerPage() {
   const [viewDate, setViewDate] = useState(() => new Date());
   const [eventDrawer, setEventDrawer] = useState({ open: false, event: null, date: null });
   const [periodDrawer, setPeriodDrawer] = useState({ open: false, period: null });
+  const [dayDetailDate, setDayDetailDate] = useState(null);
 
   const loadData = useCallback(async (dateOverride) => {
     const dateToUse = dateOverride ?? viewDate;
@@ -874,10 +1020,17 @@ export default function PlannerPage() {
   };
   const openEditEvent = (event, e) => {
     e?.stopPropagation?.();
+    setDayDetailDate(null);
     setEventDrawer({ open: true, event, date: null });
   };
   const closeEventDrawer = () => {
     setEventDrawer({ open: false, event: null, date: null });
+  };
+  const openDayDetail = (date) => {
+    setDayDetailDate(date);
+  };
+  const closeDayDetail = () => {
+    setDayDetailDate(null);
   };
 
   const openAddPeriod = () => {
@@ -985,11 +1138,15 @@ export default function PlannerPage() {
                     const periodColor = firstPeriod?.color || "#4E9E7A";
                     const showPeriodChip = firstPeriod && dateKey && isPeriodStartDate(dateKey, firstPeriod);
 
+                    const dayItemsList = dateKey ? getDayItems(dateKey, dayEvents, periods || []) : [];
+                    const chipsToShow = dayItemsList.length > 3 ? dayItemsList.slice(0, 2) : dayItemsList.slice(0, 3);
+                    const overflowCount = dayItemsList.length > 3 ? dayItemsList.length - 2 : 0;
+
                     return (
                       <div
                         key={i}
                         onClick={() => {
-                          if (isCurrentMonth && dayEvents.length === 0) openAddEvent(d);
+                          if (isCurrentMonth) openDayDetail(d);
                         }}
                         className={`min-h-[100px] p-2 cursor-pointer transition ${
                           isCurrentMonth ? "hover:bg-white/[0.03]" : "opacity-40"
@@ -1019,59 +1176,40 @@ export default function PlannerPage() {
                               )}
                             </div>
                             <div className="space-y-1">
-                              {dayEvents.slice(0, 3).map((ev) => (
+                              {chipsToShow.map((di) => (
                                 <div
-                                  key={ev.id ?? ev.title + ev.date}
-                                  onClick={(e) => openEditEvent(ev, e)}
-                                  className="px-2 py-0.5 rounded text-xs truncate cursor-pointer"
+                                  key={di.key}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (di.type === "event") openEditEvent(di.item, e);
+                                  }}
+                                  className={`px-2 py-0.5 rounded text-xs truncate ${di.type === "event" ? "cursor-pointer" : ""}`}
                                   style={{
-                                    backgroundColor: getEventColor(ev) + "30",
-                                    color: getEventColor(ev),
-                                    borderLeft: `3px solid ${getEventColor(ev)}`,
+                                    backgroundColor: di.color + "30",
+                                    color: di.color,
+                                    borderLeft: `3px solid ${di.color}`,
                                   }}
                                 >
-                                  {ev.title || "Untitled"}
+                                  {di.type === "event"
+                                    ? di.item.title || "Untitled"
+                                    : di.type === "end"
+                                    ? "End"
+                                    : di.type === "exam"
+                                    ? "Exam"
+                                    : ""}
                                 </div>
                               ))}
-                              {dayEvents.length > 3 && (
-                                <div className="font-mono text-xs text-white/30">
-                                  +{dayEvents.length - 3} more
+                              {overflowCount > 0 && (
+                                <div
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openDayDetail(d);
+                                  }}
+                                  className="px-2 py-0.5 rounded text-xs font-mono text-white/40 cursor-pointer hover:text-white/60 hover:bg-white/[0.03]"
+                                >
+                                  +{overflowCount} more
                                 </div>
                               )}
-                              {(periods || []).map((p) => {
-                                const pColor = p.color || "#4E9E7A";
-                                if (dateKey && isPeriodEndDate(dateKey, p)) {
-                                  return (
-                                    <div
-                                      key={`end-${p.id}`}
-                                      className="px-2 py-0.5 rounded text-xs truncate"
-                                      style={{
-                                        backgroundColor: pColor + "30",
-                                        color: pColor,
-                                        borderLeft: `3px solid ${pColor}`,
-                                      }}
-                                    >
-                                      End
-                                    </div>
-                                  );
-                                }
-                                if (dateKey && isPeriodExamDate(dateKey, p)) {
-                                  return (
-                                    <div
-                                      key={`exam-${p.id}`}
-                                      className="px-2 py-0.5 rounded text-xs truncate"
-                                      style={{
-                                        backgroundColor: "#EF444430",
-                                        color: "#EF4444",
-                                        borderLeft: "3px solid #EF4444",
-                                      }}
-                                    >
-                                      Exam
-                                    </div>
-                                  );
-                                }
-                                return null;
-                              })}
                             </div>
                           </>
                         )}
@@ -1243,6 +1381,22 @@ export default function PlannerPage() {
         periods={periods}
         onSaved={loadData}
         onDeleted={loadData}
+      />
+      <DayDetailDrawer
+        open={!!dayDetailDate}
+        onClose={closeDayDetail}
+        date={dayDetailDate}
+        events={events}
+        periods={periods}
+        periodMap={periodMap}
+        onAddEvent={(d) => {
+          closeDayDetail();
+          openAddEvent(d);
+        }}
+        onEditEvent={(ev) => {
+          closeDayDetail();
+          openEditEvent(ev, { stopPropagation: () => {} });
+        }}
       />
       <PeriodDrawer
         open={periodDrawer.open}
