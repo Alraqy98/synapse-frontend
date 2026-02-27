@@ -65,7 +65,7 @@ function parseDateKey(key) {
 
 function getEventsForDate(events, dateKey) {
   return (events || []).filter((e) => {
-    const d = e.date ?? e.start_date ?? e.start;
+    const d = e.date ?? e.event_date ?? e.start_date ?? e.start;
     const k = typeof d === "string" ? d.split("T")[0] : formatDateKey(new Date(d));
     return k === dateKey;
   });
@@ -426,10 +426,12 @@ function PeriodDrawer({ open, onClose, period, events = [], onSaved, onDeleted }
     try {
       const results = await Promise.all(months.map((m) => fetchEvents(m)));
       const merged = results.flat();
-      const filtered = merged.filter(
-        (e) => (e.academic_period_id ?? e.academicPeriodId ?? e.period_id ?? e.periodId) === period.id
+      const unique = Array.from(new Map(merged.map((e) => [e.id, e])).values());
+      setPeriodKeyDates(
+        unique.filter(
+          (e) => (e.academic_period_id ?? e.academicPeriodId ?? e.period_id ?? e.periodId) === period.id
+        )
       );
-      setPeriodKeyDates(filtered);
     } catch (err) {
       console.error("Failed to load key dates:", err);
       setPeriodKeyDates([]);
@@ -821,11 +823,12 @@ export default function PlannerPage() {
   const [eventDrawer, setEventDrawer] = useState({ open: false, event: null, date: null });
   const [periodDrawer, setPeriodDrawer] = useState({ open: false, period: null });
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (dateOverride) => {
+    const dateToUse = dateOverride ?? viewDate;
     setLoading(true);
     setError(null);
     try {
-      const viewedMonth = `${viewDate.getFullYear()}-${String(viewDate.getMonth() + 1).padStart(2, "0")}`;
+      const viewedMonth = `${dateToUse.getFullYear()}-${String(dateToUse.getMonth() + 1).padStart(2, "0")}`;
       const now = new Date();
       const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
       const monthsToFetch = viewedMonth === currentMonth ? [viewedMonth] : [viewedMonth, currentMonth];
@@ -834,14 +837,10 @@ export default function PlannerPage() {
         api.get("/api/planner/periods").catch(() => ({ data: { data: [] } })),
       ]);
       const merged = evResults.flat();
-      const seen = new Set();
-      const deduped = merged.filter((e) => {
-        const id = e.id ?? e.event_id;
-        if (id && seen.has(id)) return false;
-        if (id) seen.add(id);
-        return true;
-      });
-      setEvents(deduped);
+      const unique = Array.from(
+        new Map(merged.map((e, i) => [e.id ?? e.event_id ?? `fallback-${i}`, e])).values()
+      );
+      setEvents(unique);
       setPeriods(perRes.data?.data ?? perRes.data ?? []);
     } catch (err) {
       setError(err.message || "Failed to load planner data");
@@ -861,10 +860,14 @@ export default function PlannerPage() {
   const monthLabel = `${MONTHS[viewDate.getMonth()]} ${viewDate.getFullYear()}`;
 
   const prevMonth = () => {
-    setViewDate((d) => new Date(d.getFullYear(), d.getMonth() - 1));
+    const newDate = new Date(viewDate.getFullYear(), viewDate.getMonth() - 1);
+    setViewDate(newDate);
+    loadData(newDate);
   };
   const nextMonth = () => {
-    setViewDate((d) => new Date(d.getFullYear(), d.getMonth() + 1));
+    const newDate = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1);
+    setViewDate(newDate);
+    loadData(newDate);
   };
 
   const openAddEvent = (date) => {
