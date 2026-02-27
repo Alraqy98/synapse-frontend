@@ -23,7 +23,8 @@ import {
   updatePeriod,
   deletePeriod,
 } from "./apiPlanner";
-import { getLibraryItems, uploadLibraryFile } from "../Library/apiLibrary";
+import { Link } from "react-router-dom";
+import { getLibraryItems, uploadLibraryFile, getItemById } from "../Library/apiLibrary";
 
 // ─── HELPERS ────────────────────────────────────────────────────────────────
 function toISODate(val) {
@@ -426,12 +427,18 @@ function EventDrawer({ open, onClose, event, date, periods, onSaved, onDeleted }
         color: colorOverride || undefined,
         file_id: fileId || undefined,
       };
+      let updated = null;
       if (isEdit) {
-        await updateEvent(event.id, payload);
+        updated = await updateEvent(event.id, payload);
       } else {
-        await createEvent(payload);
+        updated = await createEvent(payload);
       }
-      onSaved?.();
+      const merged = {
+        ...updated,
+        file_id: updated?.file_id ?? fileId || undefined,
+        file_name: updated?.file_name ?? fileName || undefined,
+      };
+      onSaved?.(merged);
       onClose();
     } catch (err) {
       console.error("Event save failed:", err);
@@ -563,7 +570,12 @@ function EventDrawer({ open, onClose, event, date, periods, onSaved, onDeleted }
               <label className="font-mono text-xs text-white/50 block mb-1.5">Attachment</label>
               {fileId ? (
                 <div className="flex items-center justify-between gap-2 py-2 px-3 rounded-lg bg-[#0C0C0E] border border-[rgba(255,255,255,0.06)]">
-                  <span className="text-sm text-white truncate flex-1">{fileName}</span>
+                  <Link
+                    to={`/library/file/${fileId}`}
+                    className="text-sm text-white truncate flex-1 hover:text-[#4E9E7A] transition-colors"
+                  >
+                    {fileName}
+                  </Link>
                   <button
                     type="button"
                     onClick={handleRemoveFile}
@@ -642,7 +654,7 @@ function EventDrawer({ open, onClose, event, date, periods, onSaved, onDeleted }
 }
 
 // ─── DAY DETAIL DRAWER ─────────────────────────────────────────────────────
-function DayDetailDrawer({ open, onClose, date, events = [], periods = [], periodMap = {}, onAddEvent, onEditEvent }) {
+function DayDetailDrawer({ open, onClose, date, events = [], periods = [], periodMap = {}, completedFileIds = new Set(), onAddEvent, onEditEvent }) {
   if (!open || !date) return null;
 
   const dateKey = formatDateKey(date);
@@ -722,6 +734,8 @@ function DayDetailDrawer({ open, onClose, date, events = [], periods = [], perio
                     ? `${di.item.name} – Exam`
                     : "";
                 const hasFile = isEvent && (di.item.file_id ?? di.item.fileId);
+                const fid = di.item.file_id ?? di.item.fileId;
+                const isCompleted = fid && completedFileIds.has(fid);
 
                 return (
                   <div
@@ -735,7 +749,11 @@ function DayDetailDrawer({ open, onClose, date, events = [], periods = [], perio
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-sm font-medium text-white truncate">{label}</span>
+                        <span
+                          className={`text-sm font-medium truncate ${isCompleted ? "opacity-60 line-through" : "text-white"}`}
+                        >
+                          {label}
+                        </span>
                         {hasFile && (
                           <span className="text-white/50 shrink-0" title="Has attachment">
                             <Paperclip size={12} />
@@ -1203,6 +1221,8 @@ export default function PlannerPage() {
   const [periodDrawer, setPeriodDrawer] = useState({ open: false, period: null });
   const [dayDetailDate, setDayDetailDate] = useState(null);
 
+  const [completedFileIds, setCompletedFileIds] = useState(new Set());
+
   const loadData = useCallback(async (dateOverride) => {
     const dateToUse = dateOverride ?? viewDate;
     setLoading(true);
@@ -1217,10 +1237,35 @@ export default function PlannerPage() {
         api.get("/api/planner/periods").catch(() => ({ data: { data: [] } })),
       ]);
       const merged = evResults.flat();
-      const unique = Array.from(
+      let unique = Array.from(
         new Map(merged.map((e, i) => [e.id ?? e.event_id ?? `fallback-${i}`, e])).values()
       );
-      setEvents(unique);
+      setEvents((prev) => {
+        return unique.map((e) => {
+          const old = prev.find((x) => String(x.id) === String(e.id));
+          const hasFileInOld = old && (old.file_id ?? old.fileId);
+          const hasFileInNew = e.file_id ?? e.fileId;
+          if (hasFileInOld && !hasFileInNew) {
+            return { ...e, file_id: old.file_id ?? old.fileId, file_name: old.file_name ?? old.fileName };
+          }
+          return e;
+        });
+      });
+
+      const fileIds = [...new Set(unique.map((e) => e.file_id ?? e.fileId).filter(Boolean))];
+      const completed = new Set();
+      await Promise.all(
+        fileIds.map(async (fid) => {
+          try {
+            const item = await getItemById(fid);
+            if (item?.is_done) completed.add(fid);
+          } catch {
+            // ignore
+          }
+        })
+      );
+      setCompletedFileIds(completed);
+
       setPeriods(perRes.data?.data ?? perRes.data ?? []);
     } catch (err) {
       setError(err.message || "Failed to load planner data");
@@ -1230,6 +1275,26 @@ export default function PlannerPage() {
       setLoading(false);
     }
   }, [viewDate]);
+
+  const handleEventSaved = useCallback(
+    (updated) => {
+      if (updated?.id) {
+        setEvents((prev) => {
+          const exists = prev.some((e) => String(e.id) === String(updated.id));
+          if (exists) {
+            return prev.map((e) =>
+              String(e.id) === String(updated.id)
+                ? { ...e, ...updated, file_id: updated.file_id ?? e.file_id, file_name: updated.file_name ?? e.file_name }
+                : e
+            );
+          }
+          return [...prev, updated];
+        });
+      }
+      loadData();
+    },
+    [loadData]
+  );
 
   useEffect(() => {
     loadData();
@@ -1411,29 +1476,34 @@ export default function PlannerPage() {
                               )}
                             </div>
                             <div className="space-y-1">
-                              {chipsToShow.map((di) => (
-                                <div
-                                  key={di.key}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (di.type === "event") openEditEvent(di.item, e);
-                                  }}
-                                  className={`px-2 py-0.5 rounded text-xs truncate ${di.type === "event" ? "cursor-pointer" : ""}`}
-                                  style={{
-                                    backgroundColor: di.color + "30",
-                                    color: di.color,
-                                    borderLeft: `3px solid ${di.color}`,
-                                  }}
-                                >
-                                  {di.type === "event"
-                                    ? di.item.title || "Untitled"
-                                    : di.type === "end"
-                                    ? "End"
-                                    : di.type === "exam"
-                                    ? "Exam"
-                                    : ""}
-                                </div>
-                              ))}
+                              {chipsToShow.map((di) => {
+                                const fid = di.type === "event" ? (di.item.file_id ?? di.item.fileId) : null;
+                                const isCompleted = fid && completedFileIds.has(fid);
+                                return (
+                                  <div
+                                    key={di.key}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (di.type === "event") openEditEvent(di.item, e);
+                                    }}
+                                    className={`px-2 py-0.5 rounded text-xs truncate ${di.type === "event" ? "cursor-pointer" : ""} ${isCompleted ? "opacity-60" : ""}`}
+                                    style={{
+                                      backgroundColor: di.color + "30",
+                                      color: di.color,
+                                      borderLeft: `3px solid ${di.color}`,
+                                      textDecoration: isCompleted ? "line-through" : undefined,
+                                    }}
+                                  >
+                                    {di.type === "event"
+                                      ? di.item.title || "Untitled"
+                                      : di.type === "end"
+                                      ? "End"
+                                      : di.type === "exam"
+                                      ? "Exam"
+                                      : ""}
+                                  </div>
+                                );
+                              })}
                               {overflowCount > 0 && (
                                 <div
                                   onClick={(e) => {
@@ -1558,6 +1628,8 @@ export default function PlannerPage() {
                                   ev.start_time ?? ev.startTime
                                     ? `${ev.start_time ?? ev.startTime}${ev.end_time ?? ev.endTime ? ` – ${ev.end_time ?? ev.endTime}` : ""}`
                                     : null;
+                                const fid = ev.file_id ?? ev.fileId;
+                                const isCompleted = fid && completedFileIds.has(fid);
                                 return (
                                   <div
                                     key={ev.id ?? ev.title + ev.date}
@@ -1569,7 +1641,9 @@ export default function PlannerPage() {
                                       style={{ backgroundColor: getEventColor(ev) }}
                                     />
                                     <div className="flex-1 min-w-0">
-                                      <div className="text-sm font-medium text-white truncate">
+                                      <div
+                                        className={`text-sm font-medium truncate ${isCompleted ? "opacity-60 line-through" : "text-white"}`}
+                                      >
                                         {ev.title || "Untitled"}
                                       </div>
                                       <div className="flex items-center gap-2 mt-0.5">
@@ -1614,7 +1688,7 @@ export default function PlannerPage() {
         event={eventDrawer.event}
         date={eventDrawer.date}
         periods={periods}
-        onSaved={loadData}
+        onSaved={handleEventSaved}
         onDeleted={loadData}
       />
       <DayDetailDrawer
@@ -1624,6 +1698,7 @@ export default function PlannerPage() {
         events={events}
         periods={periods}
         periodMap={periodMap}
+        completedFileIds={completedFileIds}
         onAddEvent={(d) => {
           closeDayDetail();
           openAddEvent(d);
