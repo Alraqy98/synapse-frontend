@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -6,6 +6,7 @@ import {
   X,
   Calendar,
   Clock,
+  Paperclip,
 } from "lucide-react";
 import api from "../../lib/api";
 import {
@@ -22,6 +23,7 @@ import {
   updatePeriod,
   deletePeriod,
 } from "./apiPlanner";
+import { getLibraryItems, uploadLibraryFile } from "../Library/apiLibrary";
 
 // ─── HELPERS ────────────────────────────────────────────────────────────────
 function toISODate(val) {
@@ -193,6 +195,134 @@ function formatDayDetailTitle(date) {
   return `${DAY_NAMES[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]}`;
 }
 
+/** Get filename without extension for auto-fill */
+function fileNameWithoutExt(name) {
+  if (!name || typeof name !== "string") return "";
+  const lastDot = name.lastIndexOf(".");
+  return lastDot > 0 ? name.slice(0, lastDot) : name;
+}
+
+// ─── LIBRARY FILE PICKER MODAL ─────────────────────────────────────────────
+function LibraryFilePickerModal({ open, onClose, onSelect }) {
+  const [items, setItems] = useState([]);
+  const [stack, setStack] = useState([{ id: null, title: "Root" }]);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const loadItems = useCallback(async (parentId) => {
+    setLoading(true);
+    try {
+      const result = await getLibraryItems("All", parentId);
+      setItems(result);
+    } catch (err) {
+      console.error("Failed to load library:", err);
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (open) {
+      setStack([{ id: null, title: "Root" }]);
+      setSearch("");
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || stack.length === 0) return;
+    loadItems(stack[stack.length - 1].id);
+  }, [open, stack, loadItems]);
+
+  const files = items.filter((i) => !i.is_folder);
+  const folders = items.filter((i) => i.is_folder);
+  const filteredFiles = search.trim()
+    ? files.filter((f) => (f.title || "").toLowerCase().includes(search.trim().toLowerCase()))
+    : files;
+
+  const openFolder = (folder) => {
+    setStack((prev) => [...prev, { id: folder.id, title: folder.title }]);
+  };
+
+  const goBack = () => {
+    if (stack.length > 1) setStack((prev) => prev.slice(0, -1));
+  };
+
+  const handleSelect = (file) => {
+    onSelect?.({ id: file.id, name: file.title || "Untitled" });
+    onClose?.();
+  };
+
+  if (!open) return null;
+
+  return (
+    <>
+      <div className="fixed inset-0 z-[60] bg-black/50" onClick={onClose} aria-hidden="true" />
+      <div
+        className="fixed inset-0 z-[61] flex items-center justify-center p-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div
+          className="w-full max-w-md rounded-xl border border-[rgba(255,255,255,0.06)] p-4 max-h-[80vh] flex flex-col"
+          style={{ background: "#1A1A1F" }}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-white">Choose from Library</h3>
+            <button onClick={onClose} className="p-1.5 rounded text-white/50 hover:text-white">
+              <X size={18} />
+            </button>
+          </div>
+          <input
+            type="text"
+            placeholder="Search files…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full px-3 py-2 rounded-lg bg-[#0C0C0E] border border-[rgba(255,255,255,0.06)] text-white text-sm mb-3"
+          />
+          <div
+            className="flex gap-2 text-xs text-white/50 mb-2 cursor-pointer hover:text-white/70"
+            onClick={goBack}
+          >
+            {stack.map((s) => s.title).join(" / ")}
+          </div>
+          <div className="flex-1 overflow-y-auto min-h-[200px]">
+            {loading ? (
+              <div className="py-8 text-center text-white/40 text-sm">Loading…</div>
+            ) : (
+              <div className="space-y-1">
+                {folders.map((f) => (
+                  <div
+                    key={f.id}
+                    onClick={() => openFolder(f)}
+                    className="flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-white/[0.05] cursor-pointer text-white"
+                  >
+                    <span className="text-white/50">📁</span>
+                    {f.title}
+                  </div>
+                ))}
+                {filteredFiles.map((f) => (
+                  <div
+                    key={f.id}
+                    onClick={() => handleSelect(f)}
+                    className="flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-white/[0.05] cursor-pointer text-white"
+                  >
+                    <span className="text-white/50">📄</span>
+                    {f.title}
+                    <span className="text-white/30 text-xs ml-auto">{f.uiCategory || "File"}</span>
+                  </div>
+                ))}
+                {!loading && files.length === 0 && folders.length === 0 && (
+                  <div className="py-8 text-center text-white/40 text-sm">No files in this folder</div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ─── EVENT DRAWER ──────────────────────────────────────────────────────────
 function EventDrawer({ open, onClose, event, date, periods, onSaved, onDeleted }) {
   const [title, setTitle] = useState("");
@@ -203,8 +333,14 @@ function EventDrawer({ open, onClose, event, date, periods, onSaved, onDeleted }
   const [periodId, setPeriodId] = useState("");
   const [description, setDescription] = useState("");
   const [colorOverride, setColorOverride] = useState("");
+  const [fileId, setFileId] = useState("");
+  const [fileName, setFileName] = useState("");
+  const [titleAutoFilledFromFile, setTitleAutoFilledFromFile] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showLibraryPicker, setShowLibraryPicker] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   const isEdit = !!event?.id;
 
@@ -213,13 +349,16 @@ function EventDrawer({ open, onClose, event, date, periods, onSaved, onDeleted }
     if (event) {
       setTitle(event.title ?? "");
       setEventType(event.event_type ?? "lecture");
-      const d = event.date ?? event.start_date ?? event.start;
+      const d = event.date ?? event.start_date ?? event.start ?? event.event_date;
       setDateVal(d ? (typeof d === "string" ? d.split("T")[0] : formatDateKey(new Date(d))) : "");
       setStartTime(event.start_time ?? event.startTime ?? "");
       setEndTime(event.end_time ?? event.endTime ?? "");
       setPeriodId(event.period_id ?? event.periodId ?? "");
       setDescription(event.description ?? "");
       setColorOverride(event.color ?? "");
+      setFileId(event.file_id ?? event.fileId ?? "");
+      setFileName(event.file_name ?? event.fileName ?? "");
+      setTitleAutoFilledFromFile(false);
     } else {
       setTitle("");
       setEventType("lecture");
@@ -229,8 +368,49 @@ function EventDrawer({ open, onClose, event, date, periods, onSaved, onDeleted }
       setPeriodId("");
       setDescription("");
       setColorOverride("");
+      setFileId("");
+      setFileName("");
+      setTitleAutoFilledFromFile(false);
     }
   }, [open, event, date]);
+
+  const handleFileSelectFromLibrary = (file) => {
+    setFileId(file.id);
+    setFileName(file.name);
+    if (!title.trim()) {
+      setTitle(fileNameWithoutExt(file.name));
+      setTitleAutoFilledFromFile(true);
+    }
+  };
+
+  const handleFileUpload = async (e) => {
+    const file = e?.target?.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const result = await uploadLibraryFile(file, "Lecture", null);
+      setFileId(result.id);
+      setFileName(result.title || file.name);
+      if (!title.trim()) {
+        setTitle(fileNameWithoutExt(result.title || file.name));
+        setTitleAutoFilledFromFile(true);
+      }
+    } catch (err) {
+      console.error("Upload failed:", err);
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleRemoveFile = () => {
+    if (titleAutoFilledFromFile && title === fileNameWithoutExt(fileName)) {
+      setTitle("");
+    }
+    setTitleAutoFilledFromFile(false);
+    setFileId("");
+    setFileName("");
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -244,6 +424,7 @@ function EventDrawer({ open, onClose, event, date, periods, onSaved, onDeleted }
         period_id: periodId || undefined,
         description: description || undefined,
         color: colorOverride || undefined,
+        file_id: fileId || undefined,
       };
       if (isEdit) {
         await updateEvent(event.id, payload);
@@ -379,6 +560,47 @@ function EventDrawer({ open, onClose, event, date, periods, onSaved, onDeleted }
               />
             </div>
             <div>
+              <label className="font-mono text-xs text-white/50 block mb-1.5">Attachment</label>
+              {fileId ? (
+                <div className="flex items-center justify-between gap-2 py-2 px-3 rounded-lg bg-[#0C0C0E] border border-[rgba(255,255,255,0.06)]">
+                  <span className="text-sm text-white truncate flex-1">{fileName}</span>
+                  <button
+                    type="button"
+                    onClick={handleRemoveFile}
+                    className="p-1 rounded text-white/40 hover:text-red-400 hover:bg-red-500/10 shrink-0"
+                    aria-label="Remove attachment"
+                  >
+                    ×
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowLibraryPicker(true)}
+                    className="px-3 py-2 rounded-lg border border-[rgba(255,255,255,0.06)] text-white/50 hover:text-white/70 hover:bg-white/[0.03] font-mono text-xs"
+                  >
+                    Choose from Library
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="px-3 py-2 rounded-lg border border-[rgba(255,255,255,0.06)] text-white/50 hover:text-white/70 hover:bg-white/[0.03] font-mono text-xs disabled:opacity-50"
+                  >
+                    {uploading ? "Uploading…" : "Upload New"}
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf,.doc,.docx"
+                    className="hidden"
+                    onChange={handleFileUpload}
+                  />
+                </div>
+              )}
+            </div>
+            <div>
               <label className="font-mono text-xs text-white/50 block mb-1.5">Color Override</label>
               <input
                 type="text"
@@ -410,6 +632,11 @@ function EventDrawer({ open, onClose, event, date, periods, onSaved, onDeleted }
           </div>
         </div>
       </div>
+      <LibraryFilePickerModal
+        open={showLibraryPicker}
+        onClose={() => setShowLibraryPicker(false)}
+        onSelect={handleFileSelectFromLibrary}
+      />
     </>
   );
 }
@@ -494,6 +721,7 @@ function DayDetailDrawer({ open, onClose, date, events = [], periods = [], perio
                     : di.type === "exam"
                     ? `${di.item.name} – Exam`
                     : "";
+                const hasFile = isEvent && (di.item.file_id ?? di.item.fileId);
 
                 return (
                   <div
@@ -506,7 +734,14 @@ function DayDetailDrawer({ open, onClose, date, events = [], periods = [], perio
                       style={{ backgroundColor: di.color }}
                     />
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-white truncate">{label}</div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-medium text-white truncate">{label}</span>
+                        {hasFile && (
+                          <span className="text-white/50 shrink-0" title="Has attachment">
+                            <Paperclip size={12} />
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="font-mono text-xs text-white/40">{timeStr}</span>
                         {period && (
