@@ -296,6 +296,9 @@ export default function PerformancePage() {
   console.log("Learning state data:", data);
   console.log("Learning history data:", apiHistory);
   console.log("Status:", status, "isUpdating:", isUpdating);
+  console.log("[PLANNER-DEBUG] Full learning state keys:", Object.keys(data || {}));
+  console.log("[PLANNER-DEBUG] plannerContext:", data?.plannerContext);
+  console.log("[PLANNER-DEBUG] payload.plannerContext:", data?.payload?.plannerContext);
 
   // Loading state (initial load only)
   if (loading && !data) {
