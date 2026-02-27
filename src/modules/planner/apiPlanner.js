@@ -60,7 +60,7 @@ export async function createEvent(payload) {
 }
 
 export async function updateEvent(id, payload) {
-  const { data } = await api.put(`${EVENTS_BASE}/${id}`, payload);
+  const { data } = await api.patch(`${EVENTS_BASE}/${id}`, payload);
   return data?.data ?? data;
 }
 
@@ -79,7 +79,7 @@ export async function createPeriod(payload) {
 }
 
 export async function updatePeriod(id, payload) {
-  const { data } = await api.put(`${PERIODS_BASE}/${id}`, payload);
+  const { data } = await api.patch(`${PERIODS_BASE}/${id}`, payload);
   return data?.data ?? data;
 }
 
