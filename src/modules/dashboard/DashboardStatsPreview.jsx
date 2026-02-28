@@ -104,10 +104,10 @@ const ConceptRow = ({ concept, rank }) => {
       {/* Concept info */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: hovered ? "#F5F5F7" : "rgba(245,245,247,0.85)", transition: "color 0.15s", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          {concept.name}
+          {concept.concept_name}
         </div>
         <div style={{ fontSize: 11, color: "rgba(245,245,247,0.35)", fontFamily: "'Geist Mono', monospace", marginTop: 2 }}>
-          {concept.totalAttempts} attempts
+          {concept.attempts} attempts
         </div>
       </div>
 
@@ -196,7 +196,7 @@ const DashboardStatsPreview = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  const hasData = data && data.weakestConcepts && data.weakestConcepts.length > 0;
+  const hasData = data && data.weakest_concepts && data.weakest_concepts.length > 0;
 
   return (
     <div style={{ paddingBottom: 32 }}>
@@ -241,14 +241,14 @@ const DashboardStatsPreview = () => {
                 Weakest areas to fix today
               </div>
             </div>
-            {data.recentTrend && data.recentTrend.length > 1 && (
-              <MiniTrendChart data={data.recentTrend} />
+            {data.trend && data.trend.length > 1 && (
+              <MiniTrendChart data={data.trend} />
             )}
           </div>
 
           {/* Concept rows */}
           <div style={{ marginBottom: 20 }}>
-            {data.weakestConcepts.slice(0, 3).map((concept, i) => (
+            {data.weakest_concepts.slice(0, 3).map((concept, i) => (
               <ConceptRow key={concept.id} concept={concept} rank={i + 1} />
             ))}
           </div>
@@ -258,28 +258,6 @@ const DashboardStatsPreview = () => {
 
           {/* CTAs */}
           <div style={{ display: "flex", gap: 10 }}>
-            {data.lastSessionId && (
-              <button
-                onClick={() => navigate(`/mcq/${data.lastSessionId}`)}
-                style={{
-                  flex: 1,
-                  padding: "10px 16px",
-                  borderRadius: 10,
-                  background: "rgba(255,255,255,0.04)",
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  color: "rgba(245,245,247,0.7)",
-                  fontFamily: "'Syne', sans-serif",
-                  fontWeight: 600,
-                  fontSize: 13,
-                  cursor: "pointer",
-                  transition: "all 0.15s",
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.07)"; e.currentTarget.style.color = "#F5F5F7"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.color = "rgba(245,245,247,0.7)"; }}
-              >
-                Resume Last Session
-              </button>
-            )}
             <Link
               to="/learning"
               style={{

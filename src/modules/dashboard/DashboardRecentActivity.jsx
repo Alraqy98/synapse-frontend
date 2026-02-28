@@ -155,7 +155,8 @@ const UpcomingEventsCard = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get("/api/planner/events")
+    const month = new Date().toISOString().slice(0, 7); // "2026-03"
+    api.get("/api/planner/events", { params: { month } })
       .then(r => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
