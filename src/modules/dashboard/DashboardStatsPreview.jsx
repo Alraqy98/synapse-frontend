@@ -1,174 +1,313 @@
+// src/modules/dashboard/DashboardStatsPreview.jsx
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { TrendingUp } from "lucide-react";
+import { Zap, TrendingDown, TrendingUp, Minus, ArrowRight, Target } from "lucide-react";
 import api from "../../lib/api";
 
-const DashboardStatsPreview = () => {
-    const navigate = useNavigate();
-    const [loading, setLoading] = useState(true);
-    const [data, setData] = useState(null);
+// ─── Mini trend chart ──────────────────────────────────────────────────────────
+function MiniTrendChart({ data }) {
+  if (!data || data.length < 2) return null;
+  const sessions = data.slice(-7);
+  const W = 120, H = 44;
+  const accuracies = sessions.map(s => s.accuracy);
+  const max = Math.max(...accuracies);
+  const min = Math.min(...accuracies);
+  const range = max - min || 1;
+  const x = i => (i / (sessions.length - 1)) * W;
+  const y = v => H - ((v - min) / range) * (H - 8) - 4;
 
-    useEffect(() => {
-        const fetchDashboardAnalytics = async () => {
-            try {
-                const response = await api.get("/api/analytics/dashboard");
-                setData(response.data.data);
-            } catch (err) {
-                console.error("Failed to fetch dashboard analytics:", err);
-                setData(null);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchDashboardAnalytics();
-    }, []);
+  const points = sessions.map((s, i) => [x(i), y(s.accuracy)]);
+  const linePath = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(" ");
 
-    if (loading) {
-        return (
-            <div className="mb-8">
-                <h2 className="text-xl font-semibold text-white mb-4">Performance Snapshot</h2>
-                <div className="rounded-2xl border border-white/10 bg-black/40 p-6">
-                    <div className="text-center text-muted text-sm">Loading...</div>
-                </div>
-            </div>
-        );
-    }
+  // Area fill
+  const areaPath = `${linePath} L ${W} ${H} L 0 ${H} Z`;
 
-    if (!data || !data.weakestConcepts || data.weakestConcepts.length === 0) {
-        return (
-            <div className="mb-8">
-                <h2 className="text-xl font-semibold text-white mb-4">Performance Snapshot</h2>
-                <div className="rounded-2xl border border-white/10 bg-black/40 p-6 text-center">
-                    <p className="text-sm text-muted">
-                        Complete some MCQ sessions to see your performance insights.
-                    </p>
-                </div>
-            </div>
-        );
-    }
+  const trend = sessions[sessions.length - 1].accuracy - sessions[0].accuracy;
+  const color = trend > 2 ? "#00F5CC" : trend < -2 ? "#FF4B4B" : "#F5A623";
+  const colorAlpha = trend > 2 ? "rgba(0,245,204,0.08)" : trend < -2 ? "rgba(255,75,75,0.08)" : "rgba(245,166,35,0.08)";
 
-    const { weakestConcepts, recentTrend, lastSessionId } = data;
-
-    return (
-        <div className="mb-8">
-            <h2 className="text-xl font-semibold text-white mb-4">Focus Today</h2>
-            
-            <div className="rounded-2xl border border-white/10 bg-black/40 p-6">
-                {/* Weakest Concepts */}
-                <div className="mb-6">
-                    <h3 className="text-sm font-medium text-muted uppercase tracking-wide mb-3">
-                        Priority Concepts
-                    </h3>
-                    <div className="space-y-2">
-                        {weakestConcepts.slice(0, 3).map((concept) => (
-                            <Link
-                                key={concept.id}
-                                to={`/analytics/concepts/${concept.id}`}
-                                className="flex justify-between items-center p-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:border-teal/40 transition group"
-                            >
-                                <div>
-                                    <p className="text-sm font-medium text-white group-hover:text-teal transition">
-                                        {concept.name}
-                                    </p>
-                                    <p className="text-xs text-muted mt-1">
-                                        {concept.totalAttempts} attempts
-                                    </p>
-                                </div>
-                                <span className={`text-lg font-semibold ${
-                                    concept.accuracy >= 70 ? "text-teal" :
-                                    concept.accuracy >= 50 ? "text-yellow-400" :
-                                    "text-red-400"
-                                }`}>
-                                    {Math.round(concept.accuracy)}%
-                                </span>
-                            </Link>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Recent Trend Mini Chart */}
-                {recentTrend && recentTrend.length > 0 && (
-                    <div className="mb-6 pb-6 border-b border-white/10">
-                        <h3 className="text-sm font-medium text-muted uppercase tracking-wide mb-3">
-                            Recent Trend
-                        </h3>
-                        <MiniTrendChart data={recentTrend} />
-                    </div>
-                )}
-
-                {/* CTAs */}
-                <div className="flex gap-3">
-                    {lastSessionId && (
-                        <button
-                            onClick={() => navigate(`/mcq/${lastSessionId}`)}
-                            className="flex-1 bg-white/10 hover:bg-white/15 border border-white/20 hover:border-teal/40 text-white font-medium py-2 px-4 rounded-lg transition text-sm"
-                        >
-                            Resume Last Session
-                        </button>
-                    )}
-                    <Link
-                        to="/learning"
-                        className="flex-1 bg-teal-500 hover:bg-teal-600 text-black font-semibold py-2 px-4 rounded-lg transition text-sm text-center"
-                    >
-                        View Full Analytics
-                    </Link>
-                </div>
-            </div>
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: 120, height: 44, flexShrink: 0 }}>
+        <defs>
+          <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.15" />
+            <stop offset="100%" stopColor={color} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d={areaPath} fill="url(#areaGrad)" />
+        <path d={linePath} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        {/* Last point dot */}
+        <circle cx={points[points.length-1][0]} cy={points[points.length-1][1]} r="3" fill={color} />
+      </svg>
+      <div>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
+          {trend > 2 ? <TrendingUp size={12} style={{ color }} /> : trend < -2 ? <TrendingDown size={12} style={{ color }} /> : <Minus size={12} style={{ color }} />}
+          <span style={{ fontSize: 13, fontWeight: 700, color, fontFamily: "'Geist Mono', monospace" }}>
+            {trend > 0 ? "+" : ""}{Math.round(trend)}%
+          </span>
         </div>
-    );
+        <span style={{ fontSize: 11, color: "rgba(245,245,247,0.35)", fontFamily: "'Geist Mono', monospace" }}>
+          last 7 sessions
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Accuracy badge color ──────────────────────────────────────────────────────
+const accuracyColor = (acc) => {
+  if (acc >= 70) return { color: "#00F5CC", bg: "rgba(0,245,204,0.08)", border: "rgba(0,245,204,0.2)" };
+  if (acc >= 50) return { color: "#F5A623", bg: "rgba(245,166,35,0.08)", border: "rgba(245,166,35,0.2)" };
+  return { color: "#FF4B4B", bg: "rgba(255,75,75,0.08)", border: "rgba(255,75,75,0.2)" };
 };
 
-function MiniTrendChart({ data }) {
-    if (!data || data.length === 0) return null;
+// ─── Concept row ───────────────────────────────────────────────────────────────
+const ConceptRow = ({ concept, rank }) => {
+  const [hovered, setHovered] = useState(false);
+  const colors = accuracyColor(concept.accuracy);
 
-    const width = 100;
-    const height = 40;
-    const sessions = data.slice(-7);
+  return (
+    <Link
+      to={`/analytics/concepts/${concept.id}`}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        padding: "11px 14px",
+        borderRadius: 12,
+        background: hovered ? "rgba(255,255,255,0.03)" : "transparent",
+        border: `1px solid ${hovered ? "rgba(255,255,255,0.08)" : "transparent"}`,
+        textDecoration: "none",
+        transition: "all 0.15s",
+        marginBottom: 6,
+      }}
+    >
+      {/* Rank */}
+      <div
+        style={{
+          width: 22, height: 22,
+          borderRadius: "50%",
+          background: "rgba(255,255,255,0.04)",
+          border: "1px solid rgba(255,255,255,0.06)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          flexShrink: 0,
+        }}
+      >
+        <span style={{ fontSize: 10, color: "rgba(245,245,247,0.3)", fontFamily: "'Geist Mono', monospace" }}>
+          {rank}
+        </span>
+      </div>
 
-    if (sessions.length < 2) return null;
-
-    const accuracies = sessions.map((s) => s.accuracy);
-    const maxAccuracy = Math.max(...accuracies);
-    const minAccuracy = Math.min(...accuracies);
-    const range = maxAccuracy - minAccuracy || 1;
-
-    const xScale = (index) => (index / (sessions.length - 1)) * width;
-    const yScale = (accuracy) => {
-        const normalized = (accuracy - minAccuracy) / range;
-        return height - normalized * height;
-    };
-
-    const linePath = sessions
-        .map((session, index) => {
-            const x = xScale(index);
-            const y = yScale(session.accuracy);
-            return index === 0 ? `M ${x} ${y}` : `L ${x} ${y}`;
-        })
-        .join(" ");
-
-    const trend = sessions[sessions.length - 1].accuracy - sessions[0].accuracy;
-    const trendColor = trend > 0 ? "rgb(0,245,204)" : trend < 0 ? "rgb(248,113,113)" : "rgb(245,245,247)";
-
-    return (
-        <div className="flex items-center gap-4">
-            <svg viewBox={`0 0 ${width} ${height}`} className="w-24 h-10">
-                <path
-                    d={linePath}
-                    fill="none"
-                    stroke={trendColor}
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                />
-            </svg>
-            <div className="text-sm">
-                <span className={trend >= 0 ? "text-teal" : "text-red-400"}>
-                    {trend > 0 ? "+" : ""}{Math.round(trend)}%
-                </span>
-                <span className="text-muted ml-1">last 7 days</span>
-            </div>
+      {/* Concept info */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: hovered ? "#F5F5F7" : "rgba(245,245,247,0.85)", transition: "color 0.15s", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {concept.name}
         </div>
-    );
-}
+        <div style={{ fontSize: 11, color: "rgba(245,245,247,0.35)", fontFamily: "'Geist Mono', monospace", marginTop: 2 }}>
+          {concept.totalAttempts} attempts
+        </div>
+      </div>
+
+      {/* Accuracy badge */}
+      <div style={{ padding: "4px 10px", borderRadius: 100, background: colors.bg, border: `1px solid ${colors.border}`, flexShrink: 0 }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: colors.color, fontFamily: "'Geist Mono', monospace" }}>
+          {Math.round(concept.accuracy)}%
+        </span>
+      </div>
+    </Link>
+  );
+};
+
+// ─── Empty state ───────────────────────────────────────────────────────────────
+const EmptyState = ({ navigate }) => (
+  <div
+    style={{
+      borderRadius: 18,
+      border: "1px solid rgba(255,255,255,0.06)",
+      background: "rgba(13,15,18,0.6)",
+      padding: "36px 24px",
+      textAlign: "center",
+      position: "relative",
+      overflow: "hidden",
+    }}
+  >
+    {/* Background glow */}
+    <div aria-hidden style={{ position: "absolute", top: -60, left: "50%", transform: "translateX(-50%)", width: 300, height: 200, borderRadius: "50%", background: "radial-gradient(ellipse, rgba(0,200,180,0.05) 0%, transparent 70%)", pointerEvents: "none", filter: "blur(20px)" }} />
+
+    <div
+      style={{
+        width: 48, height: 48,
+        borderRadius: 14,
+        background: "rgba(0,200,180,0.08)",
+        border: "1px solid rgba(0,200,180,0.15)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        margin: "0 auto 16px",
+      }}
+    >
+      <Target size={22} style={{ color: "#00C8B4" }} />
+    </div>
+
+    <p style={{ fontSize: 15, fontWeight: 600, color: "rgba(245,245,247,0.7)", marginBottom: 6 }}>
+      No performance data yet
+    </p>
+    <p style={{ fontSize: 13, color: "rgba(245,245,247,0.35)", marginBottom: 24, lineHeight: 1.5 }}>
+      Complete a few MCQ sessions and Synapse will identify your weakest concepts and track your progress here.
+    </p>
+
+    <button
+      onClick={() => navigate("/mcq")}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "10px 20px",
+        borderRadius: 10,
+        background: "rgba(0,200,180,0.1)",
+        border: "1px solid rgba(0,200,180,0.2)",
+        color: "#00C8B4",
+        fontFamily: "'Syne', sans-serif",
+        fontWeight: 600,
+        fontSize: 13,
+        cursor: "pointer",
+        transition: "all 0.2s",
+      }}
+      onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,200,180,0.18)"; }}
+      onMouseLeave={e => { e.currentTarget.style.background = "rgba(0,200,180,0.1)"; }}
+    >
+      <Zap size={14} />
+      Start an MCQ session
+    </button>
+  </div>
+);
+
+// ─── Main component ────────────────────────────────────────────────────────────
+const DashboardStatsPreview = () => {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState(null);
+
+  useEffect(() => {
+    api.get("/api/analytics/dashboard")
+      .then(r => setData(r.data.data))
+      .catch(() => setData(null))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const hasData = data && data.weakestConcepts && data.weakestConcepts.length > 0;
+
+  return (
+    <div style={{ paddingBottom: 32 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+        <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(245,245,247,0.3)" }}>
+          Focus Today
+        </span>
+        <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.05)" }} />
+      </div>
+
+      {loading ? (
+        <div style={{ borderRadius: 18, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(13,15,18,0.6)", padding: "24px" }}>
+          <div style={{ height: 14, borderRadius: 6, background: "rgba(255,255,255,0.05)", width: "40%", marginBottom: 16 }} className="animate-pulse" />
+          {[1,2,3].map(i => (
+            <div key={i} style={{ height: 48, borderRadius: 10, background: "rgba(255,255,255,0.03)", marginBottom: 8 }} className="animate-pulse" />
+          ))}
+        </div>
+      ) : !hasData ? (
+        <EmptyState navigate={navigate} />
+      ) : (
+        <div
+          style={{
+            borderRadius: 18,
+            border: "1px solid rgba(255,255,255,0.06)",
+            background: "rgba(13,15,18,0.6)",
+            padding: "22px 20px",
+            backdropFilter: "blur(8px)",
+            position: "relative",
+            overflow: "hidden",
+          }}
+        >
+          {/* Top glow */}
+          <div aria-hidden style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent, rgba(255,75,75,0.4), transparent)", pointerEvents: "none" }} />
+
+          {/* Header */}
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20 }}>
+            <div>
+              <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(245,245,247,0.3)", marginBottom: 4 }}>
+                Priority Concepts
+              </div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#F5F5F7" }}>
+                Weakest areas to fix today
+              </div>
+            </div>
+            {data.recentTrend && data.recentTrend.length > 1 && (
+              <MiniTrendChart data={data.recentTrend} />
+            )}
+          </div>
+
+          {/* Concept rows */}
+          <div style={{ marginBottom: 20 }}>
+            {data.weakestConcepts.slice(0, 3).map((concept, i) => (
+              <ConceptRow key={concept.id} concept={concept} rank={i + 1} />
+            ))}
+          </div>
+
+          {/* Divider */}
+          <div style={{ height: 1, background: "rgba(255,255,255,0.04)", marginBottom: 16 }} />
+
+          {/* CTAs */}
+          <div style={{ display: "flex", gap: 10 }}>
+            {data.lastSessionId && (
+              <button
+                onClick={() => navigate(`/mcq/${data.lastSessionId}`)}
+                style={{
+                  flex: 1,
+                  padding: "10px 16px",
+                  borderRadius: 10,
+                  background: "rgba(255,255,255,0.04)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  color: "rgba(245,245,247,0.7)",
+                  fontFamily: "'Syne', sans-serif",
+                  fontWeight: 600,
+                  fontSize: 13,
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.07)"; e.currentTarget.style.color = "#F5F5F7"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.color = "rgba(245,245,247,0.7)"; }}
+              >
+                Resume Last Session
+              </button>
+            )}
+            <Link
+              to="/learning"
+              style={{
+                flex: 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+                padding: "10px 16px",
+                borderRadius: 10,
+                background: "linear-gradient(135deg, #00C8B4, #00F5CC)",
+                color: "#0D0F12",
+                fontFamily: "'Syne', sans-serif",
+                fontWeight: 700,
+                fontSize: 13,
+                textDecoration: "none",
+                transition: "opacity 0.15s",
+              }}
+              onMouseEnter={e => e.currentTarget.style.opacity = "0.9"}
+              onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+            >
+              View Full Analytics <ArrowRight size={13} />
+            </Link>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default DashboardStatsPreview;

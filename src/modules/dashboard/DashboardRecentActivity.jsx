@@ -1,288 +1,315 @@
 // src/modules/dashboard/DashboardRecentActivity.jsx
 import React, { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { FileText, BookOpen, CheckSquare, Zap } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { FileText, BookOpen, CheckSquare, Zap, ArrowRight } from "lucide-react";
 import { getRecentFiles } from "../Library/apiLibrary";
 import { getAllSummaries } from "../summaries/apiSummaries";
 import { getMCQDecks } from "../mcq/apiMCQ";
 import { getDecks } from "../flashcards/apiFlashcards";
 
-// Format relative time helper (reused from App.jsx)
 const formatRelativeTime = (dateString) => {
-    if (!dateString) return "Unknown";
-    const date = new Date(dateString);
-    const diffMs = Date.now() - date.getTime();
-    const diffMin = Math.floor(diffMs / 60000);
-    const diffHr = Math.floor(diffMin / 60);
-    const diffDay = Math.floor(diffHr / 24);
-
-    if (diffMin < 1) return "Just now";
-    if (diffMin < 60) return `${diffMin} min ago`;
-    if (diffHr < 24) return `${diffHr} hour${diffHr > 1 ? "s" : ""} ago`;
-    if (diffDay === 1) return "Yesterday";
-    if (diffDay < 7) return `${diffDay} days ago`;
-
-    return date.toLocaleDateString();
+  if (!dateString) return "Unknown";
+  const date = new Date(dateString);
+  const diffMs = Date.now() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffHr = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffMin < 1) return "Just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffHr < 24) return `${diffHr}h ago`;
+  if (diffDay === 1) return "Yesterday";
+  if (diffDay < 7) return `${diffDay}d ago`;
+  return date.toLocaleDateString();
 };
 
-const DashboardRecentActivity = () => {
-    const navigate = useNavigate();
-    const location = useLocation();
-    const [recentFiles, setRecentFiles] = useState([]);
-    const [recentGenerations, setRecentGenerations] = useState([]);
-    const [loading, setLoading] = useState(true);
+// Sanitize filenames — strip UUID-style names
+const cleanTitle = (title) => {
+  if (!title) return "Untitled";
+  // If it looks like a UUID filename, show shortened version
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(title)) {
+    const ext = title.split(".").pop();
+    return `Unnamed file${ext && ext !== title ? `.${ext}` : ""}`;
+  }
+  // Strip file extensions for display
+  return title.replace(/\.(pdf|pptx?|docx?|txt)$/i, "");
+};
 
-    // Fetch recent uploads (files only, sorted by created_at DESC, limit 5)
-    const fetchRecentUploads = async () => {
-        try {
-            // Backend already returns files only, sorted by created_at DESC, limited to 5
-            const files = await getRecentFiles(5);
-            setRecentFiles(files);
-        } catch (err) {
-            console.error("Failed to fetch recent uploads:", err);
-            setRecentFiles([]);
-        }
-    };
+const typeConfig = {
+  summary: { icon: BookOpen, label: "Summary", accent: "#00C8B4", glow: "rgba(0,200,180,0.12)" },
+  mcq: { icon: CheckSquare, label: "MCQ Deck", accent: "#F5A623", glow: "rgba(245,166,35,0.12)" },
+  flashcards: { icon: Zap, label: "Flashcards", accent: "#5BFFA8", glow: "rgba(91,255,168,0.12)" },
+};
 
-    // Fetch recent generations (summaries, MCQs, flashcards)
-    const fetchRecentGenerations = async () => {
-        try {
-            // Fetch all three types in parallel
-            const [summaries, mcqDecks, flashcardDecks] = await Promise.all([
-                getAllSummaries().catch(() => []),
-                getMCQDecks().catch(() => []),
-                getDecks().catch(() => []),
-            ]);
+const Row = ({ onClick, children }) => {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <div
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        padding: "10px 12px",
+        borderRadius: 10,
+        background: hovered ? "rgba(255,255,255,0.04)" : "transparent",
+        border: `1px solid ${hovered ? "rgba(255,255,255,0.08)" : "transparent"}`,
+        cursor: "pointer",
+        transition: "all 0.15s",
+      }}
+    >
+      {children}
+    </div>
+  );
+};
 
-            // Normalize summaries (filter completed, map to common format)
-            const normalizedSummaries = (summaries || [])
-                .filter(s => s.status === "completed" || (!s.generating && s.status !== "generating"))
-                .map(s => ({
-                    type: "summary",
-                    id: s.id,
-                    title: s.title || "Untitled Summary",
-                    created_at: s.created_at,
-                }));
+const SkeletonRow = () => (
+  <div
+    style={{
+      display: "flex",
+      alignItems: "center",
+      gap: 12,
+      padding: "10px 12px",
+    }}
+  >
+    <div style={{ width: 36, height: 36, borderRadius: 8, background: "rgba(255,255,255,0.05)", flexShrink: 0 }} className="animate-pulse" />
+    <div style={{ flex: 1 }}>
+      <div style={{ height: 12, borderRadius: 6, background: "rgba(255,255,255,0.05)", width: "70%", marginBottom: 6 }} className="animate-pulse" />
+      <div style={{ height: 10, borderRadius: 6, background: "rgba(255,255,255,0.04)", width: "40%" }} className="animate-pulse" />
+    </div>
+  </div>
+);
 
-            // Normalize MCQ decks (filter completed)
-            const normalizedMCQs = (mcqDecks || [])
-                .filter(d => !d.generating)
-                .map(d => ({
-                    type: "mcq",
-                    id: d.id,
-                    title: d.title || "Untitled MCQ Deck",
-                    created_at: d.created_at,
-                }));
-
-            // Normalize flashcard decks (filter completed)
-            const normalizedFlashcards = (flashcardDecks || [])
-                .filter(d => !d.generating)
-                .map(d => ({
-                    type: "flashcards",
-                    id: d.id,
-                    title: d.title || "Untitled Flashcard Deck",
-                    created_at: d.created_at,
-                }));
-
-            // Combine all, sort by created_at DESC, limit to 5
-            const allGenerations = [
-                ...normalizedSummaries,
-                ...normalizedMCQs,
-                ...normalizedFlashcards,
-            ]
-                .sort((a, b) => {
-                    const dateA = new Date(a.created_at || 0);
-                    const dateB = new Date(b.created_at || 0);
-                    return dateB - dateA;
-                })
-                .slice(0, 5);
-
-            setRecentGenerations(allGenerations);
-        } catch (err) {
-            console.error("Failed to fetch recent generations:", err);
-            setRecentGenerations([]);
-        }
-    };
-
-    // Fetch all data on mount
-    useEffect(() => {
-        const loadData = async () => {
-            setLoading(true);
-            await Promise.all([
-                fetchRecentUploads(),
-                fetchRecentGenerations(),
-            ]);
-            setLoading(false);
-        };
-        loadData();
-    }, []);
-
-    const getTypeIcon = (type) => {
-        switch (type) {
-            case "summary":
-                return BookOpen;
-            case "mcq":
-                return CheckSquare;
-            case "flashcards":
-                return Zap;
-            default:
-                return FileText;
-        }
-    };
-
-    const getTypeLabel = (type) => {
-        switch (type) {
-            case "summary":
-                return "Summary";
-            case "mcq":
-                return "MCQ Deck";
-            case "flashcards":
-                return "Flashcards";
-            default:
-                return "Generation";
-        }
-    };
-
-    const handleFileClick = (fileId) => {
-        // Preserve folder context: when opening from dashboard, return to library root
-        navigate(`/library/file/${fileId}`, {
-            state: {
-                fromFolderPath: "/library",
-            },
-        });
-    };
-
-    const handleGenerationClick = (generation) => {
-        if (generation.type === "summary") {
-            navigate(`/summaries/${generation.id}`);
-        } else if (generation.type === "mcq") {
-            navigate(`/mcq/${generation.id}`);
-        } else if (generation.type === "flashcards") {
-            navigate(`/flashcards/${generation.id}`);
-        }
-    };
-
-    return (
-        <div className="mb-8">
-            <h2 className="text-xl font-semibold text-white mb-4">Recent Activity</h2>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Recent Uploads */}
-                <div className="rounded-2xl border border-white/10 bg-black/40 p-6">
-                    <h3 className="text-lg font-semibold text-white mb-4">Recent Uploads</h3>
-                    
-                    {loading ? (
-                        <div className="space-y-3">
-                            {[1, 2, 3].map((i) => (
-                                <div
-                                    key={i}
-                                    className="flex items-center gap-3 p-3 rounded-lg bg-white/5 border border-white/10 animate-pulse"
-                                >
-                                    <div className="p-2 rounded-lg bg-white/10 w-10 h-10" />
-                                    <div className="flex-1 min-w-0">
-                                        <div className="h-4 bg-white/10 rounded w-3/4 mb-2" />
-                                        <div className="h-3 bg-white/10 rounded w-1/2" />
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    ) : recentFiles.length > 0 ? (
-                        <div className="space-y-3">
-                            {recentFiles.map((file) => (
-                                <div
-                                    key={file.id}
-                                    onClick={() => handleFileClick(file.id)}
-                                    className="flex items-center gap-3 p-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition cursor-pointer"
-                                >
-                                    <div className="p-2 rounded-lg bg-teal/10 border border-teal/20">
-                                        <FileText size={18} className="text-teal" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium text-white truncate">
-                                            {file.title}
-                                        </p>
-                                        <div className="flex items-center gap-2 mt-1">
-                                            <span className="text-xs text-muted">{file.uiCategory || "File"}</span>
-                                            <span className="text-xs text-muted">•</span>
-                                            <span className="text-xs text-muted">
-                                                {formatRelativeTime(file.created_at || file.updated_at)}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="text-center py-8 text-muted">
-                            <FileText size={32} className="mx-auto mb-3 opacity-50" />
-                            <p className="text-sm">No uploads yet.</p>
-                            <p className="text-xs mt-1">Upload your first file to get started.</p>
-                        </div>
-                    )}
-                </div>
-
-                {/* Recent Generations */}
-                <div className="rounded-2xl border border-white/10 bg-black/40 p-6">
-                    <h3 className="text-lg font-semibold text-white mb-4">Recent Generations</h3>
-                    
-                    {loading ? (
-                        <div className="space-y-3">
-                            {[1, 2, 3].map((i) => (
-                                <div
-                                    key={i}
-                                    className="flex items-center gap-3 p-3 rounded-lg bg-white/5 border border-white/10 animate-pulse"
-                                >
-                                    <div className="p-2 rounded-lg bg-white/10 w-10 h-10" />
-                                    <div className="flex-1 min-w-0">
-                                        <div className="h-4 bg-white/10 rounded w-3/4 mb-2" />
-                                        <div className="h-3 bg-white/10 rounded w-1/2" />
-                                    </div>
-                                    <div className="w-16 h-6 bg-white/10 rounded-full" />
-                                </div>
-                            ))}
-                        </div>
-                    ) : recentGenerations.length > 0 ? (
-                        <div className="space-y-3">
-                            {recentGenerations.map((gen) => {
-                                const Icon = getTypeIcon(gen.type);
-                                return (
-                                    <div
-                                        key={`${gen.type}-${gen.id}`}
-                                        onClick={() => handleGenerationClick(gen)}
-                                        className="flex items-center gap-3 p-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition cursor-pointer"
-                                    >
-                                        <div className="p-2 rounded-lg bg-teal/10 border border-teal/20">
-                                            <Icon size={18} className="text-teal" />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-medium text-white truncate">
-                                                {getTypeLabel(gen.type)}
-                                            </p>
-                                            <p className="text-xs text-muted truncate mt-1">
-                                                {gen.title}
-                                            </p>
-                                        </div>
-                                        <div className="px-2 py-1 rounded-full bg-teal/10 border border-teal/20">
-                                            <span className="text-xs text-teal font-medium">
-                                                Completed
-                                            </span>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    ) : (
-                        <div className="text-center py-8 text-muted">
-                            <BookOpen size={32} className="mx-auto mb-3 opacity-50" />
-                            <p className="text-sm">Nothing generated yet.</p>
-                            <p className="text-xs mt-1">Generate summaries, MCQs, or flashcards to see them here.</p>
-                        </div>
-                    )}
-                </div>
-            </div>
+const SectionCard = ({ title, label, children, isEmpty, emptyIcon: EmptyIcon, emptyText, emptySubtext, onNavigate, navigateTo }) => (
+  <div
+    style={{
+      borderRadius: 18,
+      border: "1px solid rgba(255,255,255,0.06)",
+      background: "rgba(13,15,18,0.6)",
+      padding: "22px 20px",
+      backdropFilter: "blur(8px)",
+    }}
+  >
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+      <div>
+        <div
+          style={{
+            fontFamily: "'Geist Mono', monospace",
+            fontSize: 9,
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            color: "rgba(245,245,247,0.3)",
+            marginBottom: 4,
+          }}
+        >
+          {label}
         </div>
-    );
+        <h3
+          style={{
+            fontFamily: "'Syne', sans-serif",
+            fontWeight: 700,
+            fontSize: 15,
+            color: "#F5F5F7",
+          }}
+        >
+          {title}
+        </h3>
+      </div>
+      {!isEmpty && onNavigate && (
+        <button
+          onClick={onNavigate}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            fontSize: 11,
+            color: "rgba(0,200,180,0.6)",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            fontFamily: "'Geist Mono', monospace",
+            transition: "color 0.15s",
+          }}
+          onMouseEnter={e => e.currentTarget.style.color = "#00C8B4"}
+          onMouseLeave={e => e.currentTarget.style.color = "rgba(0,200,180,0.6)"}
+        >
+          View all <ArrowRight size={11} />
+        </button>
+      )}
+    </div>
+    <div
+      style={{
+        height: 1,
+        background: "rgba(255,255,255,0.04)",
+        marginBottom: 12,
+      }}
+    />
+    {children}
+  </div>
+);
+
+const DashboardRecentActivity = () => {
+  const navigate = useNavigate();
+  const [recentFiles, setRecentFiles] = useState([]);
+  const [recentGenerations, setRecentGenerations] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      await Promise.all([
+        (async () => {
+          try {
+            setRecentFiles(await getRecentFiles(5));
+          } catch { setRecentFiles([]); }
+        })(),
+        (async () => {
+          try {
+            const [summaries, mcqDecks, flashcardDecks] = await Promise.all([
+              getAllSummaries().catch(() => []),
+              getMCQDecks().catch(() => []),
+              getDecks().catch(() => []),
+            ]);
+            const all = [
+              ...(summaries || [])
+                .filter(s => s.status === "completed" || (!s.generating && s.status !== "generating"))
+                .map(s => ({ type: "summary", id: s.id, title: s.title || "Untitled Summary", created_at: s.created_at })),
+              ...(mcqDecks || [])
+                .filter(d => !d.generating)
+                .map(d => ({ type: "mcq", id: d.id, title: d.title || "Untitled MCQ Deck", created_at: d.created_at })),
+              ...(flashcardDecks || [])
+                .filter(d => !d.generating)
+                .map(d => ({ type: "flashcards", id: d.id, title: d.title || "Untitled Deck", created_at: d.created_at })),
+            ]
+              .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+              .slice(0, 5);
+            setRecentGenerations(all);
+          } catch { setRecentGenerations([]); }
+        })(),
+      ]);
+      setLoading(false);
+    };
+    load();
+  }, []);
+
+  const handleFileClick = (fileId) => {
+    navigate(`/library/file/${fileId}`, { state: { fromFolderPath: "/library" } });
+  };
+
+  const handleGenClick = (gen) => {
+    if (gen.type === "summary") navigate(`/summaries/${gen.id}`);
+    else if (gen.type === "mcq") navigate(`/mcq/${gen.id}`);
+    else navigate(`/flashcards/${gen.id}`);
+  };
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+        <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(245,245,247,0.3)" }}>
+          Recent Activity
+        </span>
+        <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.05)" }} />
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(380px, 1fr))", gap: 16 }}>
+
+        {/* Recent Uploads */}
+        <SectionCard
+          title="Recent Uploads"
+          label="Files"
+          isEmpty={!loading && recentFiles.length === 0}
+          onNavigate={() => navigate("/library")}
+        >
+          {loading ? (
+            <div>{[1,2,3].map(i => <SkeletonRow key={i} />)}</div>
+          ) : recentFiles.length > 0 ? (
+            <div>
+              {recentFiles.map(file => (
+                <Row key={file.id} onClick={() => handleFileClick(file.id)}>
+                  <div style={{ width: 36, height: 36, borderRadius: 8, background: "rgba(0,200,180,0.08)", border: "1px solid rgba(0,200,180,0.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <FileText size={16} style={{ color: "#00C8B4" }} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "#F5F5F7", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {cleanTitle(file.title)}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
+                      <span style={{ fontSize: 11, color: "rgba(245,245,247,0.35)", fontFamily: "'Geist Mono', monospace" }}>
+                        {file.uiCategory || "File"}
+                      </span>
+                      <span style={{ fontSize: 10, color: "rgba(245,245,247,0.2)" }}>·</span>
+                      <span style={{ fontSize: 11, color: "rgba(245,245,247,0.35)", fontFamily: "'Geist Mono', monospace" }}>
+                        {formatRelativeTime(file.created_at || file.updated_at)}
+                      </span>
+                    </div>
+                  </div>
+                </Row>
+              ))}
+            </div>
+          ) : (
+            <div style={{ textAlign: "center", padding: "32px 0" }}>
+              <FileText size={28} style={{ color: "rgba(245,245,247,0.15)", margin: "0 auto 10px" }} />
+              <p style={{ fontSize: 13, color: "rgba(245,245,247,0.35)", marginBottom: 4 }}>No uploads yet</p>
+              <p style={{ fontSize: 11, color: "rgba(245,245,247,0.22)" }}>Upload your first file to get started</p>
+            </div>
+          )}
+        </SectionCard>
+
+        {/* Recent Generations */}
+        <SectionCard
+          title="Recent Generations"
+          label="Outputs"
+          isEmpty={!loading && recentGenerations.length === 0}
+          onNavigate={() => navigate("/library")}
+        >
+          {loading ? (
+            <div>{[1,2,3].map(i => <SkeletonRow key={i} />)}</div>
+          ) : recentGenerations.length > 0 ? (
+            <div>
+              {recentGenerations.map(gen => {
+                const cfg = typeConfig[gen.type] || typeConfig.mcq;
+                const Icon = cfg.icon;
+                return (
+                  <Row key={`${gen.type}-${gen.id}`} onClick={() => handleGenClick(gen)}>
+                    <div style={{ width: 36, height: 36, borderRadius: 8, background: cfg.glow, border: `1px solid ${cfg.accent}22`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <Icon size={16} style={{ color: cfg.accent }} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#F5F5F7", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {cleanTitle(gen.title)}
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
+                        <span style={{ fontSize: 11, color: "rgba(245,245,247,0.35)", fontFamily: "'Geist Mono', monospace" }}>
+                          {cfg.label}
+                        </span>
+                        <span style={{ fontSize: 10, color: "rgba(245,245,247,0.2)" }}>·</span>
+                        <span style={{ fontSize: 11, color: "rgba(245,245,247,0.35)", fontFamily: "'Geist Mono', monospace" }}>
+                          {formatRelativeTime(gen.created_at)}
+                        </span>
+                      </div>
+                    </div>
+                    <div style={{ padding: "3px 9px", borderRadius: 100, background: `${cfg.glow}`, border: `1px solid ${cfg.accent}30`, flexShrink: 0 }}>
+                      <span style={{ fontSize: 10, color: cfg.accent, fontFamily: "'Geist Mono', monospace", letterSpacing: "0.05em" }}>
+                        Done
+                      </span>
+                    </div>
+                  </Row>
+                );
+              })}
+            </div>
+          ) : (
+            <div style={{ textAlign: "center", padding: "32px 0" }}>
+              <BookOpen size={28} style={{ color: "rgba(245,245,247,0.15)", margin: "0 auto 10px" }} />
+              <p style={{ fontSize: 13, color: "rgba(245,245,247,0.35)", marginBottom: 4 }}>Nothing generated yet</p>
+              <p style={{ fontSize: 11, color: "rgba(245,245,247,0.22)" }}>Summaries, MCQs, and flashcards appear here</p>
+            </div>
+          )}
+        </SectionCard>
+
+      </div>
+    </div>
+  );
 };
 
 export default DashboardRecentActivity;
-
