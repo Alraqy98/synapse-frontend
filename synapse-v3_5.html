@@ -1,0 +1,3324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Synapse — Study Infrastructure for Medical Students</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Geist+Mono:wght@300;400;500&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --void: #0D0F12;
+  --panel: rgba(25,29,34,0.72);
+  --surface: rgba(18,20,24,0.68);
+  --text: #F5F5F7;
+  --muted: rgba(245,245,247,0.5);
+  --faint: rgba(245,245,247,0.18);
+  --border: rgba(255,255,255,0.06);
+  --teal: #00C8B4;
+  --teal-neon: #00F5CC;
+  --teal-dim: rgba(0,200,180,0.10);
+  --teal-glow: rgba(0,200,180,0.25);
+  --blue: #3F7CFF;
+  --purple: #7A6CFF;
+  --red: #FF4B4B;
+  --amber: #F5A623;
+  --green: #4E9E7A;
+  --green-neon: #5BFFA8;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--void);
+  color: var(--text);
+  font-family: 'Syne', sans-serif;
+  line-height: 1.6;
+  overflow-x: hidden;
+  cursor: none;
+}
+
+/* Custom cursor */
+.cursor-dot {
+  position: fixed;
+  top: 0; left: 0;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--teal-neon);
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%, -50%);
+  transition: transform 0.1s;
+  mix-blend-mode: screen;
+}
+.cursor-ring {
+  position: fixed;
+  top: 0; left: 0;
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  border: 1px solid rgba(0,245,204,0.4);
+  pointer-events: none;
+  z-index: 9998;
+  transform: translate(-50%, -50%);
+  transition: transform 0.18s cubic-bezier(0.23, 1, 0.32, 1), width 0.2s, height 0.2s, opacity 0.2s;
+}
+body:hover .cursor-dot { opacity: 1; }
+
+/* ============ SHARED ============ */
+.container { max-width: 1200px; margin: 0 auto; padding: 0 40px; }
+.container-sm { max-width: 760px; margin: 0 auto; padding: 0 40px; }
+
+.mono { font-family: 'Geist Mono', monospace; }
+.serif { font-family: 'DM Serif Display', serif; }
+
+.label-tag {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: 'Geist Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--teal);
+  border: 1px solid rgba(0,200,180,0.2);
+  border-radius: 100px;
+  padding: 4px 12px;
+  background: rgba(0,200,180,0.06);
+}
+
+.label-tag .dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--teal-neon);
+  animation: pulse-dot 1.8s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.7); }
+}
+
+.glass-card {
+  background: rgba(18,22,28,0.65);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  backdrop-filter: blur(18px) saturate(160%);
+}
+
+.teal-border-card {
+  background: rgba(18,22,28,0.65);
+  border: 1px solid rgba(0,200,180,0.18);
+  border-radius: 18px;
+  backdrop-filter: blur(18px);
+}
+
+/* Scroll reveal */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.7s cubic-bezier(0.23,1,0.32,1), transform 0.7s cubic-bezier(0.23,1,0.32,1);
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ============ NAV ============ */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  padding: 0 40px;
+  height: 64px;
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid transparent;
+  transition: background 0.3s, border-color 0.3s, backdrop-filter 0.3s;
+}
+nav.scrolled {
+  background: rgba(13,15,18,0.88);
+  border-color: var(--border);
+  backdrop-filter: blur(24px) saturate(180%);
+}
+
+.nav-logo {
+  display: flex; align-items: center; gap: 10px;
+  text-decoration: none;
+}
+.nav-logo img {
+  height: 28px;
+  filter: drop-shadow(0 0 10px rgba(0,200,180,0.55));
+}
+.nav-logo-text {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+.nav-badge {
+  font-family: 'Geist Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--teal);
+  background: rgba(0,200,180,0.1);
+  border: 1px solid rgba(0,200,180,0.2);
+  padding: 2px 7px;
+  border-radius: 100px;
+}
+.nav-right { display: flex; align-items: center; gap: 12px; }
+.btn-nav-ghost {
+  font-family: 'Syne', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--muted);
+  background: none;
+  border: none;
+  cursor: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  transition: color 0.2s, background 0.2s;
+  text-decoration: none;
+}
+.btn-nav-ghost:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+.btn-nav-primary {
+  font-family: 'Syne', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--void);
+  background: linear-gradient(135deg, var(--teal), var(--teal-neon));
+  border: none;
+  cursor: none;
+  padding: 9px 20px;
+  border-radius: 10px;
+  transition: transform 0.2s, box-shadow 0.2s;
+  text-decoration: none;
+}
+.btn-nav-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(0,200,180,0.35);
+}
+
+/* ============ HERO ============ */
+.hero {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 100px 60px 60px;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-bg {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.35;
+}
+.orb-1 {
+  width: 700px; height: 700px;
+  background: radial-gradient(circle, rgba(0,200,180,0.22) 0%, transparent 70%);
+  top: -300px; right: -100px;
+}
+.orb-2 {
+  width: 400px; height: 400px;
+  background: radial-gradient(circle, rgba(63,124,255,0.18) 0%, transparent 70%);
+  bottom: -100px; left: -100px;
+}
+.orb-3 {
+  width: 300px; height: 300px;
+  background: radial-gradient(circle, rgba(122,108,255,0.15) 0%, transparent 70%);
+  top: 40%; left: 30%;
+}
+
+/* Grid overlay */
+.hero-grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.022) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(ellipse 100% 80% at 70% 50%, black 20%, transparent 100%);
+}
+
+/* Split hero layout */
+.hero-inner {
+  position: relative; z-index: 1;
+  max-width: 1280px; margin: 0 auto;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 48px;
+  align-items: start;
+  padding-top: 20px;
+}
+
+.hero-left { }
+.hero-label { margin-bottom: 24px; }
+
+.hero-headline {
+  font-family: 'DM Serif Display', serif;
+  font-size: clamp(44px, 5.5vw, 80px);
+  line-height: 1.02;
+  letter-spacing: -0.025em;
+  margin-bottom: 24px;
+}
+
+.hero-headline em {
+  font-style: italic;
+  color: transparent;
+  background: linear-gradient(135deg, var(--teal) 0%, var(--teal-neon) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero-sub {
+  font-family: 'Syne', sans-serif;
+  font-size: 17px;
+  font-weight: 400;
+  color: var(--muted);
+  max-width: 440px;
+  margin-bottom: 36px;
+  line-height: 1.75;
+}
+
+.hero-actions {
+  display: flex; align-items: center; gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 40px;
+}
+
+.btn-primary-lg {
+  font-family: 'Syne', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--void);
+  background: linear-gradient(135deg, var(--teal), var(--teal-neon));
+  border: none;
+  cursor: none;
+  padding: 14px 32px;
+  border-radius: 12px;
+  transition: transform 0.2s, box-shadow 0.2s;
+  text-decoration: none;
+  display: inline-block;
+  letter-spacing: -0.01em;
+}
+.btn-primary-lg:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 8px 32px rgba(0,200,180,0.4);
+}
+
+.btn-ghost-lg {
+  font-family: 'Syne', sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--muted);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.09);
+  cursor: none;
+  padding: 14px 28px;
+  border-radius: 12px;
+  transition: color 0.2s, background 0.2s, transform 0.2s;
+  text-decoration: none;
+  display: inline-block;
+}
+.btn-ghost-lg:hover { color: var(--text); background: rgba(255,255,255,0.08); transform: translateY(-1px); }
+
+/* Hero footnote */
+.hero-footnote {
+  font-family: 'Geist Mono', monospace;
+  font-size: 11px; letter-spacing: 0.08em;
+  color: rgba(245,245,247,0.22);
+}
+
+/* Hero right — live state mockup */
+.hero-right {
+  position: relative;
+}
+
+.hero-state-card {
+  background: rgba(11,14,18,0.97);
+  border: 1px solid rgba(255,75,75,0.18);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 0 60px rgba(255,75,75,0.05), 0 32px 64px rgba(0,0,0,0.5);
+  animation: hero-card-float 5s ease-in-out infinite;
+  max-height: 85vh;
+}
+@keyframes hero-card-float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+.hsc-topbar {
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.hsc-title {
+  font-family: 'Geist Mono', monospace;
+  font-size: 10px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--muted);
+}
+.hsc-live {
+  display: flex; align-items: center; gap: 6px;
+  font-family: 'Geist Mono', monospace;
+  font-size: 9px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--teal);
+}
+.hsc-live-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--teal-neon);
+  animation: pulse-dot 1.6s ease-in-out infinite;
+}
+
+.hsc-state-row {
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.hsc-state-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 16px; border-radius: 100px;
+  background: rgba(255,75,75,0.08);
+  border: 1px solid rgba(255,75,75,0.2);
+}
+.hsc-state-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--red);
+  box-shadow: 0 0 8px var(--red);
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+.hsc-state-text {
+  font-family: 'DM Serif Display', serif;
+  font-size: 18px; color: var(--red);
+  letter-spacing: -0.01em;
+}
+.hsc-momentum {
+  font-family: 'Geist Mono', monospace;
+  font-size: 11px; color: var(--red);
+}
+
+.hsc-sparkline {
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.hsc-spark-label {
+  font-family: 'Geist Mono', monospace;
+  font-size: 9px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: rgba(245,245,247,0.25);
+  margin-bottom: 8px;
+}
+
+.hsc-risk {
+  padding: 12px 18px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.hsc-risk-eyebrow {
+  font-family: 'Geist Mono', monospace;
+  font-size: 9px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--red);
+  margin-bottom: 8px; display: flex; align-items: center; gap: 8px;
+}
+.hsc-chronic {
+  background: rgba(255,75,75,0.12);
+  border: 1px solid rgba(255,75,75,0.22);
+  padding: 1px 6px; border-radius: 4px;
+  font-size: 8px; letter-spacing: 0.1em;
+}
+.hsc-concept { font-size: 14px; font-weight: 700; margin-bottom: 5px; }
+.hsc-risk-meta {
+  display: flex; gap: 12px;
+  font-family: 'Geist Mono', monospace;
+  font-size: 10px; color: var(--muted);
+  margin-bottom: 10px;
+}
+.hsc-risk-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+.hsc-risk-badge {
+  font-family: 'Geist Mono', monospace;
+  font-size: 9px; letter-spacing: 0.06em;
+  padding: 3px 8px; border-radius: 4px;
+  background: rgba(255,75,75,0.07);
+  border: 1px solid rgba(255,75,75,0.15);
+  color: rgba(255,160,160,0.8);
+}
+
+.hsc-cta {
+  margin: 10px 18px 14px;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, rgba(78,158,122,0.1), rgba(91,255,168,0.06));
+  border: 1px solid rgba(78,158,122,0.22);
+  border-radius: 10px;
+  font-family: 'Syne', sans-serif;
+  font-size: 13px; font-weight: 600;
+  color: var(--green-neon);
+  display: flex; align-items: center; justify-content: space-between;
+  cursor: default;
+}
+.hsc-cta-arrow {
+  font-size: 16px; color: rgba(91,255,168,0.5);
+}
+
+/* Floating accent cards */
+.hero-accent-card {
+  position: absolute;
+  background: rgba(11,14,18,0.95);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 16px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+  pointer-events: none;
+}
+.hero-accent-1 {
+  bottom: 40px; left: -44px;
+  border-color: rgba(0,200,180,0.22);
+  animation: hero-card-float 5s ease-in-out infinite 0.8s;
+}
+.hero-accent-2 {
+  top: -16px; right: -36px;
+  border-color: rgba(63,124,255,0.22);
+  animation: hero-card-float 5s ease-in-out infinite 1.8s;
+}
+.accent-label {
+  font-family: 'Geist Mono', monospace;
+  font-size: 9px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--muted);
+  margin-bottom: 4px;
+}
+.accent-val {
+  font-family: 'DM Serif Display', serif;
+  font-size: 20px;
+}
+.accent-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
+
+/* Scroll indicator */
+.scroll-hint {
+  position: absolute;
+  bottom: 36px; left: 50%;
+  transform: translateX(-50%);
+  display: flex; flex-direction: column;
+  align-items: center; gap: 8px;
+  opacity: 0.35;
+  animation: float-up 2s ease-in-out infinite;
+}
+@keyframes float-up {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(-6px); }
+}
+.scroll-hint-line {
+  width: 1px; height: 40px;
+  background: linear-gradient(to bottom, transparent, var(--teal));
+}
+.scroll-hint-dot {
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: var(--teal);
+}
+
+/* ============ SECTION SHARED ============ */
+section { position: relative; }
+
+.section-header {
+  margin-bottom: 64px;
+}
+.section-label { margin-bottom: 16px; }
+.section-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: clamp(38px, 5vw, 60px);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  margin-bottom: 16px;
+}
+.section-sub {
+  font-size: 17px;
+  color: var(--muted);
+  max-width: 560px;
+  line-height: 1.7;
+}
+
+/* ============ THE PROBLEM ============ */
+.problem-section {
+  padding: 120px 0;
+  border-top: 1px solid var(--border);
+}
+
+.problem-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.problem-col {
+  padding: 48px;
+  background: rgba(13,15,18,0.9);
+}
+
+.problem-col-header {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 36px;
+}
+
+.problem-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+}
+
+.problem-label {
+  font-family: 'Geist Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.problem-items {
+  display: flex; flex-direction: column; gap: 20px;
+}
+
+.problem-item {
+  padding: 16px 20px;
+  border-radius: 12px;
+  border: 1px solid;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.problem-item.bad {
+  background: rgba(255,75,75,0.04);
+  border-color: rgba(255,75,75,0.14);
+  color: rgba(245,245,247,0.6);
+  text-decoration: line-through;
+  text-decoration-color: rgba(255,75,75,0.4);
+}
+
+.problem-item.good {
+  background: rgba(0,200,180,0.06);
+  border-color: rgba(0,200,180,0.16);
+  color: var(--text);
+}
+
+/* ============ LIBRARY SECTION ============ */
+.library-section { padding: 120px 0; }
+
+.library-showcase {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 32px;
+  align-items: start;
+}
+
+.library-tree {
+  background: rgba(13,15,18,0.95);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.lib-top-bar {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+}
+.lib-dot { width: 8px; height: 8px; border-radius: 50%; }
+.lib-top-title {
+  font-family: 'Geist Mono', monospace;
+  font-size: 11px; color: var(--muted);
+  letter-spacing: 0.08em; margin-left: auto;
+}
+
+.lib-folder {
+  padding: 10px 16px;
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; color: var(--muted);
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  cursor: default;
+}
+.lib-folder .folder-icon { width: 14px; height: 14px; opacity: 0.5; }
+.lib-folder.active { color: var(--text); }
+.lib-file {
+  padding: 8px 16px 8px 40px;
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: rgba(245,245,247,0.5);
+  border-bottom: 1px solid rgba(255,255,255,0.02);
+}
+.lib-file-tag {
+  margin-left: auto;
+  font-family: 'Geist Mono', monospace;
+  font-size: 9px; letter-spacing: 0.08em;
+  padding: 2px 6px; border-radius: 4px;
+  background: rgba(0,200,180,0.08);
+  color: var(--teal);
+  border: 1px solid rgba(0,200,180,0.15);
+}
+
+.library-viewer-card {
+  background: rgba(13,15,18,0.95);
+  border: 1px solid rgba(0,200,180,0.12);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.viewer-topbar {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
+}
+.viewer-tab {
+  font-family: 'Geist Mono', monospace;
+  font-size: 11px; letter-spacing: 0.06em;
+  color: var(--muted);
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+.viewer-tab.active {
+  background: var(--teal-dim);
+  color: var(--teal);
+  border: 1px solid rgba(0,200,180,0.18);
+}
+.viewer-page-badge {
+  font-family: 'Geist Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  margin-left: auto;
+}
+
+.viewer-body { display: flex; }
+.viewer-doc {
+  flex: 1;
+  padding: 20px;
+  border-right: 1px solid var(--border);
+}
+.doc-page-sim {
+  background: rgba(20,24,30,0.8);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  min-height: 220px;
+}
+.doc-line {
+  height: 8px; border-radius: 4px;
+  background: rgba(255,255,255,0.07);
+  margin-bottom: 8px;
+}
+.doc-line.short { width: 60%; }
+.doc-line.med { width: 80%; }
+.doc-line.long { width: 100%; }
+.doc-highlight {
+  height: 8px; border-radius: 4px;
+  background: rgba(0,200,180,0.18);
+  margin-bottom: 8px;
+  position: relative;
+}
+.doc-highlight::after {
+  content: 'Astra is reading this';
+  position: absolute; right: 0; top: -18px;
+  font-family: 'Geist Mono', monospace;
+  font-size: 9px; letter-spacing: 0.08em;
+  color: var(--teal);
+}
+
+.viewer-astra {
+  width: 220px;
+  padding: 16px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.astra-label {
+  font-family: 'Geist Mono', monospace;
+  font-size: 10px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--teal);
+  margin-bottom: 4px;
+}
+.astra-bubble {
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 12px; line-height: 1.5;
+}
+.astra-bubble.user {
+  background: rgba(63,124,255,0.12);
+  border: 1px solid rgba(63,124,255,0.16);
+  color: rgba(245,245,247,0.85);
+}
+.astra-bubble.ai {
+  background: rgba(0,200,180,0.06);
+  border: 1px solid rgba(0,200,180,0.12);
+  color: rgba(245,245,247,0.8);
+}
+
+.library-features {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 16px; margin-top: 32px;
+}
+.lib-feat {
+  padding: 20px 22px;
+  background: rgba(18,22,28,0.6);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  transition: border-color 0.2s;
+}
+.lib-feat:hover { border-color: rgba(0,200,180,0.2); }
+.lib-feat-icon {
+  font-size: 18px; margin-bottom: 8px;
+}
+.lib-feat-title {
+  font-size: 14px; font-weight: 600; margin-bottom: 4px;
+}
+.lib-feat-desc {
+  font-size: 12px; color: var(--muted); line-height: 1.5;
+}
+
+/* ============ ASTRA SECTION ============ */
+.astra-section { padding: 120px 0; }
+
+.astra-modes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 48px;
+}
+
+.astra-mode-card {
+  padding: 28px;
+  background: rgba(13,15,18,0.9);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  transition: border-color 0.25s, transform 0.25s;
+  position: relative;
+  overflow: hidden;
+}
+.astra-mode-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--teal), transparent);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.astra-mode-card:hover::before { opacity: 1; }
+.astra-mode-card:hover {
+  border-color: rgba(0,200,180,0.2);
+  transform: translateY(-3px);
+}
+
+.astra-mode-pill {
+  display: inline-block;
+  font-family: 'Geist Mono', monospace;
+  font-size: 9px; letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 4px 10px; border-radius: 100px;
+  margin-bottom: 16px;
+}
+.pill-standalone {
+  background: rgba(63,124,255,0.1);
+  color: var(--blue);
+  border: 1px solid rgba(63,124,255,0.2);
+}
+.pill-file {
+  background: rgba(0,200,180,0.08);
+  color: var(--teal);
+  border: 1px solid rgba(0,200,180,0.18);
+}
+.pill-summary {
+  background: rgba(122,108,255,0.1);
+  color: var(--purple);
+  border: 1px solid rgba(122,108,255,0.2);
+}
+
+.astra-mode-title {
+  font-size: 16px; font-weight: 700;
+  margin-bottom: 8px;
+}
+.astra-mode-desc {
+  font-size: 13px; color: var(--muted);
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+.astra-mode-feature {
+  font-family: 'Geist Mono', monospace;
+  font-size: 10px; letter-spacing: 0.08em;
+  color: rgba(245,245,247,0.35);
+  line-height: 1.8;
+}
+.astra-mode-feature span { color: var(--teal); }
+
+.astra-prefs {
+  margin-top: 48px;
+  padding: 32px;
+  background: rgba(13,15,18,0.8);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  display: flex; align-items: center; gap: 40px;
+}
+.astra-prefs-title {
+  font-size: 15px; font-weight: 700;
+  margin-bottom: 4px;
+}
+.astra-prefs-sub { font-size: 13px; color: var(--muted); }
+.astra-prefs-chips {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  flex: 1;
+}
+.pref-chip {
+  font-family: 'Geist Mono', monospace;
+  font-size: 10px; letter-spacing: 0.08em;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+  color: rgba(245,245,247,0.6);
+}
+.pref-chip.active {
+  background: rgba(0,200,180,0.08);
+  border-color: rgba(0,200,180,0.2);
+  color: var(--teal);
+}
+
+/* ============ MCQ SECTION ============ */
+.mcq-section { padding: 120px 0; }
+
+.mcq-layout {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 32px;
+  align-items: start;
+}
+
+.mcq-card {
+  background: rgba(13,15,18,0.95);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.mcq-topbar {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.mcq-progress-info {
+  font-family: 'Geist Mono', monospace;
+  font-size: 11px; color: var(--muted);
+}
+.mcq-timer {
+  font-family: 'Geist Mono', monospace;
+  font-size: 12px; color: var(--teal);
+}
+.mcq-progress-bar {
+  height: 2px;
+  background: rgba(255,255,255,0.06);
+}
+.mcq-progress-fill {
+  height: 100%;
+  width: 36%;
+  background: linear-gradient(90deg, var(--teal), var(--teal-neon));
+}
+
+.mcq-question {
+  padding: 28px 24px;
+}
+.mcq-source {
+  display: flex; align-items: center; gap: 6px;
+  font-family: 'Geist Mono', monospace;
+  font-size: 10px; letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+.mcq-source-icon { width: 12px; height: 12px; opacity: 0.5; }
+.mcq-q-text {
+  font-size: 14px; line-height: 1.65;
+  color: var(--text);
+  margin-bottom: 20px;
+}
+
+.mcq-options {
+  display: flex; flex-direction: column; gap: 8px;
+}
+.mcq-option {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 11px 14px;
+  border-radius: 10px;
+  font-size: 13px; line-height: 1.5;
+  border: 1px solid;
+  transition: all 0.2s;
+  cursor: default;
+}
+.mcq-option.neutral {
+  background: rgba(255,255,255,0.03);
+  border-color: rgba(255,255,255,0.07);
+  color: var(--muted);
+}
+.mcq-option.correct {
+  background: rgba(0,200,180,0.07);
+  border-color: rgba(0,200,180,0.22);
+  color: var(--text);
+}
+.mcq-option.wrong {
+  background: rgba(255,75,75,0.05);
+  border-color: rgba(255,75,75,0.16);
+  color: rgba(245,245,247,0.5);
+}
+.mcq-opt-letter {
+  font-family: 'Geist Mono', monospace;
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 0.08em;
+  width: 18px; height: 18px;
+  border-radius: 5px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.neutral .mcq-opt-letter { background: rgba(255,255,255,0.06); color: var(--muted); }
+.correct .mcq-opt-letter { background: rgba(0,200,180,0.15); color: var(--teal); }
+.wrong .mcq-opt-letter { background: rgba(255,75,75,0.1); color: var(--red); }
+
+.mcq-explain {
+  padding: 12px 24px;
+  border-top: 1px solid var(--border);
+  background: rgba(0,200,180,0.04);
+}
+.mcq-explain-label {
+  font-family: 'Geist Mono', monospace;
+  font-size: 9px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--teal);
+  margin-bottom: 6px;
+}
+.mcq-explain-text { font-size: 12px; color: rgba(245,245,247,0.7); line-height: 1.6; }
+
+/* Mentor panel */
+.mentor-card {
+  background: rgba(13,15,18,0.95);
+  border: 1px solid rgba(63,124,255,0.15);
+  border-radius: 18px;
+  overflow: hidden;
+}
+.mentor-header {
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+}
+.mentor-icon {
+  width: 32px; height: 32px;
+  background: rgba(63,124,255,0.1);
+  border: 1px solid rgba(63,124,255,0.2);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+}
+.mentor-title { font-size: 14px; font-weight: 700; }
+.mentor-sub { font-size: 11px; color: var(--muted); }
+
+.mentor-body { padding: 20px; }
+
+.mentor-stat-row {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 10px; margin-bottom: 16px;
+}
+.mentor-stat {
+  padding: 14px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 10px;
+}
+.mentor-stat-label {
+  font-family: 'Geist Mono', monospace;
+  font-size: 9px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--muted);
+  margin-bottom: 4px;
+}
+.mentor-stat-val {
+  font-family: 'DM Serif Display', serif;
+  font-size: 22px; line-height: 1;
+}
+.mentor-stat-val.positive { color: var(--teal); }
+.mentor-stat-val.negative { color: var(--red); }
+.mentor-stat-val.neutral { color: var(--text); }
+
+.mentor-weakest {
+  padding: 14px 16px;
+  background: rgba(255,75,75,0.04);
+  border: 1px solid rgba(255,75,75,0.12);
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+.mentor-weakest-label {
+  font-family: 'Geist Mono', monospace;
+  font-size: 9px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--red);
+  margin-bottom: 4px;
+}
+.mentor-weakest-val { font-size: 13px; font-weight: 600; }
+.mentor-weakest-acc { font-size: 12px; color: var(--muted); }
+
+.mentor-insight {
+  padding: 14px 16px;
+  background: rgba(245,166,35,0.05);
+  border: 1px solid rgba(245,166,35,0.14);
+  border-radius: 10px;
+  font-size: 12px; line-height: 1.6;
+  color: rgba(245,245,247,0.75);
+}
+.mentor-insight strong { color: var(--amber); }
+
+.mcq-features {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 14px; margin-top: 28px;
+}
+.mcq-feat {
+  padding: 18px 20px;
+  background: rgba(18,22,28,0.6);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.mcq-feat-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+.mcq-feat-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+/* ============ LEARNING STATE ============ */
+.learning-section { padding: 120px 0; }
+
+.learning-layout {
+  display: grid;
+  grid-template-columns: 1fr 1.6fr;
+  gap: 32px;
+  align-items: start;
+}
+
+.state-card {
+  background: rgba(13,15,18,0.95);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.state-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+}
+.state-eyebrow {
+  font-family: 'Geist Mono', monospace;
+  font-size: 10px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--muted);
+  margin-bottom: 12px;
+}
+.state-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 16px;
+  border-radius: 100px;
+  font-family: 'DM Serif Display', serif;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+}
+.state-declining {
+  background: rgba(255,75,75,0.08);
+  border: 1px solid rgba(255,75,75,0.2);
+  color: var(--red);
+}
+.state-improving {
+  background: rgba(78,158,122,0.1);
+  border: 1px solid rgba(78,158,122,0.25);
+  color: var(--green);
+}
+.state-stable {
+  background: rgba(245,166,35,0.08);
+  border: 1px solid rgba(245,166,35,0.2);
+  color: var(--amber);
+}
+.state-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  animation: state-pulse 1.5s ease-in-out infinite;
+}
+.declining-dot { background: var(--red); box-shadow: 0 0 8px var(--red); }
+.improving-dot { background: var(--green); box-shadow: 0 0 8px var(--green); }
+
+@keyframes state-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.7); }
+}
+
+.state-momentum {
+  margin-top: 8px;
+  font-size: 13px; color: var(--muted);
+}
+.momentum-val { color: var(--red); font-weight: 600; }
+.momentum-val.pos { color: var(--teal); }
+
+.state-body { padding: 20px 24px; }
+
+.sparkline-wrap {
+  margin-bottom: 20px;
+}
+.sparkline-label {
+  font-family: 'Geist Mono', monospace;
+  font-size: 9px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--muted);
+  margin-bottom: 8px;
+}
+.sparkline-svg { width: 100%; height: 48px; }
+
+.risk-panel {
+  padding: 16px;
+  background: rgba(255,75,75,0.05);
+  border: 1px solid rgba(255,75,75,0.14);
+  border-radius: 12px;
+  margin-bottom: 14px;
+}
+.risk-eyebrow {
+  font-family: 'Geist Mono', monospace;
+  font-size: 9px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--red);
+  margin-bottom: 8px;
+}
+.risk-concept { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+.risk-meta {
+  display: flex; gap: 10px;
+  font-family: 'Geist Mono', monospace;
+  font-size: 10px; color: var(--muted);
+}
+.risk-badges {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin-top: 10px;
+}
+.risk-badge {
+  font-family: 'Geist Mono', monospace;
+  font-size: 9px; letter-spacing: 0.08em;
+  padding: 3px 8px; border-radius: 4px;
+  background: rgba(255,75,75,0.08);
+  border: 1px solid rgba(255,75,75,0.16);
+  color: rgba(255,150,150,0.8);
+}
+
+.prescription-btn {
+  width: 100%;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, rgba(78,158,122,0.12), rgba(91,255,168,0.08));
+  border: 1px solid rgba(78,158,122,0.25);
+  border-radius: 10px;
+  font-family: 'Syne', sans-serif;
+  font-size: 13px; font-weight: 600;
+  color: var(--green-neon);
+  cursor: default;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: border-color 0.2s;
+}
+
+.timeline-panel {
+  padding: 28px;
+  background: rgba(13,15,18,0.95);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+}
+.timeline-title {
+  font-size: 14px; font-weight: 700;
+  margin-bottom: 20px;
+  color: var(--muted);
+}
+
+.concept-list {
+  display: flex; flex-direction: column; gap: 10px;
+}
+.concept-row {
+  padding: 14px 16px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.04);
+  border-radius: 10px;
+  display: flex; align-items: center; gap: 12px;
+}
+.concept-name { flex: 1; font-size: 13px; }
+.concept-acc-bar-wrap {
+  width: 100px;
+  height: 4px;
+  background: rgba(255,255,255,0.07);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.concept-acc-bar { height: 100%; border-radius: 2px; }
+.concept-acc { font-family: 'Geist Mono', monospace; font-size: 11px; width: 36px; text-align: right; }
+.concept-trend {
+  font-family: 'Geist Mono', monospace;
+  font-size: 10px; width: 20px; text-align: center;
+}
+
+/* ============ FLASHCARDS ============ */
+.flashcard-section { padding: 120px 0; }
+
+.flashcard-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px;
+  align-items: center;
+}
+
+.card-flip-wrapper {
+  perspective: 1000px;
+  height: 240px;
+  cursor: default;
+}
+.card-flip-inner {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.7s cubic-bezier(0.23,1,0.32,1);
+}
+.card-flip-wrapper.flipped .card-flip-inner {
+  transform: rotateY(180deg);
+}
+.card-face {
+  position: absolute; inset: 0;
+  backface-visibility: hidden;
+  border-radius: 20px;
+  display: flex; flex-direction: column;
+  justify-content: center;
+  padding: 32px;
+  border: 1px solid;
+}
+.card-front {
+  background: linear-gradient(135deg, rgba(18,22,28,0.95) 0%, rgba(13,15,18,0.99) 100%);
+  border-color: rgba(0,200,180,0.18);
+  box-shadow: 0 0 40px rgba(0,200,180,0.08), 0 20px 60px rgba(0,0,0,0.5);
+}
+.card-back {
+  background: linear-gradient(135deg, rgba(13,20,18,0.95) 0%, rgba(10,18,16,0.99) 100%);
+  border-color: rgba(78,158,122,0.22);
+  transform: rotateY(180deg);
+  box-shadow: 0 0 40px rgba(78,158,122,0.08), 0 20px 60px rgba(0,0,0,0.5);
+}
+
+.card-face-label {
+  font-family: 'Geist Mono', monospace;
+  font-size: 9px; letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.card-front .card-face-label { color: var(--teal); }
+.card-back .card-face-label { color: var(--green); }
+
+.card-q-text {
+  font-size: 15px; line-height: 1.6;
+  font-weight: 600;
+}
+.card-a-text {
+  font-size: 13px; line-height: 1.7; color: rgba(245,245,247,0.85);
+}
+.card-a-text li { margin-bottom: 4px; }
+
+.card-source-tag {
+  margin-top: 16px;
+  font-family: 'Geist Mono', monospace;
+  font-size: 9px; letter-spacing: 0.08em;
+  color: rgba(0,200,180,0.5);
+}
+
+.flip-hint {
+  text-align: center;
+  margin-top: 12px;
+  font-family: 'Geist Mono', monospace;
+  font-size: 10px; letter-spacing: 0.1em;
+  color: rgba(245,245,247,0.25);
+  text-transform: uppercase;
+}
+
+.grade-row {
+  display: flex; gap: 10px; margin-top: 16px;
+}
+.grade-btn {
+  flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  font-family: 'Geist Mono', monospace;
+  font-size: 11px; letter-spacing: 0.06em;
+  cursor: default;
+  border: 1px solid;
+  text-align: center;
+  transition: transform 0.2s;
+}
+.grade-btn:hover { transform: translateY(-1px); }
+.grade-correct {
+  background: rgba(0,200,180,0.07);
+  border-color: rgba(0,200,180,0.2);
+  color: var(--teal);
+}
+.grade-not-sure {
+  background: rgba(245,166,35,0.06);
+  border-color: rgba(245,166,35,0.18);
+  color: var(--amber);
+}
+.grade-wrong {
+  background: rgba(255,75,75,0.06);
+  border-color: rgba(255,75,75,0.18);
+  color: var(--red);
+}
+
+.fc-modes {
+  display: flex; flex-direction: column; gap: 14px;
+}
+.fc-mode-card {
+  padding: 20px 22px;
+  background: rgba(13,15,18,0.8);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  transition: border-color 0.2s, transform 0.2s;
+}
+.fc-mode-card:hover {
+  border-color: rgba(0,200,180,0.2);
+  transform: translateX(4px);
+}
+.fc-mode-name {
+  font-size: 14px; font-weight: 700; margin-bottom: 4px;
+}
+.fc-mode-desc { font-size: 12px; color: var(--muted); }
+.fc-mode-tag {
+  font-family: 'Geist Mono', monospace;
+  font-size: 9px; letter-spacing: 0.1em;
+  padding: 2px 7px; border-radius: 4px;
+  float: right; margin-top: 4px;
+}
+
+/* ============ SUMMARIES ============ */
+.summary-section { padding: 120px 0; }
+
+.summary-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  align-items: start;
+}
+
+.summary-modal {
+  background: rgba(13,15,18,0.95);
+  border: 1px solid rgba(0,200,180,0.12);
+  border-radius: 18px;
+  overflow: hidden;
+}
+.summary-modal-header {
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border);
+}
+.summary-modal-title {
+  font-size: 16px; font-weight: 700;
+}
+.summary-modal-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.summary-form { padding: 22px; display: flex; flex-direction: column; gap: 14px; }
+
+.form-field label {
+  display: block;
+  font-family: 'Geist Mono', monospace;
+  font-size: 10px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--muted);
+  margin-bottom: 6px;
+}
+.form-select {
+  width: 100%;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 13px;
+  font-family: 'Syne', sans-serif;
+}
+
+.selected-file-chip {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px;
+  background: rgba(0,200,180,0.06);
+  border: 1px solid rgba(0,200,180,0.15);
+  border-radius: 10px;
+  font-size: 13px;
+}
+.file-chip-icon { color: var(--teal); }
+
+.form-tags {
+  display: flex; flex-wrap: wrap; gap: 8px;
+}
+.form-tag {
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: default;
+  border: 1px solid;
+  transition: all 0.15s;
+}
+.form-tag.selected {
+  background: var(--teal-dim);
+  border-color: rgba(0,200,180,0.25);
+  color: var(--teal);
+}
+.form-tag.unselected {
+  background: rgba(255,255,255,0.02);
+  border-color: rgba(255,255,255,0.06);
+  color: var(--muted);
+}
+
+.generate-btn {
+  padding: 12px;
+  background: linear-gradient(135deg, var(--teal), var(--teal-neon));
+  border: none; border-radius: 10px;
+  font-family: 'Syne', sans-serif;
+  font-size: 14px; font-weight: 700;
+  color: var(--void); cursor: default;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.generate-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(0,200,180,0.35);
+}
+
+.summary-viewer-card {
+  background: rgba(13,15,18,0.9);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  overflow: hidden;
+}
+.sv-header {
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--border);
+}
+.sv-title { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+.sv-meta {
+  font-family: 'Geist Mono', monospace;
+  font-size: 10px; color: var(--muted); letter-spacing: 0.06em;
+}
+.sv-body { padding: 22px; }
+.sv-section {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.04);
+  border-radius: 10px;
+}
+.sv-section-title {
+  font-size: 13px; font-weight: 700;
+  color: var(--text); margin-bottom: 8px;
+  display: flex; align-items: center; gap: 6px;
+}
+.sv-section-icon { color: var(--teal); font-size: 12px; }
+.sv-section-text {
+  font-size: 12px; color: var(--muted); line-height: 1.7;
+}
+.sv-key-takeaways {
+  padding: 14px 16px;
+  background: rgba(0,200,180,0.04);
+  border: 1px solid rgba(0,200,180,0.1);
+  border-radius: 10px;
+}
+.sv-kt-label {
+  font-family: 'Geist Mono', monospace;
+  font-size: 9px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--teal);
+  margin-bottom: 8px;
+}
+.sv-kt-item {
+  font-size: 12px; color: rgba(245,245,247,0.7);
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  display: flex; align-items: flex-start; gap: 6px;
+}
+.sv-kt-item::before {
+  content: '—';
+  color: var(--teal);
+  font-family: 'Geist Mono', monospace;
+  flex-shrink: 0; margin-top: 1px;
+}
+
+/* ============ PLANNER ============ */
+.planner-section { padding: 120px 0; }
+
+.planner-layout {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 32px;
+  align-items: start;
+}
+
+.planner-card {
+  background: rgba(13,15,18,0.95);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  overflow: hidden;
+}
+.planner-topbar {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.planner-month {
+  font-size: 14px; font-weight: 700;
+}
+.planner-nav {
+  display: flex; gap: 6px;
+}
+.planner-nav-btn {
+  width: 24px; height: 24px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; color: var(--muted); cursor: default;
+}
+
+.cal-grid {
+  padding: 14px;
+}
+.cal-header {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  gap: 2px; margin-bottom: 4px;
+}
+.cal-day-label {
+  font-family: 'Geist Mono', monospace;
+  font-size: 9px; letter-spacing: 0.08em;
+  text-align: center; color: var(--muted);
+  padding: 4px;
+}
+.cal-days {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.cal-day {
+  padding: 6px 4px;
+  border-radius: 6px;
+  text-align: center;
+  font-family: 'Geist Mono', monospace;
+  font-size: 11px;
+  color: rgba(245,245,247,0.4);
+  min-height: 36px;
+  display: flex; flex-direction: column;
+  align-items: center; gap: 3px;
+}
+.cal-day.has-event { color: var(--text); }
+.cal-day.today {
+  background: rgba(0,200,180,0.1);
+  border: 1px solid rgba(0,200,180,0.2);
+  color: var(--teal);
+}
+.cal-day.exam-day {
+  background: rgba(255,75,75,0.07);
+  border: 1px solid rgba(255,75,75,0.16);
+  color: var(--red);
+}
+.cal-event-dot { width: 4px; height: 4px; border-radius: 50%; }
+
+.exam-countdown {
+  margin: 14px;
+  padding: 16px;
+  background: rgba(255,75,75,0.06);
+  border: 1px solid rgba(255,75,75,0.16);
+  border-radius: 12px;
+  display: flex; align-items: center; gap: 16px;
+}
+.countdown-num {
+  font-family: 'DM Serif Display', serif;
+  font-size: 40px;
+  color: var(--red);
+  line-height: 1;
+  min-width: 64px;
+  text-align: center;
+}
+.countdown-label {
+  font-size: 13px; font-weight: 700;
+  margin-bottom: 2px;
+}
+.countdown-sub { font-size: 12px; color: var(--muted); }
+
+.planner-intel-card {
+  background: rgba(13,15,18,0.9);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  overflow: hidden;
+}
+.intel-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px; font-weight: 700;
+  color: var(--muted);
+}
+.intel-item {
+  padding: 14px 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  display: flex; align-items: flex-start; gap: 12px;
+}
+.intel-icon {
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.intel-text { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.intel-text strong { color: var(--text); }
+
+/* ============ REINFORCEMENT ============ */
+.reinforce-section { padding: 120px 0; }
+
+.reinforce-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  align-items: start;
+}
+
+.reinforce-session-card {
+  background: rgba(10,16,14,0.98);
+  border: 1px solid rgba(78,158,122,0.2);
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 0 40px rgba(78,158,122,0.06);
+}
+.rs-header {
+  padding: 16px 22px;
+  border-bottom: 1px solid rgba(78,158,122,0.12);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.rs-title { font-size: 13px; font-weight: 700; color: var(--green-neon); }
+.rs-timer {
+  font-family: 'Geist Mono', monospace;
+  font-size: 12px; color: var(--muted);
+}
+.rs-concept {
+  padding: 12px 22px;
+  background: rgba(78,158,122,0.06);
+  border-bottom: 1px solid rgba(78,158,122,0.1);
+  font-family: 'Geist Mono', monospace;
+  font-size: 10px; letter-spacing: 0.1em;
+  color: var(--green);
+  display: flex; align-items: center; gap: 6px;
+}
+.rs-q { padding: 22px; }
+.rs-q-text { font-size: 14px; line-height: 1.65; margin-bottom: 18px; }
+.rs-options { display: flex; flex-direction: column; gap: 7px; }
+.rs-option {
+  padding: 10px 14px;
+  border-radius: 9px;
+  font-size: 13px;
+  border: 1px solid;
+  display: flex; align-items: center; gap: 8px;
+  cursor: default;
+}
+.rs-opt-neutral {
+  background: rgba(78,158,122,0.04);
+  border-color: rgba(78,158,122,0.12);
+  color: var(--muted);
+}
+.rs-opt-correct {
+  background: rgba(78,158,122,0.1);
+  border-color: rgba(78,158,122,0.28);
+  color: var(--green-neon);
+}
+
+.rs-complete {
+  padding: 22px;
+  border-top: 1px solid rgba(78,158,122,0.12);
+}
+.rs-complete-header {
+  font-family: 'Geist Mono', monospace;
+  font-size: 10px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--green);
+  margin-bottom: 12px;
+}
+.rs-score {
+  font-family: 'DM Serif Display', serif;
+  font-size: 28px; color: var(--green-neon);
+  margin-bottom: 12px;
+}
+.rs-ai-summary {
+  font-size: 12px; color: var(--muted); line-height: 1.7;
+  padding: 14px;
+  background: rgba(78,158,122,0.05);
+  border: 1px solid rgba(78,158,122,0.1);
+  border-radius: 10px;
+}
+
+.reinforce-features-col {
+  display: flex; flex-direction: column; gap: 16px;
+}
+.rf-feat {
+  padding: 24px;
+  background: rgba(13,15,18,0.9);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  transition: border-color 0.2s, transform 0.2s;
+}
+.rf-feat:hover { border-color: rgba(78,158,122,0.2); transform: translateX(4px); }
+.rf-feat-num {
+  font-family: 'DM Serif Display', serif;
+  font-size: 32px; color: rgba(78,158,122,0.25);
+  line-height: 1; margin-bottom: 8px;
+}
+.rf-feat-title { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+.rf-feat-desc { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+/* ============ SOCIAL PROOF ============ */
+.social-section {
+  padding: 80px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+}
+.social-section::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(0,200,180,0.02) 0%, transparent 60%);
+}
+.social-label {
+  text-align: center;
+  margin-bottom: 40px;
+}
+.testimonials-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+.testimonial-card {
+  padding: 28px;
+  background: rgba(13,15,18,0.9);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  position: relative;
+  transition: border-color 0.25s, transform 0.25s;
+}
+.testimonial-card:hover {
+  border-color: rgba(0,200,180,0.16);
+  transform: translateY(-3px);
+}
+.testimonial-card::before {
+  content: '"';
+  position: absolute; top: 20px; right: 24px;
+  font-family: 'DM Serif Display', serif;
+  font-size: 64px; line-height: 1;
+  color: rgba(0,200,180,0.08);
+}
+.testimonial-text {
+  font-size: 14px; line-height: 1.75;
+  color: rgba(245,245,247,0.8);
+  margin-bottom: 20px;
+  font-style: italic;
+}
+.testimonial-text strong {
+  color: var(--text); font-style: normal;
+}
+.testimonial-author {
+  display: flex; align-items: center; gap: 10px;
+}
+.testimonial-avatar {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: 'Syne', sans-serif;
+  flex-shrink: 0;
+}
+.testimonial-name {
+  font-size: 13px; font-weight: 700;
+  margin-bottom: 1px;
+}
+.testimonial-role {
+  font-family: 'Geist Mono', monospace;
+  font-size: 10px; letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+/* ============ PRICING ============ */
+.pricing-section { padding: 120px 0; }
+
+/* Early access banner */
+.early-access-banner {
+  background: linear-gradient(135deg, rgba(0,200,180,0.08), rgba(0,245,204,0.04));
+  border: 1px solid rgba(0,200,180,0.2);
+  border-radius: 16px;
+  padding: 24px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 48px;
+  flex-wrap: wrap;
+}
+.ea-left { display: flex; align-items: center; gap: 16px; }
+.ea-pulse {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--teal-neon);
+  box-shadow: 0 0 12px var(--teal-neon);
+  flex-shrink: 0;
+  animation: pulse-dot 1.8s ease-in-out infinite;
+}
+.ea-title {
+  font-size: 15px; font-weight: 700;
+  margin-bottom: 2px;
+}
+.ea-sub {
+  font-size: 12px; color: var(--muted);
+  font-family: 'Geist Mono', monospace;
+}
+.ea-badge {
+  font-family: 'Geist Mono', monospace;
+  font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+  background: rgba(0,200,180,0.1); border: 1px solid rgba(0,200,180,0.2);
+  color: var(--teal); padding: 6px 14px; border-radius: 100px;
+  white-space: nowrap;
+}
+
+/* Billing toggle */
+.billing-toggle {
+  display: flex; align-items: center; justify-content: center;
+  gap: 12px; margin-bottom: 40px;
+}
+.billing-label {
+  font-size: 13px; color: var(--muted);
+  font-family: 'Geist Mono', monospace;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.billing-label.active { color: var(--text); }
+.billing-label.annual-label { position: relative; }
+.billing-save-tag {
+  position: absolute; top: -18px; left: 50%; transform: translateX(-50%);
+  font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--teal-neon); white-space: nowrap;
+  font-family: 'Geist Mono', monospace;
+}
+.toggle-switch {
+  width: 40px; height: 22px;
+  background: rgba(0,200,180,0.15);
+  border: 1px solid rgba(0,200,180,0.25);
+  border-radius: 100px;
+  position: relative; cursor: pointer;
+  transition: background 0.2s;
+}
+.toggle-knob {
+  position: absolute; top: 3px; left: 3px;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--teal-neon);
+  transition: transform 0.2s cubic-bezier(0.23,1,0.32,1);
+}
+.toggle-switch.annual .toggle-knob { transform: translateX(18px); }
+
+/* Pricing grid */
+.pricing-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.1fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.pricing-card {
+  padding: 32px;
+  border-radius: 20px;
+  position: relative;
+  overflow: hidden;
+}
+.pricing-card.free {
+  background: rgba(13,15,18,0.9);
+  border: 1px solid var(--border);
+}
+.pricing-card.pro {
+  background: rgba(13,20,18,0.95);
+  border: 1px solid rgba(0,200,180,0.25);
+  box-shadow: 0 0 40px rgba(0,200,180,0.07);
+}
+.pricing-card.pro::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--teal), transparent);
+}
+.pricing-card.team {
+  background: rgba(13,13,18,0.9);
+  border: 1px solid rgba(63,124,255,0.18);
+}
+
+.pricing-badge {
+  font-family: 'Geist Mono', monospace;
+  font-size: 9px; letter-spacing: 0.12em;
+  text-transform: uppercase;
+  display: inline-block;
+  padding: 4px 10px; border-radius: 100px;
+  margin-bottom: 20px;
+}
+.badge-free { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); color: var(--muted); }
+.badge-pro { background: rgba(0,200,180,0.1); border: 1px solid rgba(0,200,180,0.2); color: var(--teal); }
+.badge-popular {
+  position: absolute; top: 16px; right: 16px;
+  font-family: 'Geist Mono', monospace;
+  font-size: 8px; letter-spacing: 0.1em; text-transform: uppercase;
+  background: var(--teal-dim); border: 1px solid rgba(0,200,180,0.25);
+  color: var(--teal); padding: 3px 8px; border-radius: 100px;
+}
+.badge-team { background: rgba(63,124,255,0.08); border: 1px solid rgba(63,124,255,0.18); color: var(--blue); }
+
+.pricing-name { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+.pricing-price {
+  font-family: 'DM Serif Display', serif;
+  font-size: 40px; line-height: 1;
+  margin-bottom: 4px;
+}
+.pricing-price span { font-size: 18px; opacity: 0.5; }
+.pricing-price .price-monthly { display: inline; }
+.pricing-price .price-annual { display: none; }
+.pricing-billing { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+.pricing-billing .bill-monthly { display: inline; }
+.pricing-billing .bill-annual { display: none; }
+
+/* Annual mode */
+body.annual-mode .pricing-price .price-monthly { display: none; }
+body.annual-mode .pricing-price .price-annual { display: inline; }
+body.annual-mode .pricing-billing .bill-monthly { display: none; }
+body.annual-mode .pricing-billing .bill-annual { display: inline; }
+
+/* Loyalty reward strip */
+.loyalty-strip {
+  margin: 12px 0 20px;
+  padding: 10px 14px;
+  background: rgba(91,255,168,0.05);
+  border: 1px solid rgba(91,255,168,0.15);
+  border-radius: 10px;
+  font-size: 11px;
+  color: rgba(91,255,168,0.85);
+  font-family: 'Geist Mono', monospace;
+  line-height: 1.5;
+}
+.loyalty-strip strong { color: var(--green-neon); }
+
+.pricing-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 20px 0;
+}
+
+.pricing-feature {
+  display: flex; align-items: flex-start; gap: 10px;
+  font-size: 13px; color: rgba(245,245,247,0.7);
+  margin-bottom: 10px; line-height: 1.4;
+}
+.pricing-check { color: var(--teal); flex-shrink: 0; margin-top: 1px; }
+.pricing-x { color: rgba(255,255,255,0.2); flex-shrink: 0; margin-top: 1px; }
+
+.pricing-cta {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  border-radius: 12px;
+  font-family: 'Syne', sans-serif;
+  font-size: 14px; font-weight: 700;
+  text-align: center; cursor: none;
+  text-decoration: none;
+  margin-top: 24px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.cta-free {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.09);
+  color: var(--muted);
+}
+.cta-free:hover { background: rgba(255,255,255,0.09); color: var(--text); }
+.cta-pro {
+  background: linear-gradient(135deg, var(--teal), var(--teal-neon));
+  border: none; color: var(--void);
+}
+.cta-pro:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(0,200,180,0.4); }
+.cta-team {
+  background: rgba(63,124,255,0.1);
+  border: 1px solid rgba(63,124,255,0.2);
+  color: var(--blue);
+}
+.cta-team:hover { background: rgba(63,124,255,0.18); }
+
+@media (max-width: 900px) {
+  .pricing-grid { grid-template-columns: 1fr; max-width: 440px; margin: 0 auto; }
+  .early-access-banner { flex-direction: column; align-items: flex-start; }
+}
+
+/* ============ CTA SECTION ============ */
+.cta-section { padding: 160px 0; text-align: center; position: relative; overflow: hidden; }
+
+.cta-orb {
+  position: absolute;
+  width: 700px; height: 700px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0,200,180,0.12) 0%, transparent 70%);
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  filter: blur(60px);
+  pointer-events: none;
+}
+
+.cta-content { position: relative; z-index: 1; }
+
+.cta-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: clamp(42px, 5.5vw, 80px);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  margin-bottom: 20px;
+}
+.cta-title em {
+  font-style: italic;
+  color: transparent;
+  background: linear-gradient(135deg, var(--teal) 0%, var(--teal-neon) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.cta-sub {
+  font-size: 18px; color: var(--muted);
+  max-width: 480px; margin: 0 auto 40px;
+  line-height: 1.7;
+}
+
+.cta-footnote {
+  margin-top: 20px;
+  font-family: 'Geist Mono', monospace;
+  font-size: 11px; letter-spacing: 0.08em;
+  color: rgba(245,245,247,0.2);
+}
+
+/* ============ FOOTER ============ */
+footer {
+  padding: 48px 0;
+  border-top: 1px solid var(--border);
+}
+.footer-inner {
+  display: flex; align-items: center; justify-content: space-between;
+}
+.footer-logo { display: flex; align-items: center; gap: 8px; text-decoration: none; }
+.footer-logo-text {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700; font-size: 16px; color: rgba(245,245,247,0.6);
+}
+.footer-links { display: flex; gap: 28px; }
+.footer-link {
+  font-size: 13px; color: var(--muted); text-decoration: none;
+  transition: color 0.2s;
+}
+.footer-link:hover { color: var(--text); }
+.footer-copy {
+  font-family: 'Geist Mono', monospace;
+  font-size: 11px; color: rgba(245,245,247,0.2);
+}
+
+/* ============ DIVIDER ============ */
+.section-divider {
+  height: 1px;
+  background: var(--border);
+  position: relative;
+}
+.section-divider::before {
+  content: '';
+  position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: 60px; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--teal), transparent);
+}
+
+/* ============ RESPONSIVE ============ */
+@media (max-width: 1024px) {
+  .hero-inner { grid-template-columns: 1fr; gap: 48px; }
+  .hero-headline { font-size: clamp(44px, 8vw, 72px); }
+  .hero-accent-1, .hero-accent-2 { display: none; }
+}
+
+@media (max-width: 900px) {
+  .container { padding: 0 24px; }
+  .container-sm { padding: 0 24px; }
+  .problem-grid,
+  .library-showcase,
+  .mcq-layout,
+  .learning-layout,
+  .flashcard-layout,
+  .summary-layout,
+  .planner-layout,
+  .reinforce-layout { grid-template-columns: 1fr; }
+  .astra-modes { grid-template-columns: 1fr; }
+  .testimonials-grid { grid-template-columns: 1fr; }
+  .pricing-grid { grid-template-columns: 1fr; max-width: 400px; }
+  .library-features { grid-template-columns: 1fr; }
+  .mcq-features { grid-template-columns: 1fr; }
+  .mentor-stat-row { grid-template-columns: 1fr; }
+  .footer-inner { flex-direction: column; gap: 24px; text-align: center; }
+  .footer-links { flex-wrap: wrap; justify-content: center; }
+  nav { padding: 0 24px; }
+  .hero { padding: 100px 24px 80px; }
+}
+
+@media (max-width: 600px) {
+  .btn-nav-ghost { display: none; }
+  .hero-actions { flex-direction: column; }
+  .btn-primary-lg, .btn-ghost-lg { width: 100%; text-align: center; }
+  .testimonials-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="cursor-dot" id="dot"></div>
+<div class="cursor-ring" id="ring"></div>
+
+<!-- NAV -->
+<nav id="nav">
+  <a href="#" class="nav-logo">
+    <svg width="26" height="26" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="13" cy="13" r="12" stroke="#00C8B4" stroke-width="1.5" opacity="0.5"/>
+      <circle cx="13" cy="13" r="4" fill="#00F5CC"/>
+      <path d="M13 1v4M13 21v4M1 13h4M21 13h4" stroke="#00C8B4" stroke-width="1.5" stroke-linecap="round" opacity="0.3"/>
+    </svg>
+    <span class="nav-logo-text">Synapse</span>
+    <span class="nav-badge">Beta</span>
+  </a>
+  <div class="nav-right">
+    <a href="#" class="btn-nav-ghost">Sign in</a>
+    <a href="#" class="btn-nav-primary">Start free</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-bg">
+    <div class="hero-grid"></div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+    <!-- Animated synapse network canvas -->
+    <canvas id="synapse-canvas" style="position:absolute;inset:0;width:100%;height:100%;opacity:0.35;pointer-events:none;z-index:0;"></canvas>
+  </div>
+
+  <div class="hero-inner">
+    <!-- LEFT: copy -->
+    <div class="hero-left">
+      <div class="hero-label">
+        <span class="label-tag"><span class="dot"></span>Built for medical students</span>
+      </div>
+      <h1 class="hero-headline">
+        It knows which<br>concept is<br><em>failing you.</em>
+      </h1>
+      <p class="hero-sub">
+        Synapse tracks your performance across every session, identifies your primary risk concept, and builds a targeted session to fix it — before your exam does.
+      </p>
+      <div class="hero-actions">
+        <a href="#" class="btn-primary-lg">Start for free</a>
+        <a href="#" class="btn-ghost-lg">See how it works</a>
+      </div>
+      <div class="hero-footnote">No credit card &middot; Upload your first file in 60 seconds</div>
+    </div>
+
+    <!-- RIGHT: live learning state mockup -->
+    <div class="hero-right">
+      <div class="hero-state-card">
+        <div class="hsc-topbar">
+          <span class="hsc-title">Learning State &mdash; Your Account</span>
+          <span class="hsc-live"><span class="hsc-live-dot"></span>Live</span>
+        </div>
+        <div class="hsc-state-row">
+          <div class="hsc-state-badge">
+            <div class="hsc-state-dot"></div>
+            <span class="hsc-state-text">DECLINING</span>
+          </div>
+          <span class="hsc-momentum">&minus;12% in 7 days</span>
+        </div>
+        <div class="hsc-sparkline">
+          <div class="hsc-spark-label">Session accuracy &mdash; last 8 sessions</div>
+          <svg width="100%" height="44" viewBox="0 0 320 44" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="spark-fill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="rgba(255,75,75,0.3)"/>
+                <stop offset="100%" stop-color="rgba(255,75,75,0)"/>
+              </linearGradient>
+            </defs>
+            <path d="M0,10 L46,8 L92,15 L138,13 L184,22 L230,28 L276,36 L320,40 L320,44 L0,44 Z" fill="url(#spark-fill)"/>
+            <polyline fill="none" stroke="rgba(255,75,75,0.75)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+              points="0,10 46,8 92,15 138,13 184,22 230,28 276,36 320,40"/>
+            <circle cx="320" cy="40" r="3.5" fill="#FF4B4B"/>
+          </svg>
+        </div>
+        <div class="hsc-risk">
+          <div class="hsc-risk-eyebrow">
+            Primary risk concept
+            <span class="hsc-chronic">CHRONIC</span>
+          </div>
+          <div class="hsc-concept">Systolic vs Diastolic Heart Failure</div>
+          <div class="hsc-risk-meta">
+            <span>Accuracy: 41%</span>
+            <span>&middot;</span>
+            <span>23 attempts</span>
+            <span>&middot;</span>
+            <span style="color:#FF4B4B;">HIGH RISK</span>
+          </div>
+          <div class="hsc-risk-badges">
+            <span class="hsc-risk-badge">Low accuracy trend</span>
+            <span class="hsc-risk-badge">Performance fluctuating</span>
+            <span class="hsc-risk-badge">Extended solve time</span>
+          </div>
+        </div>
+        <div class="hsc-cta">
+          <span>&#9889; Start 12-Minute Focus Session</span>
+          <span class="hsc-cta-arrow">&rarr;</span>
+        </div>
+      </div>
+      <!-- Floating accent cards -->
+      <div class="hero-accent-card hero-accent-1">
+        <div class="accent-label">Global accuracy</div>
+        <div class="accent-val" style="color:#F5A623;">73%</div>
+        <div class="accent-sub">Across 486 questions</div>
+      </div>
+      <div class="hero-accent-card hero-accent-2">
+        <div class="accent-label">Weakest page</div>
+        <div class="accent-val" style="color:#FF4B4B;font-size:15px;font-family:'Syne',sans-serif;font-weight:700;">Page 47 &middot; 42%</div>
+        <div class="accent-sub">Harrison&#39;s Ch.12</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="scroll-hint">
+    <div class="scroll-hint-line"></div>
+    <div class="scroll-hint-dot"></div>
+  </div>
+</section>
+<div class="section-divider"></div>
+
+<!-- THE PROBLEM -->
+<section class="problem-section">
+  <div class="container">
+    <div class="reveal section-header">
+      <div class="section-label"><span class="label-tag">The problem</span></div>
+      <h2 class="section-title">Your tools don't<br>know what you don't know.</h2>
+      <p class="section-sub">Every tool you use treats you the same on day one as it does on day sixty. That's not studying — that's hoping.</p>
+    </div>
+    <div class="problem-grid reveal">
+      <div class="problem-col">
+        <div class="problem-col-header">
+          <div class="problem-dot" style="background: var(--red)"></div>
+          <span class="problem-label" style="color: rgba(255,75,75,0.7)">Without Synapse</span>
+        </div>
+        <div class="problem-items">
+          <div class="problem-item bad">Re-read the same chapter hoping something sticks</div>
+          <div class="problem-item bad">Ask ChatGPT about a concept — not your lecture</div>
+          <div class="problem-item bad">Practice random MCQs with no memory of your history</div>
+          <div class="problem-item bad">Flashcards with no idea what you actually got wrong</div>
+          <div class="problem-item bad">Study for 8 hours and still not know if you're ready</div>
+        </div>
+      </div>
+      <div class="problem-col">
+        <div class="problem-col-header">
+          <div class="problem-dot" style="background: var(--teal)"></div>
+          <span class="problem-label" style="color: var(--teal)">With Synapse</span>
+        </div>
+        <div class="problem-items">
+          <div class="problem-item good">AI that reads your lecture and explains exactly page 47</div>
+          <div class="problem-item good">Astra answers from your file, grounded in your material</div>
+          <div class="problem-item good">Performance mentor tracks accuracy across every deck you've ever done</div>
+          <div class="problem-item good">Flashcard modes: Turbo Recall, High Yield, or Deep Mastery</div>
+          <div class="problem-item good">Learning state tells you: IMPROVING, STABLE, or DECLINING</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- LIBRARY -->
+<section class="library-section">
+  <div class="container">
+    <div class="library-showcase">
+      <div>
+        <div class="reveal section-header" style="margin-bottom: 32px;">
+          <div class="section-label"><span class="label-tag">Library</span></div>
+          <h2 class="section-title">Your material.<br>Fully indexed.</h2>
+          <p class="section-sub">Upload your PDFs, slides, notes. Synapse processes every page — not just the file. Then everything you do is grounded in what you actually uploaded.</p>
+        </div>
+        <div class="library-features reveal">
+          <div class="lib-feat">
+            <div class="lib-feat-icon">📄</div>
+            <div class="lib-feat-title">PDF, DOCX, PPTX, images</div>
+            <div class="lib-feat-desc">Every major format, processed at the page level. Not just text — structure and context.</div>
+          </div>
+          <div class="lib-feat">
+            <div class="lib-feat-icon">📁</div>
+            <div class="lib-feat-title">Folders & categories</div>
+            <div class="lib-feat-desc">Organize by rotation, block, or specialty. Color-code your folders. Mark files done.</div>
+          </div>
+          <div class="lib-feat">
+            <div class="lib-feat-icon">🔗</div>
+            <div class="lib-feat-title">Linked to your planner</div>
+            <div class="lib-feat-desc">Tag files to a study period. Synapse knows which materials belong to which rotation.</div>
+          </div>
+          <div class="lib-feat">
+            <div class="lib-feat-icon">⚡</div>
+            <div class="lib-feat-title">One source, every feature</div>
+            <div class="lib-feat-desc">Upload once. Generate summaries, MCQs, flashcards, and ask Astra — all from that file.</div>
+          </div>
+        </div>
+      </div>
+      <div class="reveal">
+        <div class="library-tree" style="margin-bottom: 16px;">
+          <div class="lib-top-bar">
+            <div class="lib-dot" style="background: #FF5F5C"></div>
+            <div class="lib-dot" style="background: #FFBD2E; margin-left:4px;"></div>
+            <div class="lib-dot" style="background: #27C93F; margin-left:4px;"></div>
+            <span class="lib-top-title">Library</span>
+          </div>
+          <div class="lib-folder active">
+            <span>📁</span> Internal Medicine
+          </div>
+          <div class="lib-file"><span>📄</span> Harrison's Chapter 12 — Cardiology<span class="lib-file-tag">Ready</span></div>
+          <div class="lib-file"><span>📄</span> Lecture 4 — Heart Failure<span class="lib-file-tag">Ready</span></div>
+          <div class="lib-file"><span>📄</span> ECG Interpretation Guide</div>
+          <div class="lib-folder">
+            <span>📁</span> Pharmacology
+          </div>
+          <div class="lib-folder">
+            <span>📁</span> Surgery Block
+          </div>
+        </div>
+        <div class="library-viewer-card">
+          <div class="viewer-topbar">
+            <div class="viewer-tab active">📄 Lecture 4 — Heart Failure</div>
+            <div class="viewer-page-badge mono">Page 12 / 38</div>
+          </div>
+          <div class="viewer-body">
+            <div class="viewer-doc">
+              <div class="doc-page-sim">
+                <div class="doc-line long"></div>
+                <div class="doc-line med"></div>
+                <div class="doc-highlight med"></div>
+                <div class="doc-line long"></div>
+                <div class="doc-line short"></div>
+                <div class="doc-line long"></div>
+                <div class="doc-line med"></div>
+                <div class="doc-line short"></div>
+                <div class="doc-line long"></div>
+                <div class="doc-line med"></div>
+              </div>
+            </div>
+            <div class="viewer-astra">
+              <div class="astra-label">Astra</div>
+              <div class="astra-bubble user">What's the difference between systolic and diastolic failure on this page?</div>
+              <div class="astra-bubble ai">On this page (p.12), systolic failure refers to reduced ejection fraction (&lt;40%), while diastolic failure occurs with preserved EF but impaired relaxation...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ASTRA -->
+<section class="astra-section">
+  <div class="container">
+    <div class="reveal section-header">
+      <div class="section-label"><span class="label-tag">Astra AI Tutor</span></div>
+      <h2 class="section-title">An AI tutor that<br>knows your exact page.</h2>
+      <p class="section-sub">Not a chatbot bolted on. Astra operates in three distinct contexts — each one purpose-built to ground answers in your material, not the internet.</p>
+    </div>
+    <div class="astra-modes">
+      <div class="astra-mode-card reveal">
+        <div class="astra-mode-pill pill-standalone">Standalone</div>
+        <div class="astra-mode-title">Medical study chat</div>
+        <div class="astra-mode-desc">General high-yield conversations, concept explanations, exam-focused reviews. Quick access to four modes: explain, review, use a file, or "I'm confused."</div>
+        <div class="astra-mode-feature">
+          <span>→ Persistent sessions</span><br>
+          <span>→ Rename & return to threads</span><br>
+          → Follow-up suggestions after each answer
+        </div>
+      </div>
+      <div class="astra-mode-card reveal" style="transition-delay: 0.1s">
+        <div class="astra-mode-pill pill-file">File Viewer</div>
+        <div class="astra-mode-title">Page-aware answers</div>
+        <div class="astra-mode-desc">Open any file in the viewer. Astra sees your current page — and optionally the page image. Ask about what's in front of you, right now.</div>
+        <div class="astra-mode-feature">
+          <span>→ Sends fileId + current page</span><br>
+          <span>→ Optional page image for vision context</span><br>
+          → Answers grounded in your document
+        </div>
+      </div>
+      <div class="astra-mode-card reveal" style="transition-delay: 0.2s">
+        <div class="astra-mode-pill pill-summary">Summary Viewer</div>
+        <div class="astra-mode-title">Select text → ask Astra</div>
+        <div class="astra-mode-desc">Reading a generated summary? Highlight any passage and Astra receives the exact selection — plus the source file — to explain or expand just that part.</div>
+        <div class="astra-mode-feature">
+          <span>→ Selection-level context</span><br>
+          <span>→ Cites the summary section</span><br>
+          → No need to retype what you're confused about
+        </div>
+      </div>
+    </div>
+    <div class="astra-prefs reveal">
+      <div>
+        <div class="astra-prefs-title">Astra learns your preferences</div>
+        <div class="astra-prefs-sub">Language, answer length, teaching style, study context</div>
+      </div>
+      <div class="astra-prefs-chips">
+        <span class="pref-chip active">Exam-focused</span>
+        <span class="pref-chip active">Balanced length</span>
+        <span class="pref-chip active">Arabic</span>
+        <span class="pref-chip">Step-by-step</span>
+        <span class="pref-chip">Detailed</span>
+        <span class="pref-chip">Direct</span>
+        <span class="pref-chip">English</span>
+        <span class="pref-chip">Turkish</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- MCQ + MENTOR -->
+<section class="mcq-section">
+  <div class="container">
+    <div class="reveal section-header">
+      <div class="section-label"><span class="label-tag">MCQ + Performance Mentor</span></div>
+      <h2 class="section-title">It remembers every<br>question you've ever answered.</h2>
+      <p class="section-sub">Not just the deck you just finished. Your Performance Mentor pulls from your entire history — and it knows your weakest file down to the page.</p>
+    </div>
+    <div class="mcq-layout">
+      <div>
+        <div class="mcq-card reveal">
+          <div class="mcq-topbar">
+            <span class="mcq-progress-info">Question 4 / 10 — Harrison's Ch.12</span>
+            <span class="mcq-timer">⏱ 02:14</span>
+          </div>
+          <div class="mcq-progress-bar"><div class="mcq-progress-fill"></div></div>
+          <div class="mcq-question">
+            <div class="mcq-source">📄 Harrison's Chapter 12 — Cardiology · Page 47</div>
+            <div class="mcq-q-text">A 68-year-old male with a history of hypertension presents with progressive dyspnea on exertion and bilateral leg swelling. Echocardiography shows EF of 35%. Which of the following is the primary pathophysiological mechanism?</div>
+            <div class="mcq-options">
+              <div class="mcq-option neutral">
+                <span class="mcq-opt-letter">A</span>
+                Increased afterload from systemic vasoconstriction
+              </div>
+              <div class="mcq-option correct">
+                <span class="mcq-opt-letter">B</span>
+                Reduced myocardial contractility leading to decreased stroke volume
+              </div>
+              <div class="mcq-option wrong">
+                <span class="mcq-opt-letter">C</span>
+                Diastolic dysfunction with impaired ventricular relaxation
+              </div>
+              <div class="mcq-option neutral">
+                <span class="mcq-opt-letter">D</span>
+                Right ventricular failure secondary to pulmonary hypertension
+              </div>
+            </div>
+          </div>
+          <div class="mcq-explain">
+            <div class="mcq-explain-label">Why B is correct</div>
+            <div class="mcq-explain-text">An EF of 35% (&lt;40%) confirms systolic heart failure. The hallmark is reduced contractility → decreased stroke volume → compensatory neurohormonal activation. This matches the clinical picture of HFrEF.</div>
+          </div>
+        </div>
+        <div class="mcq-features" style="margin-top: 16px;">
+          <div class="mcq-feat reveal">
+            <div class="mcq-feat-title">Explain All</div>
+            <div class="mcq-feat-desc">Reveals the explanation for every option — A through E — before moving on. Not just correct/wrong.</div>
+          </div>
+          <div class="mcq-feat reveal">
+            <div class="mcq-feat-title">Review Mistakes</div>
+            <div class="mcq-feat-desc">After a deck, retake only the questions you got wrong. Focus exactly where it counts.</div>
+          </div>
+        </div>
+      </div>
+      <div class="mentor-card reveal" style="transition-delay: 0.15s">
+        <div class="mentor-header">
+          <div class="mentor-icon">🎯</div>
+          <div>
+            <div class="mentor-title">Performance Mentor</div>
+            <div class="mentor-sub">After deck · Cross-session analysis</div>
+          </div>
+        </div>
+        <div class="mentor-body">
+          <div class="mentor-stat-row">
+            <div class="mentor-stat">
+              <div class="mentor-stat-label">Global accuracy</div>
+              <div class="mentor-stat-val neutral">73%</div>
+            </div>
+            <div class="mentor-stat">
+              <div class="mentor-stat-label">7-day change</div>
+              <div class="mentor-stat-val negative">−8%</div>
+            </div>
+            <div class="mentor-stat">
+              <div class="mentor-stat-label">Total answered</div>
+              <div class="mentor-stat-val neutral">486</div>
+            </div>
+            <div class="mentor-stat">
+              <div class="mentor-stat-label">This deck</div>
+              <div class="mentor-stat-val positive">80%</div>
+            </div>
+          </div>
+          <div class="mentor-weakest">
+            <div class="mentor-weakest-label">⚠ Weakest file</div>
+            <div class="mentor-weakest-val">Harrison's Ch.12 — Cardiology</div>
+            <div class="mentor-weakest-acc">Accuracy: 51% across 34 attempts</div>
+          </div>
+          <div class="mentor-weakest" style="border-color: rgba(245,166,35,0.16); background: rgba(245,166,35,0.05);">
+            <div class="mentor-weakest-label" style="color: var(--amber);">⚠ Weakest page</div>
+            <div class="mentor-weakest-val">Page 47 — Systolic vs Diastolic HF</div>
+            <div class="mentor-weakest-acc" style="margin-top: 2px;">Accuracy: 42% across 12 attempts</div>
+          </div>
+          <div class="mentor-insight">
+            <strong>Note:</strong> You're consistently missing questions from Page 47 of this file. This pattern suggests conceptual confusion rather than random error. Consider reviewing the systolic/diastolic distinction in the file viewer with Astra.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- LEARNING STATE -->
+<section class="learning-section">
+  <div class="container">
+    <div class="reveal section-header">
+      <div class="section-label"><span class="label-tag">Learning Analytics</span></div>
+      <h2 class="section-title">Three words that<br>change how you study.</h2>
+      <p class="section-sub">DECLINING. STABLE. IMPROVING. Synapse computes your learning state from every session and tells you which concept is actively limiting your performance — and what to do about it.</p>
+    </div>
+    <div class="learning-layout">
+      <div class="reveal">
+        <div class="state-card">
+          <div class="state-header">
+            <div class="state-eyebrow">Current learning state</div>
+            <div class="state-badge state-declining">
+              <div class="state-dot declining-dot"></div>
+              DECLINING
+            </div>
+            <div class="state-momentum">Accuracy dropped <span class="momentum-val">−12%</span> in 7 days across 3 concepts</div>
+          </div>
+          <div class="state-body">
+            <div class="sparkline-wrap">
+              <div class="sparkline-label">Session accuracy — last 8 sessions</div>
+              <svg class="sparkline-svg" viewBox="0 0 280 48">
+                <polyline fill="none" stroke="rgba(255,75,75,0.6)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+                  points="10,12 50,10 90,16 130,14 170,24 210,30 250,40 270,44"/>
+                <circle cx="270" cy="44" r="3" fill="var(--red)"/>
+              </svg>
+            </div>
+            <div class="risk-panel">
+              <div class="risk-eyebrow">PRIMARY RISK · CHRONIC</div>
+              <div class="risk-concept">Systolic vs Diastolic Heart Failure</div>
+              <div class="risk-meta">
+                <span>Accuracy: 41%</span>
+                <span>·</span>
+                <span>23 attempts</span>
+              </div>
+              <div class="risk-badges">
+                <span class="risk-badge">Low accuracy trend</span>
+                <span class="risk-badge">Performance fluctuating</span>
+                <span class="risk-badge">Extended solve time</span>
+              </div>
+            </div>
+            <button class="prescription-btn">
+              ⚡ Start 12-Minute Focus Session
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="reveal" style="transition-delay: 0.1s">
+        <div class="timeline-panel">
+          <div class="timeline-title mono" style="font-family: 'Geist Mono', monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;">Concept breakdown</div>
+          <div class="concept-list">
+            <div class="concept-row">
+              <div class="concept-name">Systolic HF Pathophysiology</div>
+              <div class="concept-acc-bar-wrap"><div class="concept-acc-bar" style="width:41%; background: var(--red);"></div></div>
+              <div class="concept-acc" style="color: var(--red);">41%</div>
+              <div class="concept-trend" style="color: var(--red);">↓</div>
+            </div>
+            <div class="concept-row">
+              <div class="concept-name">Beta-blocker Pharmacology</div>
+              <div class="concept-acc-bar-wrap"><div class="concept-acc-bar" style="width:62%; background: var(--amber);"></div></div>
+              <div class="concept-acc" style="color: var(--amber);">62%</div>
+              <div class="concept-trend" style="color: var(--amber);">→</div>
+            </div>
+            <div class="concept-row">
+              <div class="concept-name">ACE Inhibitor Mechanism</div>
+              <div class="concept-acc-bar-wrap"><div class="concept-acc-bar" style="width:78%; background: var(--teal);"></div></div>
+              <div class="concept-acc" style="color: var(--teal);">78%</div>
+              <div class="concept-trend" style="color: var(--teal);">↑</div>
+            </div>
+            <div class="concept-row">
+              <div class="concept-name">Fluid Management in HF</div>
+              <div class="concept-acc-bar-wrap"><div class="concept-acc-bar" style="width:55%; background: var(--amber);"></div></div>
+              <div class="concept-acc" style="color: var(--amber);">55%</div>
+              <div class="concept-trend" style="color: var(--amber);">→</div>
+            </div>
+            <div class="concept-row">
+              <div class="concept-name">Digoxin Use Cases</div>
+              <div class="concept-acc-bar-wrap"><div class="concept-acc-bar" style="width:85%; background: var(--green);"></div></div>
+              <div class="concept-acc" style="color: var(--green);">85%</div>
+              <div class="concept-trend" style="color: var(--green);">↑</div>
+            </div>
+            <div class="concept-row">
+              <div class="concept-name">NYHA Classification</div>
+              <div class="concept-acc-bar-wrap"><div class="concept-acc-bar" style="width:91%; background: var(--green);"></div></div>
+              <div class="concept-acc" style="color: var(--green);">91%</div>
+              <div class="concept-trend" style="color: var(--green);">↑</div>
+            </div>
+          </div>
+          <div style="margin-top: 24px; padding: 16px; background: rgba(0,200,180,0.04); border: 1px solid rgba(0,200,180,0.1); border-radius: 10px;">
+            <div style="font-family: 'Geist Mono', monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--teal); margin-bottom: 8px;">System message</div>
+            <div style="font-size: 12px; color: var(--muted); line-height: 1.7;">
+              "Your performance is currently unstable. Immediate reinforcement of high-risk concepts is recommended. <strong style="color: var(--text);">Start a focus session for Systolic HF — it's actively limiting your progress.</strong>"
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- FLASHCARDS -->
+<section class="flashcard-section">
+  <div class="container">
+    <div class="flashcard-layout">
+      <div class="reveal">
+        <div class="section-header">
+          <div class="section-label"><span class="label-tag">Flashcards</span></div>
+          <h2 class="section-title">Three modes.<br>One goal: retention.</h2>
+          <p class="section-sub">Generate from your files. Choose how deep to go. Every card tells you which page it came from — so you can jump straight back to the source.</p>
+        </div>
+        <div class="fc-modes">
+          <div class="fc-mode-card">
+            <div class="fc-mode-name">⚡ Turbo Recall <span class="fc-mode-tag" style="background: rgba(245,166,35,0.08); border: 1px solid rgba(245,166,35,0.2); color: var(--amber);">Speed</span></div>
+            <div class="fc-mode-desc">Fast recall, minimal redundancy. Rapid-fire key facts. Ideal 24 hours before an exam.</div>
+          </div>
+          <div class="fc-mode-card">
+            <div class="fc-mode-name">🎯 High Yield <span class="fc-mode-tag" style="background: rgba(0,200,180,0.07); border: 1px solid rgba(0,200,180,0.2); color: var(--teal);">Exam</span></div>
+            <div class="fc-mode-desc">Keeps only the highest exam-probability points from your material. Curated, not exhaustive.</div>
+          </div>
+          <div class="fc-mode-card">
+            <div class="fc-mode-name">📚 Deep Mastery <span class="fc-mode-tag" style="background: rgba(122,108,255,0.08); border: 1px solid rgba(122,108,255,0.2); color: var(--purple);">Thorough</span></div>
+            <div class="fc-mode-desc">Full concepts with strong explanations. Builds lasting understanding, not just recall.</div>
+          </div>
+        </div>
+      </div>
+      <div class="reveal" style="transition-delay: 0.1s">
+        <div class="card-flip-wrapper" id="flashcard">
+          <div class="card-flip-inner">
+            <div class="card-face card-front">
+              <div class="card-face-label">Question</div>
+              <div class="card-q-text">What is the primary difference between HFrEF and HFpEF in terms of ejection fraction and underlying mechanism?</div>
+              <div class="card-source-tag">📄 Harrison's Ch.12 — Page 47</div>
+            </div>
+            <div class="card-face card-back">
+              <div class="card-face-label">Answer</div>
+              <div class="card-a-text">
+                <ul style="list-style: none; padding: 0;">
+                  <li>• <strong>HFrEF:</strong> EF &lt;40%, caused by reduced myocardial contractility (systolic dysfunction)</li>
+                  <li>• <strong>HFpEF:</strong> EF ≥50%, caused by impaired ventricular relaxation (diastolic dysfunction)</li>
+                  <li>• HFrEF responds to ACEi/ARB + beta-blockers + spironolactone</li>
+                </ul>
+              </div>
+              <div class="card-source-tag">📄 Harrison's Ch.12 — Page 47</div>
+            </div>
+          </div>
+        </div>
+        <div class="flip-hint">Click card to flip · Arrow keys to navigate</div>
+        <div class="grade-row">
+          <div class="grade-btn grade-correct">✓ Correct</div>
+          <div class="grade-btn grade-not-sure">? Not sure</div>
+          <div class="grade-btn grade-wrong">✗ Wrong</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- SUMMARIES -->
+<section class="summary-section">
+  <div class="container">
+    <div class="reveal section-header">
+      <div class="section-label"><span class="label-tag">Summaries</span></div>
+      <h2 class="section-title">Your file. Your stage.<br>Your exam goal.</h2>
+      <p class="section-sub">Summaries aren't one-size-fits-all. Set your academic year, specialty, and goal — then ask Astra questions about any passage without leaving the page.</p>
+    </div>
+    <div class="summary-layout">
+      <div class="reveal">
+        <div class="summary-modal">
+          <div class="summary-modal-header">
+            <div class="summary-modal-title">Generate Summary</div>
+            <div class="summary-modal-sub">Tailored to your stage and specialty</div>
+          </div>
+          <div class="summary-form">
+            <div class="form-field">
+              <label>Source file</label>
+              <div class="selected-file-chip">
+                <span class="file-chip-icon">📄</span>
+                Harrison's Chapter 12 — Cardiology
+              </div>
+            </div>
+            <div class="form-field">
+              <label>Academic stage</label>
+              <select class="form-select">
+                <option>4th Year</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label>Specialty</label>
+              <select class="form-select">
+                <option>Internal Medicine</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label>Goal</label>
+              <div class="form-tags">
+                <div class="form-tag selected">Exam</div>
+                <div class="form-tag unselected">Understanding</div>
+                <div class="form-tag unselected">Revision</div>
+              </div>
+            </div>
+            <button class="generate-btn">Generate Summary →</button>
+          </div>
+        </div>
+      </div>
+      <div class="reveal" style="transition-delay: 0.1s">
+        <div class="summary-viewer-card">
+          <div class="sv-header">
+            <div class="sv-title">Cardiology Block Summary</div>
+            <div class="sv-meta">4th_year · internal_medicine · exam · Harrison's Ch.12</div>
+          </div>
+          <div class="sv-body">
+            <div class="sv-section">
+              <div class="sv-section-title"><span class="sv-section-icon">🫀</span> Heart Failure Classification</div>
+              <div class="sv-section-text">Heart failure is classified by ejection fraction: HFrEF (&lt;40%) is associated with systolic dysfunction and responds well to neurohormonal blockade. HFpEF (≥50%) involves diastolic dysfunction and has fewer evidence-based therapies...</div>
+            </div>
+            <div class="sv-section">
+              <div class="sv-section-title"><span class="sv-section-icon">💊</span> High-Yield Pharmacology</div>
+              <div class="sv-section-text">ACE inhibitors reduce mortality in HFrEF. Beta-blockers (carvedilol, metoprolol) reduce sudden cardiac death risk. Spironolactone indicated when EF &lt;35%...</div>
+            </div>
+            <div class="sv-key-takeaways">
+              <div class="sv-kt-label">Key takeaways</div>
+              <div class="sv-kt-item">EF &lt;40% = systolic HF; always check eligibility for ACEi + BB</div>
+              <div class="sv-kt-item">Loop diuretics for symptom relief but do NOT improve mortality</div>
+              <div class="sv-kt-item">NT-proBNP &gt;900 pg/mL is diagnostic threshold in acute setting</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top: 24px; text-align: center;" class="reveal">
+      <div class="label-tag" style="margin: 0 auto;">✦ Share with a code · Import from a friend · Select any text → Ask Astra</div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- PLANNER -->
+<section class="planner-section">
+  <div class="container">
+    <div class="reveal section-header">
+      <div class="section-label"><span class="label-tag">Planner</span></div>
+      <h2 class="section-title">Your exam is in<br><em style="font-style:italic; color: var(--red);">18 days.</em></h2>
+      <p class="section-sub">Set your rotation dates, link your study files, add your exam date. Synapse counts down — and your Learning page adjusts its urgency accordingly.</p>
+    </div>
+    <div class="planner-layout">
+      <div class="reveal">
+        <div class="planner-card">
+          <div class="planner-topbar">
+            <span class="planner-month">March 2026</span>
+            <div class="planner-nav">
+              <div class="planner-nav-btn">‹</div>
+              <div class="planner-nav-btn">›</div>
+            </div>
+          </div>
+          <div class="cal-grid">
+            <div class="cal-header">
+              <div class="cal-day-label">Sun</div>
+              <div class="cal-day-label">Mon</div>
+              <div class="cal-day-label">Tue</div>
+              <div class="cal-day-label">Wed</div>
+              <div class="cal-day-label">Thu</div>
+              <div class="cal-day-label">Fri</div>
+              <div class="cal-day-label">Sat</div>
+            </div>
+            <div class="cal-days">
+              <div class="cal-day"></div>
+              <div class="cal-day"></div>
+              <div class="cal-day"></div>
+              <div class="cal-day"></div>
+              <div class="cal-day"></div>
+              <div class="cal-day"></div>
+              <div class="cal-day has-event">1 <div class="cal-event-dot" style="background:var(--blue)"></div></div>
+              <div class="cal-day has-event">2 <div class="cal-event-dot" style="background:var(--teal)"></div></div>
+              <div class="cal-day today">3</div>
+              <div class="cal-day has-event">4 <div class="cal-event-dot" style="background:var(--teal)"></div></div>
+              <div class="cal-day">5</div>
+              <div class="cal-day has-event">6 <div class="cal-event-dot" style="background:var(--purple)"></div></div>
+              <div class="cal-day">7</div>
+              <div class="cal-day">8</div>
+              <div class="cal-day">9</div>
+              <div class="cal-day has-event">10 <div class="cal-event-dot" style="background:var(--teal)"></div></div>
+              <div class="cal-day">11</div>
+              <div class="cal-day has-event">12 <div class="cal-event-dot" style="background:var(--blue)"></div></div>
+              <div class="cal-day">13</div>
+              <div class="cal-day">14</div>
+              <div class="cal-day">15</div>
+              <div class="cal-day has-event">16 <div class="cal-event-dot" style="background:var(--teal)"></div></div>
+              <div class="cal-day">17</div>
+              <div class="cal-day">18</div>
+              <div class="cal-day">19</div>
+              <div class="cal-day">20</div>
+              <div class="cal-day exam-day">21 <div class="cal-event-dot" style="background:var(--red)"></div></div>
+              <div class="cal-day">22</div>
+              <div class="cal-day">23</div>
+            </div>
+          </div>
+          <div class="exam-countdown">
+            <div class="countdown-num" id="countdown">18</div>
+            <div>
+              <div class="countdown-label">Days until Internal Medicine Exam</div>
+              <div class="countdown-sub">March 21 — All study sessions now prioritized for this block</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="reveal" style="transition-delay: 0.1s">
+        <div class="planner-intel-card">
+          <div class="intel-header">Synapse cross-feature intelligence</div>
+          <div class="intel-item">
+            <div class="intel-icon" style="background: rgba(255,75,75,0.08); border: 1px solid rgba(255,75,75,0.16);">⏰</div>
+            <div class="intel-text"><strong>Exam countdown active.</strong> Learning page now shows "18 days" and sessions are urgency-weighted toward Internal Medicine material.</div>
+          </div>
+          <div class="intel-item">
+            <div class="intel-icon" style="background: rgba(0,200,180,0.07); border: 1px solid rgba(0,200,180,0.16);">📁</div>
+            <div class="intel-text"><strong>Files tagged to this period:</strong> Harrison's Ch.12, Lecture 4 — Heart Failure, ECG Guide. Synapse knows what's in scope.</div>
+          </div>
+          <div class="intel-item">
+            <div class="intel-icon" style="background: rgba(63,124,255,0.08); border: 1px solid rgba(63,124,255,0.16);">📅</div>
+            <div class="intel-text"><strong>Upcoming: Cardiology Lecture</strong> on March 6. Your reinforcement sessions are frontloaded before that date.</div>
+          </div>
+          <div class="intel-item" style="border: none;">
+            <div class="intel-icon" style="background: rgba(122,108,255,0.07); border: 1px solid rgba(122,108,255,0.16);">🎯</div>
+            <div class="intel-text">The planner doesn't just track time — it <strong>informs everything else</strong>. Your analytics, reinforcement sessions, and AI responses all know what rotation you're in.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- REINFORCEMENT -->
+<section class="reinforce-section">
+  <div class="container">
+    <div class="reveal section-header">
+      <div class="section-label"><span class="label-tag">Reinforcement</span></div>
+      <h2 class="section-title">Targeted sessions<br>built for your weak concept.</h2>
+      <p class="section-sub">Not random practice. Synapse identifies which concept is limiting you, builds a timed MCQ session around it, and gives you an AI teaching summary when you're done.</p>
+    </div>
+    <div class="reinforce-layout">
+      <div class="reveal">
+        <div class="reinforce-session-card">
+          <div class="rs-header">
+            <span class="rs-title">⚡ Reinforcement Session</span>
+            <span class="rs-timer">⏱ 08:42 remaining</span>
+          </div>
+          <div class="rs-concept">
+            🎯 FOCUS CONCEPT: Systolic vs Diastolic Heart Failure — 3 / 6
+          </div>
+          <div class="rs-q">
+            <div class="rs-q-text">Which of the following is the most appropriate initial treatment for a patient with newly diagnosed HFrEF (EF 30%) who has no contraindications?</div>
+            <div class="rs-options">
+              <div class="rs-option rs-opt-correct">
+                <span style="color: var(--green-neon); font-family: 'Geist Mono', monospace; font-size: 11px; width: 18px;">A</span>
+                ACE inhibitor + beta-blocker + dietary sodium restriction
+              </div>
+              <div class="rs-option rs-opt-neutral">
+                <span style="font-family: 'Geist Mono', monospace; font-size: 11px; width: 18px;">B</span>
+                Calcium channel blocker monotherapy
+              </div>
+              <div class="rs-option rs-opt-neutral">
+                <span style="font-family: 'Geist Mono', monospace; font-size: 11px; width: 18px;">C</span>
+                Digoxin alone for rate control
+              </div>
+            </div>
+          </div>
+          <div class="rs-complete">
+            <div class="rs-complete-header">Session complete</div>
+            <div class="rs-score">5 / 6 correct — 83%</div>
+            <div class="rs-ai-summary">
+              <strong style="color: var(--green-neon);">AI teaching note:</strong> You showed strong improvement on ACE inhibitor indications but still confused EF thresholds in 2 questions. The key distinction: HFrEF is defined by EF &lt;40%, not by symptoms. Review the classification table on Harrison's p.47 once more before your exam.
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="reinforce-features-col reveal" style="transition-delay: 0.1s">
+        <div class="rf-feat">
+          <div class="rf-feat-num">01</div>
+          <div class="rf-feat-title">Concept-targeted</div>
+          <div class="rf-feat-desc">Each session is built specifically for the concept your learning state identifies as the primary risk. Not a random shuffle — a deliberate attack on your weak point.</div>
+        </div>
+        <div class="rf-feat">
+          <div class="rf-feat-num">02</div>
+          <div class="rf-feat-title">Timed and resumable</div>
+          <div class="rf-feat-desc">Sessions are timed (10–15 minutes). Close the tab and come back — your answers are saved. The session picks up exactly where you left off.</div>
+        </div>
+        <div class="rf-feat">
+          <div class="rf-feat-num">03</div>
+          <div class="rf-feat-title">AI teaching summary</div>
+          <div class="rf-feat-desc">After each session, Synapse generates a personalized teaching note — not a score report. It explains what you missed and what you should review, using the exact language of the concept.</div>
+        </div>
+        <div class="rf-feat">
+          <div class="rf-feat-num">04</div>
+          <div class="rf-feat-title">Feeds your learning state</div>
+          <div class="rf-feat-desc">Every answer in a reinforcement session flows back into your analytics. Complete enough sessions and your state shifts: DECLINING → STABLE → IMPROVING.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- SOCIAL PROOF -->
+<section class="social-section">
+  <div class="container">
+    <div class="social-label reveal">
+      <span class="label-tag">From beta users</span>
+    </div>
+    <div class="testimonials-grid">
+      <div class="testimonial-card reveal">
+        <div class="testimonial-text">
+          "I failed my cardiology block twice. Uploaded my lectures to Synapse, it told me my accuracy on Heart Failure concepts was <strong>38%</strong> — I had no idea. Two weeks of focus sessions later, I passed with 81%."
+        </div>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar" style="background: rgba(0,200,180,0.12); border: 1px solid rgba(0,200,180,0.2); color: var(--teal);">L</div>
+          <div>
+            <div class="testimonial-name">Layla A.</div>
+            <div class="testimonial-role">4th Year · Internal Medicine</div>
+          </div>
+        </div>
+      </div>
+      <div class="testimonial-card reveal" style="transition-delay: 0.1s">
+        <div class="testimonial-text">
+          "The page-aware Astra is insane. I'm reading my lecture on page 14, I ask 'what does this mean clinically?' — it answers about <strong>that exact page</strong>. Not general knowledge. My lecture."
+        </div>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar" style="background: rgba(63,124,255,0.1); border: 1px solid rgba(63,124,255,0.2); color: var(--blue);">K</div>
+          <div>
+            <div class="testimonial-name">Kareem M.</div>
+            <div class="testimonial-role">3rd Year · Surgery Block</div>
+          </div>
+        </div>
+      </div>
+      <div class="testimonial-card reveal" style="transition-delay: 0.2s">
+        <div class="testimonial-text">
+          "I generate a summary before every exam. I set it to 4th year, exam goal, internal medicine — and it gives me exactly what I need. Then I highlight anything I don't understand and ask Astra right there."
+        </div>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar" style="background: rgba(122,108,255,0.1); border: 1px solid rgba(122,108,255,0.2); color: var(--purple);">S</div>
+          <div>
+            <div class="testimonial-name">Sara H.</div>
+            <div class="testimonial-role">Final Year · Residency Prep</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- PRICING -->
+<section class="pricing-section" id="pricing">
+  <div class="container">
+    <div class="reveal section-header" style="text-align: center;">
+      <div class="section-label" style="justify-content: center; display: flex;"><span class="label-tag">Pricing</span></div>
+      <h2 class="section-title">Everything free.<br>For now.</h2>
+      <p class="section-sub" style="margin: 0 auto;">Synapse is in early access. Every feature is fully unlocked while we finalize pricing. Pro is launching in the coming weeks — sign up today and lock in your rate forever.</p>
+    </div>
+
+    <!-- Early access banner -->
+    <div class="early-access-banner reveal">
+      <div class="ea-left">
+        <div class="ea-pulse"></div>
+        <div>
+          <div class="ea-title">Early access is live — everything is free right now</div>
+          <div class="ea-sub">Pro plan launching soon · Sign up before billing goes live to lock in your rate</div>
+        </div>
+      </div>
+      <div class="ea-badge">🔒 Lock in $8/mo forever</div>
+    </div>
+
+    <!-- Billing toggle -->
+    <div class="billing-toggle reveal">
+      <span class="billing-label monthly-label active" id="label-monthly">Monthly</span>
+      <div class="toggle-switch" id="billing-toggle">
+        <div class="toggle-knob"></div>
+      </div>
+      <span class="billing-label annual-label" id="label-annual">
+        Annual
+        <span class="billing-save-tag">Save 33%</span>
+      </span>
+    </div>
+
+    <div class="pricing-grid">
+
+      <!-- FREE -->
+      <div class="pricing-card free reveal">
+        <div class="pricing-badge badge-free">Free forever</div>
+        <div class="pricing-name">Explorer</div>
+        <div class="pricing-price"><span>$</span>0</div>
+        <div class="pricing-billing">No credit card · always free</div>
+        <div class="pricing-divider"></div>
+        <div class="pricing-feature"><span class="pricing-check">✓</span> Unlimited file uploads</div>
+        <div class="pricing-feature"><span class="pricing-check">✓</span> File-viewer Astra (page-aware)</div>
+        <div class="pricing-feature"><span class="pricing-check">✓</span> Standalone Astra tutor</div>
+        <div class="pricing-feature"><span class="pricing-check">✓</span> Summaries, MCQ, flashcards</div>
+        <div class="pricing-feature"><span class="pricing-check">✓</span> Reinforcement sessions — 3 concept slots</div>
+        <div class="pricing-feature"><span class="pricing-x">✗</span> <span style="color:var(--muted)">Full Learning State dashboard</span></div>
+        <div class="pricing-feature"><span class="pricing-x">✗</span> <span style="color:var(--muted)">Performance Mentor</span></div>
+        <div class="pricing-feature"><span class="pricing-x">✗</span> <span style="color:var(--muted)">Planner & exam countdown</span></div>
+        <a href="#" class="pricing-cta cta-free">Start free</a>
+      </div>
+
+      <!-- PRO -->
+      <div class="pricing-card pro reveal" style="transition-delay: 0.1s">
+        <span class="badge-popular">Early access</span>
+        <div class="pricing-badge badge-pro">Pro</div>
+        <div class="pricing-name">Student</div>
+        <div class="pricing-price">
+          <span>$</span><span class="price-monthly">12</span><span class="price-annual">8</span><span>/mo</span>
+        </div>
+        <div class="pricing-billing">
+          <span class="bill-monthly">Billed monthly · cancel anytime</span>
+          <span class="bill-annual">$96/yr · 2 months free · cancel anytime</span>
+        </div>
+        <div class="loyalty-strip">
+          🎁 <strong>Early access offer:</strong> Sign up before billing goes live and pay <strong>$8/mo forever</strong> — even after we raise prices. + 2 free months on annual.
+        </div>
+        <div class="pricing-divider"></div>
+        <div class="pricing-feature"><span class="pricing-check" style="color:var(--teal-neon)">✓</span> Everything in Explorer</div>
+        <div class="pricing-feature"><span class="pricing-check" style="color:var(--teal-neon)">✓</span> Unlimited reinforcement sessions</div>
+        <div class="pricing-feature"><span class="pricing-check" style="color:var(--teal-neon)">✓</span> Full Learning State — IMPROVING / STABLE / DECLINING</div>
+        <div class="pricing-feature"><span class="pricing-check" style="color:var(--teal-neon)">✓</span> Performance Mentor — weakest file & page</div>
+        <div class="pricing-feature"><span class="pricing-check" style="color:var(--teal-neon)">✓</span> Planner — rotation periods, exam countdown</div>
+        <div class="pricing-feature"><span class="pricing-check" style="color:var(--teal-neon)">✓</span> Cross-feature intelligence</div>
+        <div class="pricing-feature"><span class="pricing-check" style="color:var(--teal-neon)">✓</span> Summary share codes</div>
+        <a href="#" class="pricing-cta cta-pro">Lock in early access rate →</a>
+      </div>
+
+      <!-- TEAM -->
+      <div class="pricing-card team reveal" style="transition-delay: 0.2s">
+        <div class="pricing-badge badge-team">Coming soon</div>
+        <div class="pricing-name">Team</div>
+        <div class="pricing-price" style="font-size: 28px; font-family: 'Syne', sans-serif;">Custom</div>
+        <div class="pricing-billing">For study groups & universities</div>
+        <div class="pricing-divider"></div>
+        <div class="pricing-feature"><span class="pricing-check" style="color:var(--blue)">✓</span> Everything in Student</div>
+        <div class="pricing-feature"><span class="pricing-check" style="color:var(--blue)">✓</span> Shared library & folders</div>
+        <div class="pricing-feature"><span class="pricing-check" style="color:var(--blue)">✓</span> Import peer summaries</div>
+        <div class="pricing-feature"><span class="pricing-check" style="color:var(--blue)">✓</span> Admin dashboard</div>
+        <div class="pricing-feature"><span class="pricing-check" style="color:var(--blue)">✓</span> Priority support</div>
+        <div class="pricing-feature"><span class="pricing-check" style="color:var(--blue)">✓</span> OSCE & Oral Exam (when live)</div>
+        <a href="#" class="pricing-cta cta-team">Join waitlist</a>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- CTA -->
+<section class="cta-section">
+  <div class="cta-orb"></div>
+  <div class="container">
+    <div class="cta-content reveal">
+      <h2 class="cta-title">Synapse knows your history,<br>your weak spots, your exam date.<br><em>Start using it.</em></h2>
+      <p class="cta-sub">Stop guessing what to study next. Your performance data is waiting.</p>
+      <a href="#" class="btn-primary-lg">Start for free — no card needed</a>
+      <div class="cta-footnote">Upload your first file in under 60 seconds.</div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="container">
+    <div class="footer-inner">
+      <a href="#" class="footer-logo">
+        <svg width="20" height="20" viewBox="0 0 26 26" fill="none">
+          <circle cx="13" cy="13" r="12" stroke="#00C8B4" stroke-width="1.5" opacity="0.4"/>
+          <circle cx="13" cy="13" r="4" fill="#00F5CC" opacity="0.7"/>
+        </svg>
+        <span class="footer-logo-text">Synapse</span>
+      </a>
+      <div class="footer-links">
+        <a href="#" class="footer-link">Features</a>
+        <a href="#pricing" class="footer-link">Pricing</a>
+        <a href="#" class="footer-link">Privacy</a>
+        <a href="#" class="footer-link">Terms</a>
+        <a href="#" class="footer-link">Contact</a>
+      </div>
+      <div class="footer-copy">© 2026 Synapse</div>
+    </div>
+  </div>
+</footer>
+
+<script>
+// Cursor
+const dot = document.getElementById('dot');
+const ring = document.getElementById('ring');
+let mx = 0, my = 0, rx = 0, ry = 0;
+document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+;(function loop() {
+  rx += (mx - rx) * 0.15;
+  ry += (my - ry) * 0.15;
+  dot.style.left = mx + 'px';
+  dot.style.top = my + 'px';
+  ring.style.left = rx + 'px';
+  ring.style.top = ry + 'px';
+  requestAnimationFrame(loop);
+})();
+
+// Nav scroll
+const nav = document.getElementById('nav');
+window.addEventListener('scroll', () => {
+  nav.classList.toggle('scrolled', window.scrollY > 40);
+});
+
+// Billing toggle
+const billingToggle = document.getElementById('billing-toggle');
+const labelMonthly = document.getElementById('label-monthly');
+const labelAnnual = document.getElementById('label-annual');
+if (billingToggle) {
+  let isAnnual = false;
+  function setBilling(annual) {
+    isAnnual = annual;
+    billingToggle.classList.toggle('annual', annual);
+    labelMonthly.classList.toggle('active', !annual);
+    labelAnnual.classList.toggle('active', annual);
+    document.body.classList.toggle('annual-mode', annual);
+  }
+  billingToggle.addEventListener('click', () => setBilling(!isAnnual));
+  labelMonthly.addEventListener('click', () => setBilling(false));
+  labelAnnual.addEventListener('click', () => setBilling(true));
+}
+
+// Scroll reveal — hero elements forced visible immediately (above fold)
+document.querySelectorAll('.hero-left, .hero-right').forEach(el => {
+  el.style.transition = 'none';
+  el.classList.add('visible');
+  setTimeout(() => { el.style.transition = ''; }, 50);
+});
+
+const obs = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); } });
+}, { threshold: 0.08, rootMargin: '0px 0px -20px 0px' });
+document.querySelectorAll('.reveal:not(.hero-left):not(.hero-right)').forEach(el => obs.observe(el));
+
+// Flashcard flip
+document.getElementById('flashcard').addEventListener('click', function() {
+  this.classList.toggle('flipped');
+});
+
+// Counter animation
+function animateCounter(el) {
+  const target = parseInt(el.dataset.count);
+  if (isNaN(target)) return;
+  let start = 0;
+  const duration = 1200;
+  const startTime = performance.now();
+  function tick(now) {
+    const p = Math.min((now - startTime) / duration, 1);
+    const ease = 1 - Math.pow(1 - p, 3);
+    const val = Math.round(ease * target);
+    el.textContent = val === target ? (target === 100 ? '∞' : target) : val;
+    if (p < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+const cObs = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.querySelectorAll('[data-count]').forEach(animateCounter);
+      cObs.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.4 });
+// Counter observer removed — hero-stats replaced with live state card
+
+// ============ SYNAPSE NETWORK ANIMATION ============
+(function() {
+  const canvas = document.getElementById('synapse-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  function resize() { canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight; }
+  resize();
+  window.addEventListener('resize', resize);
+  const NODE_COUNT = 38;
+  const TEAL=[0,200,180], BLUE=[63,124,255], RED=[255,75,75];
+  const nodes = Array.from({length:NODE_COUNT},(_,i)=>({
+    x:Math.random(), y:Math.random(),
+    vx:(Math.random()-0.5)*0.00018, vy:(Math.random()-0.5)*0.00018,
+    r:2+Math.random()*3,
+    pulse:Math.random()*Math.PI*2,
+    pulseSpeed:0.018+Math.random()*0.022,
+    type: i<3?'red': i<8?'blue':'teal'
+  }));
+  const CONN_DIST=0.22;
+  function draw(ts) {
+    const W=canvas.width, H=canvas.height, diag=Math.sqrt(W*W+H*H);
+    ctx.clearRect(0,0,W,H);
+    nodes.forEach(n=>{
+      n.x+=n.vx; n.y+=n.vy; n.pulse+=n.pulseSpeed;
+      if(n.x<0||n.x>1) n.vx*=-1;
+      if(n.y<0||n.y>1) n.vy*=-1;
+    });
+    for(let i=0;i<nodes.length;i++){
+      for(let j=i+1;j<nodes.length;j++){
+        const a=nodes[i],b=nodes[j];
+        const dx=(a.x-b.x)*W, dy=(a.y-b.y)*H;
+        const dist=Math.sqrt(dx*dx+dy*dy), maxDist=CONN_DIST*diag;
+        if(dist<maxDist){
+          const alpha=(1-dist/maxDist)*0.18;
+          const col=(a.type==='red'||b.type==='red')?RED:(a.type==='blue'||b.type==='blue')?BLUE:TEAL;
+          ctx.beginPath(); ctx.moveTo(a.x*W,a.y*H); ctx.lineTo(b.x*W,b.y*H);
+          ctx.strokeStyle=`rgba(${col},${alpha})`; ctx.lineWidth=0.8; ctx.stroke();
+          const phase=(ts*0.0007+i*0.3)%1;
+          if(phase<0.15){
+            const t=phase/0.15, px=a.x*W+(b.x*W-a.x*W)*t, py=a.y*H+(b.y*H-a.y*H)*t;
+            ctx.beginPath(); ctx.arc(px,py,1.5,0,Math.PI*2);
+            ctx.fillStyle=`rgba(${col},${alpha*3})`; ctx.fill();
+          }
+        }
+      }
+    }
+    nodes.forEach(n=>{
+      const px=n.x*W, py=n.y*H;
+      const col=n.type==='red'?RED:n.type==='blue'?BLUE:TEAL;
+      const glow=0.5+0.5*Math.sin(n.pulse);
+      const grad=ctx.createRadialGradient(px,py,0,px,py,n.r*4);
+      grad.addColorStop(0,`rgba(${col},${0.12*glow})`);
+      grad.addColorStop(1,`rgba(${col},0)`);
+      ctx.beginPath(); ctx.arc(px,py,n.r*4,0,Math.PI*2);
+      ctx.fillStyle=grad; ctx.fill();
+      ctx.beginPath(); ctx.arc(px,py,n.r*(0.7+0.3*glow),0,Math.PI*2);
+      ctx.fillStyle=`rgba(${col},${0.5+0.5*glow})`; ctx.fill();
+    });
+    requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+})();
+</script>
+
+</body>
+</html>

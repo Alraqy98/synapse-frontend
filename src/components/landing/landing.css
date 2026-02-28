@@ -1,0 +1,169 @@
+/* Landing page — design from synapse-v3_5.html */
+.landing-page {
+  --void: #0D0F12;
+  --panel: rgba(25,29,34,0.72);
+  --surface: rgba(18,20,24,0.68);
+  --text: #F5F5F7;
+  --muted: rgba(245,245,247,0.5);
+  --faint: rgba(245,245,247,0.18);
+  --border: rgba(255,255,255,0.06);
+  --teal: #00C8B4;
+  --teal-neon: #00F5CC;
+  --teal-dim: rgba(0,200,180,0.10);
+  --teal-glow: rgba(0,200,180,0.25);
+  --blue: #3F7CFF;
+  --purple: #7A6CFF;
+  --red: #FF4B4B;
+  --amber: #F5A623;
+  --green: #4E9E7A;
+  --green-neon: #5BFFA8;
+}
+
+.landing-page .reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.7s cubic-bezier(0.23,1,0.32,1), transform 0.7s cubic-bezier(0.23,1,0.32,1);
+}
+.landing-page .reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.7); }
+}
+
+@keyframes hero-card-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes float-up {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(-6px); }
+}
+
+@keyframes state-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.7); }
+}
+
+.landing-page .label-tag .dot {
+  animation: pulse-dot 1.8s ease-in-out infinite;
+}
+.landing-page .hero-state-card {
+  animation: hero-card-float 5s ease-in-out infinite;
+}
+.landing-page .hero-accent-card {
+  animation: hero-card-float 5s ease-in-out infinite;
+}
+.landing-page .scroll-hint {
+  animation: float-up 2s ease-in-out infinite;
+}
+.landing-page .hsc-state-dot,
+.landing-page .hsc-live-dot {
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+.landing-page .state-dot {
+  animation: state-pulse 1.5s ease-in-out infinite;
+}
+
+.landing-page nav {
+  border-bottom: 1px solid transparent;
+  transition: background 0.3s, border-color 0.3s, backdrop-filter 0.3s;
+}
+.landing-page nav.scrolled {
+  background: rgba(13,15,18,0.88);
+  border-bottom-color: var(--border);
+  backdrop-filter: blur(24px) saturate(180%);
+}
+
+.landing-page .hero-headline em {
+  font-style: italic;
+  color: transparent;
+  background: linear-gradient(135deg, var(--teal) 0%, var(--teal-neon) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.landing-page .cta-title em {
+  font-style: italic;
+  color: transparent;
+  background: linear-gradient(135deg, var(--teal) 0%, var(--teal-neon) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.landing-page .section-divider {
+  height: 1px;
+  background: var(--border);
+  position: relative;
+}
+.landing-page .section-divider::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 60px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--teal), transparent);
+}
+
+.landing-page .astra-mode-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--teal), transparent);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.landing-page .astra-mode-card:hover::before {
+  opacity: 1;
+}
+
+.landing-page .testimonial-card::before {
+  content: '"';
+  position: absolute;
+  top: 20px;
+  right: 24px;
+  font-family: 'DM Serif Display', serif;
+  font-size: 64px;
+  line-height: 1;
+  color: rgba(0,200,180,0.08);
+}
+
+.landing-page .doc-highlight::after {
+  content: 'Astra is reading this';
+  position: absolute;
+  right: 0;
+  top: -18px;
+  font-family: 'Geist Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--teal);
+}
+
+.landing-page .sv-kt-item::before {
+  content: '—';
+  color: var(--teal);
+  font-family: 'Geist Mono', monospace;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.landing-page .pricing-card.pro::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--teal), transparent);
+}
+
+.landing-page body.landing {
+  cursor: none;
+}
