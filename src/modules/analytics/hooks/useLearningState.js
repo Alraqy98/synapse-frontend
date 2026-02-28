@@ -28,13 +28,16 @@ export default function useLearningState(options = {}) {
   const pollStartTimeRef = useRef(null);
   const isMountedRef = useRef(true);
   const dataRef = useRef(null);
-  
+  const fetchIdRef = useRef(0);
+
   // Keep dataRef in sync with data state
   useEffect(() => {
     dataRef.current = data;
   }, [data]);
 
   const fetchLearningState = useCallback(async (isPolling = false) => {
+    const thisFetchId = ++fetchIdRef.current;
+
     try {
       if (!isPolling) {
         setLoading(true);
@@ -43,8 +46,9 @@ export default function useLearningState(options = {}) {
 
       const params = sort ? { sort } : {};
       const response = await api.get("/api/learning/state", { params });
-      
+
       if (!isMountedRef.current) return;
+      if (thisFetchId !== fetchIdRef.current) return;
 
       // PASSIVE MODE: Accept any 200 response as ready (read-only snapshot fetch)
       if (passive) {
@@ -79,6 +83,7 @@ export default function useLearningState(options = {}) {
           pollStartTimeRef.current = Date.now();
           startPolling(1000); // Start with 1 second delay
         } else {
+          if (thisFetchId !== fetchIdRef.current) return;
           // Continue polling - check if we've exceeded timeout
           const elapsed = Date.now() - pollStartTimeRef.current;
           if (elapsed > 60000) {
@@ -94,18 +99,23 @@ export default function useLearningState(options = {}) {
           startPolling(nextDelay);
         }
       } else {
-        // Successfully got data
+        // Successfully got data — cancel any scheduled poll so we don't overwrite with a later 202
+        if (pollingTimeoutRef.current) {
+          clearTimeout(pollingTimeoutRef.current);
+          pollingTimeoutRef.current = null;
+        }
+        pollStartTimeRef.current = null;
         setData(response.data.data);
         setStatus("ready");
         setError(null);
         setLoading(false);
         setIsUpdating(false);
-        pollStartTimeRef.current = null;
       }
     } catch (err) {
       console.error("Failed to fetch learning state:", err);
       if (!isMountedRef.current) return;
-      
+      if (thisFetchId !== fetchIdRef.current) return;
+
       setStatus("error");
       setError(err.response?.data?.message || err.message || "Failed to load learning state");
       setData(null);
