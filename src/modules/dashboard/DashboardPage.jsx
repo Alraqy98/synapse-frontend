@@ -39,7 +39,7 @@ const DashboardPage = ({
         }}
       />
 
-      <div className="relative z-10 p-6 max-w-7xl mx-auto space-y-8">
+      <div className="relative z-10 pt-2 px-6 pb-6 max-w-7xl mx-auto space-y-8">
         <DashboardWelcome profile={profile} onStartTour={handleStartTour} />
         <DashboardQuickActions
           onOpenUploadModal={onOpenUploadModal}
