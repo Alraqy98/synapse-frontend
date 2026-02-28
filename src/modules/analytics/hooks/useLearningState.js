@@ -46,6 +46,7 @@ export default function useLearningState(options = {}) {
 
       const params = sort ? { sort } : {};
       const response = await api.get("/api/learning/state", { params });
+      console.log("[RAW API RESPONSE]", JSON.stringify(response.data, null, 2));
 
       if (!isMountedRef.current) return;
       if (thisFetchId !== fetchIdRef.current) return;
