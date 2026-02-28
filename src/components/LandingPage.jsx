@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import synapseLogo from "../assets/synapse-logo.png";
 import "./landing/landing.css";
 import LandingHero from "./LandingHero";
 import LandingCTA from "./LandingCTA";
@@ -54,7 +55,7 @@ const LandingPage = ({ onLogin, onSignup }) => {
         }`}
       >
         <a href="#" className="nav-logo flex items-center gap-2 no-underline text-[var(--text)]">
-          <img src="/src/assets/synapse-logo.png" alt="Synapse" className="w-7 h-7 object-contain" />
+          <img src={synapseLogo} alt="Synapse" className="w-7 h-7 object-contain" />
           <span className="nav-logo-text font-bold tracking-tight text-lg">Synapse</span>
           <span className="nav-badge text-[10px] font-medium px-2 py-0.5 rounded border border-white/10 bg-white/5 text-[var(--muted)]">
             Beta
