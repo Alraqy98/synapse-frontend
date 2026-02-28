@@ -3,10 +3,10 @@ import RevealWrapper from "./RevealWrapper";
 
 const testimonials = [
   {
-    text: '"I failed my cardiology block twice. Uploaded my lectures to Synapse, it told me my accuracy on Heart Failure concepts was <strong>38%</strong> — I had no idea. Two weeks of focus sessions later, I passed with 81%."',
-    avatar: { bg: "rgba(0,200,180,0.12)", border: "rgba(0,200,180,0.2)", color: "var(--teal)", letter: "L" },
-    name: "Layla A.",
-    role: "4th Year · Internal Medicine",
+    text: '"I rely on active recall with spaced revision. With Synapse I can do this for any lecture I upload — MCQ generator and flashcards on demand. It really helped me lock in the high-yield concepts before my exams."',
+    avatar: { bg: "rgba(0,200,180,0.12)", border: "rgba(0,200,180,0.2)", color: "var(--teal)", letter: "A" },
+    name: "Ahmed H.",
+    role: "4th Year",
   },
   {
     text: '"The page-aware Astra is insane. I\'m reading my lecture on page 14, I ask \'what does this mean clinically?\' — it answers about <strong>that exact page</strong>. Not general knowledge. My lecture."',
