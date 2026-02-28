@@ -54,17 +54,7 @@ const LandingPage = ({ onLogin, onSignup }) => {
         }`}
       >
         <a href="#" className="nav-logo flex items-center gap-2 no-underline text-[var(--text)]">
-          <svg width="26" height="26" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="13" cy="13" r="12" stroke="#00C8B4" strokeWidth="1.5" opacity="0.5" />
-            <circle cx="13" cy="13" r="4" fill="#00F5CC" />
-            <path
-              d="M13 1v4M13 21v4M1 13h4M21 13h4"
-              stroke="#00C8B4"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              opacity="0.3"
-            />
-          </svg>
+          <img src="/src/assets/synapse-logo.png" alt="Synapse" className="w-7 h-7 object-contain" />
           <span className="nav-logo-text font-bold tracking-tight text-lg">Synapse</span>
           <span className="nav-badge text-[10px] font-medium px-2 py-0.5 rounded border border-white/10 bg-white/5 text-[var(--muted)]">
             Beta
