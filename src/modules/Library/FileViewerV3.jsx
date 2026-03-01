@@ -14,8 +14,6 @@ import {
 } from "./apiLibrary";
 import { uploadToSignedUrl } from "../../lib/uploadStorage";
 import { sendMessageToTutor, createNewSession } from "../Tutor/apiTutor";
-import api from "../../lib/api";
-
 const id = (fileId, file) => fileId || file?.id || "";
 const uuid = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `pin-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`);
 
@@ -48,8 +46,6 @@ export default function FileViewerV3({
   const [recordingElapsed, setRecordingElapsed] = useState(0);
   const [lectureRecording, setLectureRecording] = useState(null);
   const [slideNotes, setSlideNotes] = useState([]);
-  const [notifications, setNotifications] = useState([]);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
   const [tutorMode, setTutorMode] = useState("page_locked");
@@ -73,7 +69,6 @@ export default function FileViewerV3({
   const uploadTokenRef = useRef(null);
   const recordingElapsedRef = useRef(0);
   const chunksRef = useRef([]);
-  const notificationsRef = useRef(null);
   const pdfPageRef = useRef(null);
   const audioRef = useRef(null);
   const pinInputRef = useRef(null);
@@ -83,13 +78,13 @@ export default function FileViewerV3({
     if (!fileId) return;
     let cancelled = false;
     getFilePages(fileId)
-      .then((data) => {
+      .then((list) => {
         if (cancelled) return;
-        const list = Array.isArray(data) ? data : [];
-        setPages(list);
-        setTotalPages(list.length);
+        const pagesList = Array.isArray(list) ? list : [];
+        setPages(pagesList);
+        setTotalPages(pagesList.length);
         setCurrentPage((p) =>
-          initialPage >= 1 && initialPage <= list.length ? initialPage : Math.min(p, list.length || 1)
+          initialPage >= 1 && initialPage <= pagesList.length ? initialPage : Math.min(p, pagesList.length || 1)
         );
       })
       .catch(() => {
@@ -193,34 +188,6 @@ export default function FileViewerV3({
       .catch(() => {});
     return () => { cancelled = true; };
   }, [fileId, file?.title]);
-
-  // Notifications poll every 30s
-  useEffect(() => {
-    const fetchNotifs = async () => {
-      try {
-        const { data } = await api.get("/api/notifications");
-        const list = Array.isArray(data) ? data : data?.data || [];
-        setNotifications(list.filter((n) => !n.read));
-      } catch {
-        setNotifications([]);
-      }
-    };
-    fetchNotifs();
-    const interval = setInterval(fetchNotifs, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Close notifications on outside click
-  useEffect(() => {
-    if (!notificationsOpen) return;
-    const handleClick = (e) => {
-      if (notificationsRef.current && !notificationsRef.current.contains(e.target)) {
-        setNotificationsOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [notificationsOpen]);
 
   const goPrev = () => setCurrentPage((p) => Math.max(1, p - 1));
   const goNext = () => setCurrentPage((p) => Math.min(totalPages, p + 1));
@@ -491,197 +458,37 @@ export default function FileViewerV3({
         fontFamily: "DM Sans, sans-serif",
       }}
     >
-      {/* Nav sidebar */}
-      <nav className="nav-sidebar">
-        <div
-          className="nav-logo"
-          role="button"
-          tabIndex={0}
-          onClick={onBack}
-          onKeyDown={(e) => e.key === "Enter" && onBack?.()}
-          style={{
-            background: "transparent",
-            boxShadow: "none",
-            width: 38,
-            height: 38,
-            marginBottom: 10,
-          }}
-        >
-          <svg viewBox="0 0 40 40" fill="none" width="38" height="38">
-            <path
-              d="M20 2L36 11V29L20 38L4 29V11L20 2Z"
-              fill="none"
-              stroke="var(--green)"
-              strokeWidth="2"
-            />
-            <text
-              x="50%"
-              y="53%"
-              dominantBaseline="middle"
-              textAnchor="middle"
-              fill="var(--green)"
-              fontSize="15"
-              fontWeight="700"
-              fontFamily="DM Sans, sans-serif"
-            >
-              S
-            </text>
-          </svg>
-        </div>
-        <div
-          className="nav-icon active"
-          title="Library"
-          role="button"
-          tabIndex={0}
-          onClick={onBack}
-          onKeyDown={(e) => e.key === "Enter" && onBack?.()}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-            <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" />
-          </svg>
-        </div>
-        <div className="nav-spacer" />
-        <div className="nav-icon" ref={notificationsRef} style={{ position: "relative" }}>
-          <button
-            type="button"
-            title="Notifications"
-            onClick={() => setNotificationsOpen((o) => !o)}
-            style={{
-              width: 36,
-              height: 36,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "none",
-              border: "none",
-              color: "var(--text-muted)",
-              cursor: "pointer",
-            }}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-              <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
-              <path d="M13.73 21a2 2 0 01-3.46 0" />
-            </svg>
-            {notifications.length > 0 && (
-              <span
-                style={{
-                  position: "absolute",
-                  top: 5,
-                  right: 5,
-                  width: 7,
-                  height: 7,
-                  borderRadius: "50%",
-                  background: "#fc8181",
-                  border: "1.5px solid var(--bg-base)",
-                }}
-              />
-            )}
-          </button>
-          {notificationsOpen && (
-            <div
-              style={{
-                position: "fixed",
-                left: 64,
-                bottom: 52,
-                width: 288,
-                background: "#1a1a20",
-                border: "1px solid var(--border-mid)",
-                borderRadius: 12,
-                boxShadow: "0 8px 32px rgba(0,0,0,0.7)",
-                zIndex: 100,
-                overflow: "hidden",
-              }}
-            >
-              <div
-                style={{
-                  padding: "12px 14px 8px",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  borderBottom: "1px solid var(--border)",
-                }}
-              >
-                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>Notifications</span>
-                {notifications.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      try {
-                        await api.patch("/api/notifications/read-all", { read: true });
-                        setNotifications([]);
-                      } catch {}
-                    }}
-                    style={{
-                      fontSize: 9,
-                      fontFamily: "DM Mono, monospace",
-                      color: "var(--green)",
-                      cursor: "pointer",
-                      background: "none",
-                      border: "none",
-                    }}
-                  >
-                    MARK ALL READ
-                  </button>
-                )}
-              </div>
-              <div>
-                {notifications.length === 0 ? (
-                  <div style={{ padding: "10px 14px", fontSize: 11.5, color: "var(--text-muted)" }}>
-                    No new notifications
-                  </div>
-                ) : (
-                  notifications.slice(0, 10).map((n) => (
-                    <div
-                      key={n.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={async () => {
-                        try {
-                          await api.patch(`/api/notifications/${n.id}/read`, { read: true });
-                          setNotifications((prev) => prev.filter((x) => x.id !== n.id));
-                        } catch {}
-                      }}
-                      style={{
-                        padding: "10px 14px",
-                        display: "flex",
-                        gap: 10,
-                        alignItems: "flex-start",
-                        borderBottom: "1px solid var(--border)",
-                        background: !n.read ? "rgba(0,229,160,0.03)" : "transparent",
-                        cursor: "pointer",
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: 6,
-                          height: 6,
-                          borderRadius: "50%",
-                          background: !n.read ? "#fc8181" : "var(--text-muted)",
-                          marginTop: 5,
-                          flexShrink: 0,
-                        }}
-                      />
-                      <div>
-                        <div style={{ fontSize: 11.5, color: "var(--text-primary)", lineHeight: 1.4 }}>
-                          {n.title || n.message || "Notification"}
-                        </div>
-                        <div style={{ fontSize: 9.5, color: "var(--text-muted)", fontFamily: "DM Mono, monospace", marginTop: 2 }}>
-                          {n.description || n.body || ""}
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      </nav>
-
       {/* Thumbnail strip */}
       <aside className={`thumb-strip ${thumbCollapsed ? "collapsed" : ""}`}>
         <div className="thumb-top">
-          <span className="thumb-top-title">Pages</span>
+          <div className="thumb-page-nav">
+            <button
+              type="button"
+              className="thumb-nav-btn"
+              onClick={goPrev}
+              disabled={currentPage <= 1}
+              aria-label="Previous page"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+            </button>
+            <span className="thumb-page-indicator">
+              <span className="cur">{currentPage}</span>
+              <span> / {totalPages || 0}</span>
+            </span>
+            <button
+              type="button"
+              className="thumb-nav-btn"
+              onClick={goNext}
+              disabled={currentPage >= totalPages || totalPages === 0}
+              aria-label="Next page"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </button>
+          </div>
           <button
             type="button"
             className="collapse-btn"
@@ -767,135 +574,6 @@ export default function FileViewerV3({
 
       {/* Main area */}
       <main className="main-area">
-        <div className="toolbar">
-          <div className="toolbar-group">
-            <button
-              type="button"
-              className="tb-icon-btn"
-              onClick={goPrev}
-              disabled={currentPage <= 1}
-              aria-label="Previous page"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="15 18 9 12 15 6" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              className="tb-icon-btn"
-              onClick={goNext}
-              disabled={currentPage >= totalPages || totalPages === 0}
-              aria-label="Next page"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="9 18 15 12 9 6" />
-              </svg>
-            </button>
-          </div>
-          <div className="toolbar-divider" />
-          <div className="page-indicator">
-            <span className="cur">{currentPage}</span>
-            <span> / {totalPages || 0}</span>
-          </div>
-          <div className="toolbar-divider" />
-          {isRecording ? (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 7,
-                padding: "3px 10px",
-                background: "rgba(252,129,129,0.1)",
-                border: "1px solid rgba(252,129,129,0.25)",
-                borderRadius: 8,
-              }}
-            >
-              <div
-                style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: "50%",
-                  background: "#fc8181",
-                  animation: "rec-blink 1s infinite",
-                }}
-              />
-              <span style={{ fontSize: 11, fontFamily: "DM Mono, monospace", color: "#fc8181" }}>
-                {recordingMode === "lecture" ? "LECTURE" : "SLIDE NOTE"}
-              </span>
-              <span style={{ fontSize: 11, fontFamily: "DM Mono, monospace", color: "var(--text-muted)" }}>
-                {formatTime(recordingElapsed)}
-              </span>
-              <button
-                type="button"
-                onClick={stopRecording}
-                style={{
-                  marginLeft: 4,
-                  height: 20,
-                  padding: "0 7px",
-                  borderRadius: 4,
-                  border: "1px solid rgba(252,129,129,0.4)",
-                  background: "transparent",
-                  color: "#fc8181",
-                  fontSize: 10,
-                  fontFamily: "DM Mono, monospace",
-                  cursor: "pointer",
-                }}
-              >
-                STOP
-              </button>
-              {recordingMode === "lecture" && (
-                <button
-                  type="button"
-                  onClick={addTapTag}
-                  style={{
-                    height: 20,
-                    padding: "0 7px",
-                    borderRadius: 4,
-                    border: "1px solid rgba(0,229,160,0.3)",
-                    background: "var(--green-dim)",
-                    color: "var(--green)",
-                    fontSize: 10,
-                    fontFamily: "DM Mono, monospace",
-                    cursor: "pointer",
-                  }}
-                >
-                  TAP TAG
-                </button>
-              )}
-            </div>
-          ) : (
-            <>
-              <button
-                type="button"
-                className={`tb-btn ${recordingMode === "lecture" ? "active" : ""}`}
-                onClick={() => setRecordingMode("lecture")}
-                title="Record lecture"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-                  <path d="M12 2a3 3 0 013 3v6a3 3 0 01-6 0V5a3 3 0 013-3z" />
-                  <path d="M19 10v2a7 7 0 01-14 0v-2" />
-                  <line x1="12" y1="19" x2="12" y2="23" />
-                  <line x1="8" y1="23" x2="16" y2="23" />
-                </svg>
-                Lecture
-              </button>
-              <button
-                type="button"
-                className={`tb-btn ${recordingMode === "slide_note" ? "active" : ""}`}
-                onClick={() => setRecordingMode("slide_note")}
-                title="Slide note"
-              >
-                Slide Note
-              </button>
-              <button type="button" className="tb-btn" onClick={startRecording} title="Start recording">
-                Record
-              </button>
-            </>
-          )}
-          <div className="toolbar-spacer" />
-          <span className="zoom-display">{Math.round(zoom * 100)}%</span>
-        </div>
-
         <div className="pdf-canvas-wrap">
           <div
             ref={pdfPageRef}
@@ -909,9 +587,9 @@ export default function FileViewerV3({
             tabIndex={0}
             onKeyDown={(e) => e.key === "Enter" && handlePdfPageClick(e)}
           >
-            {pageImageUrl ? (
+            {(currentPageData?.image_url || currentPageData?.image_path) ? (
               <img
-                src={pageImageUrl}
+                src={currentPageData?.image_url || currentPageData?.image_path}
                 alt={`Page ${currentPage}`}
                 style={{
                   maxWidth: "100%",
@@ -921,13 +599,20 @@ export default function FileViewerV3({
               />
             ) : (
               <div
+                className="pdf-page-skeleton"
                 style={{
-                  padding: 48,
+                  width: "100%",
+                  minHeight: 400,
+                  background: "var(--bg-raised)",
+                  borderRadius: 8,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                   color: "var(--text-muted)",
                   fontSize: 14,
                 }}
               >
-                Page {currentPage}
+                Loading page {currentPage}…
               </div>
             )}
             {pins.map((pin, pinIdx) => (
@@ -1073,6 +758,51 @@ export default function FileViewerV3({
           </div>
         ) : (
           <div className="rp-full">
+            <div className="rp-recording-bar">
+              {isRecording ? (
+                <div className="rp-recording-active">
+                  <span className="rp-rec-dot" />
+                  <span className="rp-rec-label">{recordingMode === "lecture" ? "LECTURE" : "SLIDE NOTE"}</span>
+                  <span className="rp-rec-time">{formatTime(recordingElapsed)}</span>
+                  <button type="button" className="rp-rec-stop" onClick={stopRecording}>
+                    STOP
+                  </button>
+                  {recordingMode === "lecture" && (
+                    <button type="button" className="rp-rec-tap" onClick={addTapTag}>
+                      TAP TAG
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className={`rp-rec-btn ${recordingMode === "lecture" ? "active" : ""}`}
+                    onClick={() => setRecordingMode("lecture")}
+                    title="Record lecture"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+                      <path d="M12 2a3 3 0 013 3v6a3 3 0 01-6 0V5a3 3 0 013-3z" />
+                      <path d="M19 10v2a7 7 0 01-14 0v-2" />
+                      <line x1="12" y1="19" x2="12" y2="23" />
+                      <line x1="8" y1="23" x2="16" y2="23" />
+                    </svg>
+                    Lecture
+                  </button>
+                  <button
+                    type="button"
+                    className={`rp-rec-btn ${recordingMode === "slide_note" ? "active" : ""}`}
+                    onClick={() => setRecordingMode("slide_note")}
+                    title="Slide note"
+                  >
+                    Slide Note
+                  </button>
+                  <button type="button" className="rp-rec-btn" onClick={startRecording} title="Start recording">
+                    Record
+                  </button>
+                </>
+              )}
+            </div>
             <div className="rp-header">
               <div className="rp-tabs">
                 <button

@@ -639,7 +639,15 @@ export const getFilePages = async (id) => {
         headers: { ...getAuthHeaders() },
     });
     const data = await handleJson(res);
-    return data.data || [];
+    console.log("getFilePages response", data);
+    const list = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.data)
+          ? data.data
+          : Array.isArray(data?.pages)
+            ? data.pages
+            : [];
+    return list;
 };
 
 // ------------------------------------------------------

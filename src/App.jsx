@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Routes, Route, Navigate, useNavigate, useLocation, useParams } from "react-router-dom";
+import { Routes, Route, Navigate, useNavigate, useLocation, useParams, Link } from "react-router-dom";
 import "./styles.css";
 import logo from "./assets/synapse-logo.png";
 
@@ -210,7 +210,9 @@ const SynapseOS = () => {
   // Detect admin route
   const isAdminRoute = location.pathname.startsWith("/admin");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notificationSource, setNotificationSource] = useState(null); // 'header' | 'sidebar' | null
   const notificationsRef = useRef(null);
+  const sidebarNotificationsRef = useRef(null);
   const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
   const accountDropdownRef = useRef(null);
   const [changePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
@@ -658,12 +660,11 @@ const SynapseOS = () => {
     if (!notificationsOpen) return;
 
     const handleClickOutside = (event) => {
-      // Check if click is outside the dropdown ref (which includes button and dropdown)
-      if (
-        notificationsRef.current &&
-        !notificationsRef.current.contains(event.target)
-      ) {
+      const inHeader = notificationsRef.current && notificationsRef.current.contains(event.target);
+      const inSidebar = sidebarNotificationsRef.current && sidebarNotificationsRef.current.contains(event.target);
+      if (!inHeader && !inSidebar) {
         setNotificationsOpen(false);
+        setNotificationSource(null);
       }
     };
 
@@ -883,11 +884,100 @@ const SynapseOS = () => {
         ))}
       </nav>
 
-        <div className="mt-auto">
-          <SidebarItem 
-            icon={Settings} 
-            label="Settings" 
-            to={isAdminRoute ? "/admin/settings" : "/settings"} 
+        <div className="mt-auto flex flex-col items-center gap-3 w-full px-2">
+          {/* Notifications bell */}
+          <div className="relative" ref={sidebarNotificationsRef}>
+            <button
+              type="button"
+              className="relative p-2 rounded-lg text-white/40 hover:text-teal/70 transition-colors"
+              onClick={() => {
+                setNotificationSource("sidebar");
+                setNotificationsOpen((prev) => !prev);
+              }}
+              aria-label="Notifications"
+            >
+              <Bell size={20} />
+              {unreadCount > 0 && (
+                <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-teal" />
+              )}
+            </button>
+            {notificationsOpen && notificationSource === "sidebar" && (
+              <div className="fixed left-20 top-1/2 -translate-y-1/2 z-[10001] w-80 rounded-2xl bg-[#0D0F12]/95 backdrop-blur-md border border-white/[0.08] border-l-2 border-l-teal/20 shadow-[0_8px_32px_rgba(0,200,180,0.06)] overflow-hidden">
+                <div className="flex items-center justify-between p-3 border-b border-white/[0.06]">
+                  <span className="text-[9px] uppercase tracking-[0.15em] text-teal/40 font-mono">
+                    Notifications
+                  </span>
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={handleClearAll}
+                      className="text-xs text-white/40 hover:text-red-400 transition"
+                    >
+                      Clear all
+                    </button>
+                  )}
+                </div>
+                <div className="max-h-80 overflow-y-auto">
+                  {unreadNotifications.length === 0 ? (
+                    <div className="text-white/25 text-xs text-center py-6">
+                      No notifications yet
+                    </div>
+                  ) : (
+                    unreadNotifications.map((n) => {
+                      const behavior = getNotificationBehavior(n.type);
+                      const isClickable = behavior === "modal" || behavior === "navigate";
+                      return (
+                        <div
+                          key={n.id}
+                          onClick={() => handleNotificationClick(n)}
+                          className={`p-3 text-sm transition border-b border-white/5 last:border-b-0 ${
+                            !n.read ? "bg-white/2" : ""
+                          } ${isClickable ? "hover:bg-white/10 cursor-pointer" : "hover:bg-white/5 cursor-default"}`}
+                        >
+                          <div className="font-medium text-white">
+                            {n.title || n.message || "Notification"}
+                          </div>
+                          <div className="text-muted text-xs mt-1">
+                            {n.description || n.body || n.content || ""}
+                          </div>
+                          <div className="text-muted text-[10px] mt-1">
+                            {formatRelativeTime(n.createdAt || n.created_at)}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+          {/* Profile avatar */}
+          {profile && (
+            <Link
+              to={isAdminRoute ? "/admin/settings" : "/settings"}
+              className="flex items-center justify-center w-10 h-10 rounded-full bg-teal/20 text-teal font-semibold text-sm border border-teal/30 hover:bg-teal/30 transition"
+              title={profile.full_name || "Profile"}
+              aria-label="Profile settings"
+            >
+              {profile.avatar_url ? (
+                <img
+                  src={profile.avatar_url}
+                  alt=""
+                  className="w-full h-full rounded-full object-cover"
+                />
+              ) : (
+                (profile.full_name || "U")
+                  .split(/\s+/)
+                  .map((s) => s[0])
+                  .join("")
+                  .toUpperCase()
+                  .slice(0, 2)
+              )}
+            </Link>
+          )}
+          <SidebarItem
+            icon={Settings}
+            label="Settings"
+            to={isAdminRoute ? "/admin/settings" : "/settings"}
           />
         </div>
     </aside>
@@ -917,7 +1007,10 @@ const SynapseOS = () => {
             <div className="relative" ref={notificationsRef}>
             <button
                 className="relative p-2 rounded-lg text-white/40 hover:text-teal/70 transition-colors"
-                onClick={() => setNotificationsOpen((prev) => !prev)}
+                onClick={() => {
+                  setNotificationSource("header");
+                  setNotificationsOpen((prev) => !prev);
+                }}
                 aria-label="Notifications"
                 data-demo="notif-bell"
               >
@@ -929,8 +1022,8 @@ const SynapseOS = () => {
                 )}
             </button>
 
-              {/* Notifications Dropdown */}
-              {notificationsOpen && (
+              {/* Notifications Dropdown (when opened from header) */}
+              {notificationsOpen && notificationSource === "header" && (
                 <div className="absolute right-0 top-12 z-50 w-80 rounded-2xl bg-[#0D0F12]/95 backdrop-blur-md border border-white/[0.08] border-l-2 border-l-teal/20 shadow-[0_8px_32px_rgba(0,200,180,0.06)] overflow-hidden">
                   <div className="flex items-center justify-between p-3 border-b border-white/[0.06]">
                     <span className="text-[9px] uppercase tracking-[0.15em] text-teal/40 font-mono">
