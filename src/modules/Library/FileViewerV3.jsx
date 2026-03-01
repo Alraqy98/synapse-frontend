@@ -397,7 +397,7 @@ export default function FileViewerV3({
     }
   };
 
-  const lectureDuration = lectureRecording?.duration_seconds ?? audioDuration || 1;
+  const lectureDuration = lectureRecording?.duration_seconds ?? (audioDuration || 1);
   const waveformBars = useMemo(() => {
     const rand = seededRandom(lectureRecording?.id ?? "wave");
     return Array.from({ length: 80 }, () => 10 + rand() * 80);
