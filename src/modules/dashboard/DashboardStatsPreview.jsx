@@ -130,27 +130,35 @@ const DashboardStatsPreview = () => {
             </div>
           </div>
 
-          {/* Teal text link with arrow */}
+          {/* Small outlined CTA button */}
           <Link
             to="/learning"
             style={{
               display: "inline-flex",
               alignItems: "center",
-              gap: 4,
+              gap: 6,
               marginTop: 12,
-              fontSize: 11,
-              color: "rgba(0,200,180,0.6)",
-              background: "none",
-              border: "none",
+              padding: "8px 16px",
+              borderRadius: 8,
+              fontSize: 12,
+              color: "#00C8B4",
+              background: "transparent",
+              border: "1px solid rgba(0,200,180,0.3)",
               textDecoration: "none",
               fontFamily: "'Geist Mono', monospace",
-              transition: "color 0.15s",
+              transition: "border-color 0.15s, background 0.15s",
             }}
-            onMouseEnter={e => { e.currentTarget.style.color = "#00C8B4"; }}
-            onMouseLeave={e => { e.currentTarget.style.color = "rgba(0,200,180,0.6)"; }}
+            onMouseEnter={e => {
+              e.currentTarget.style.borderColor = "rgba(0,200,180,0.6)";
+              e.currentTarget.style.background = "rgba(0,200,180,0.05)";
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.borderColor = "rgba(0,200,180,0.3)";
+              e.currentTarget.style.background = "transparent";
+            }}
           >
             {data.prescription?.cta_label || "Recover Accuracy (20 mins)"}
-            <ArrowRight size={11} style={{ flexShrink: 0 }} />
+            <ArrowRight size={12} style={{ flexShrink: 0 }} />
           </Link>
         </div>
       )}
