@@ -1,6 +1,5 @@
 // src/modules/settings/AstraPreferencesPanel.jsx
 import React, { useState, useEffect, useRef } from "react";
-import { Brain } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
 import Select from "../../components/Select";
 
@@ -132,28 +131,30 @@ const AstraPreferencesPanel = () => {
         setDraftPreferences(savedPreferences);
     };
 
+    const selectTriggerClass = "bg-white/[0.03] border border-white/[0.08] rounded-xl px-3 py-2 text-white/70 text-sm";
+    const selectLabelClass = "text-white/40 text-sm block";
+
     if (isLoading) {
         return (
-            <div className="panel p-6 space-y-4">
-                <div className="flex items-center gap-2 text-white">
-                    <Brain size={18} className="text-teal" />
-                    <h2 className="text-lg font-bold">Astra – Answer Preferences</h2>
+            <div className="bg-[#0D0F12]/60 border border-white/[0.06] rounded-2xl backdrop-blur-sm p-6 space-y-4">
+                <div className="space-y-1">
+                    <div className="text-[9px] uppercase tracking-[0.15em] text-white/30 font-mono">Preferences</div>
+                    <h2 className="text-base font-semibold text-white">Astra – Answer Preferences</h2>
                 </div>
-                <div className="text-sm text-muted">Loading...</div>
+                <div className="text-sm text-white/40">Loading...</div>
             </div>
         );
     }
 
     return (
-        <div className="panel relative flex flex-col">
+        <div className="bg-[#0D0F12]/60 border border-white/[0.06] rounded-2xl backdrop-blur-sm relative flex flex-col">
             <div className="p-6 space-y-6 flex-1">
-                <div className="flex items-center gap-2 text-white">
-                    <Brain size={18} className="text-teal" />
-                    <h2 className="text-lg font-bold">Astra – Answer Preferences</h2>
+                <div className="space-y-1">
+                    <div className="text-[9px] uppercase tracking-[0.15em] text-white/30 font-mono">Preferences</div>
+                    <h2 className="text-base font-semibold text-white">Astra – Answer Preferences</h2>
                 </div>
 
                 <div className="space-y-5">
-                    {/* Language */}
                     <Select
                         label="Language"
                         value={draftPreferences.language}
@@ -164,9 +165,10 @@ const AstraPreferencesPanel = () => {
                             { label: "Arabic", value: "ar" },
                             { label: "Turkish", value: "tr" },
                         ]}
+                        labelClassName={selectLabelClass}
+                        triggerClassName={selectTriggerClass}
                     />
 
-                    {/* Tutor Answer Length */}
                     <Select
                         label="Tutor Answer Length"
                         value={draftPreferences.tutorAnswerLength}
@@ -177,9 +179,10 @@ const AstraPreferencesPanel = () => {
                             { label: "Balanced", value: "balanced" },
                             { label: "Detailed", value: "detailed" },
                         ]}
+                        labelClassName={selectLabelClass}
+                        triggerClassName={selectTriggerClass}
                     />
 
-                    {/* FileViewer Answer Length */}
                     <Select
                         label="FileViewer Answer Length"
                         value={draftPreferences.fileViewerAnswerLength}
@@ -189,9 +192,10 @@ const AstraPreferencesPanel = () => {
                             { label: "Short", value: "short" },
                             { label: "Balanced", value: "balanced" },
                         ]}
+                        labelClassName={selectLabelClass}
+                        triggerClassName={selectTriggerClass}
                     />
 
-                    {/* Teaching Style */}
                     <Select
                         label="Teaching Style"
                         value={draftPreferences.teachingStyle}
@@ -201,33 +205,33 @@ const AstraPreferencesPanel = () => {
                             { label: "Step-by-step", value: "step_by_step" },
                             { label: "Exam-focused", value: "exam_focused" },
                         ]}
+                        labelClassName={selectLabelClass}
+                        triggerClassName={selectTriggerClass}
                     />
 
-                    {/* Study Context */}
                     <div className="space-y-2">
-                        <label className="text-sm font-medium text-white">
-                            Study context <span className="text-muted font-normal">(optional)</span>
+                        <label className="text-white/40 text-sm block">
+                            Study context <span className="text-white/30 font-normal">(optional)</span>
                         </label>
                         <textarea
                             value={draftPreferences.studyContext}
                             onChange={(e) => {
                                 const value = e.target.value;
-                                // Soft character limit (500 chars)
                                 if (value.length <= 500) {
                                     updateDraftPreference("studyContext", value);
                                 }
                             }}
                             rows={4}
                             placeholder="Tell Astra anything relevant about your current studies (e.g. clerkship, exam prep, level). This is used as background context only."
-                            className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-muted outline-none focus:border-teal transition-colors resize-none"
+                            className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-3 py-2 text-white/70 text-sm placeholder-white/30 outline-none focus:border-white/20 transition-colors resize-none"
                             maxLength={500}
                         />
                         <div className="flex justify-between items-center">
-                            <p className="text-xs text-muted">
+                            <p className="text-xs text-white/30">
                                 Tell Astra anything relevant about your current studies (e.g. clerkship, exam prep, level).
                                 This is used as background context only.
                             </p>
-                            <span className="text-xs text-muted">
+                            <span className="text-xs text-white/30">
                                 {draftPreferences.studyContext.length}/500
                             </span>
                         </div>
@@ -235,20 +239,19 @@ const AstraPreferencesPanel = () => {
                 </div>
             </div>
 
-            {/* Sticky Footer - Only show when dirty */}
             {isDirty && (
-                <div className="sticky bottom-0 border-t border-white/10 bg-[#1a1d24] p-4 flex items-center justify-end gap-3">
+                <div className="sticky bottom-0 border-t border-white/[0.06] bg-[#0D0F12]/80 p-4 flex items-center justify-end gap-3">
                     <button
                         onClick={handleDiscard}
                         disabled={isSaving}
-                        className="px-4 py-2 text-sm text-gray-300 hover:text-white border border-white/10 hover:border-white/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-4 py-2 text-sm rounded-xl bg-white/[0.02] border border-white/[0.06] text-white/40 hover:border-white/20 hover:text-white/70 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         Discard
                     </button>
                     <button
                         onClick={handleSave}
                         disabled={isSaving}
-                        className="px-4 py-2 text-sm bg-teal text-black rounded-lg hover:bg-teal/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                        className="px-4 py-2 text-sm rounded-xl bg-transparent border border-white/[0.08] text-white/70 hover:border-teal/40 hover:text-teal transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {isSaving ? "Saving..." : "Save"}
                     </button>

@@ -12,7 +12,10 @@ const Select = ({
     onChange, 
     options, 
     className = "",
-    disabled = false 
+    disabled = false,
+    labelClassName = "",
+    triggerClassName = "",
+    menuClassName = "",
 }) => {
     const [open, setOpen] = useState(false);
     const containerRef = useRef(null);
@@ -69,7 +72,7 @@ const Select = ({
     return (
         <div className={`w-full space-y-2 ${className}`} ref={containerRef}>
             {label && (
-                <label className="text-sm font-medium text-white block">
+                <label className={labelClassName || "text-sm font-medium text-white block"}>
                     {label}
                 </label>
             )}
@@ -79,7 +82,7 @@ const Select = ({
                     type="button"
                     onClick={() => !disabled && setOpen(!open)}
                     disabled={disabled}
-                    className={`
+                    className={triggerClassName ? `${triggerClassName} w-full flex justify-between items-center outline-none transition-colors ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}` : `
                         w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 
                         text-white outline-none transition-colors
                         flex justify-between items-center
@@ -107,7 +110,7 @@ const Select = ({
                         />
                         
                         {/* Dropdown Menu */}
-                        <div className="absolute left-0 right-0 mt-2 bg-[#1a1d24] border border-white/10 rounded-lg shadow-xl z-50 overflow-hidden">
+                        <div className={menuClassName ? `absolute left-0 right-0 mt-2 z-50 overflow-hidden ${menuClassName}` : "absolute left-0 right-0 mt-2 bg-[#1a1d24] border border-white/10 rounded-lg shadow-xl z-50 overflow-hidden"}>
                             <div className="max-h-60 overflow-y-auto">
                                 {options.map((opt) => {
                                     const isSelected = opt.value === value;
