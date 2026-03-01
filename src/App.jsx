@@ -916,12 +916,12 @@ const SynapseOS = () => {
             {/* Notification Icon */}
             <div className="relative" ref={notificationsRef}>
             <button
-                className="relative p-2 rounded-lg hover:bg-white/5 transition"
+                className="relative p-2 rounded-lg text-white/40 hover:text-white transition-colors"
                 onClick={() => setNotificationsOpen((prev) => !prev)}
                 aria-label="Notifications"
                 data-demo="notif-bell"
               >
-                <Bell size={20} className="text-muted hover:text-white" />
+                <Bell size={20} />
 
                 {/* Unread indicator */}
                 {unreadCount > 0 && (
@@ -931,16 +931,16 @@ const SynapseOS = () => {
 
               {/* Notifications Dropdown */}
               {notificationsOpen && (
-                <div className="absolute right-0 top-12 z-50 w-80 rounded-xl bg-[#1a1d24] border border-white/10 shadow-xl">
-                  <div className="flex items-center justify-between p-3 border-b border-white/5">
-                    <span className="text-sm font-semibold text-white">
+                <div className="absolute right-0 top-12 z-50 w-80 rounded-2xl bg-[#0D0F12]/95 backdrop-blur-md border border-white/[0.08] shadow-xl overflow-hidden">
+                  <div className="flex items-center justify-between p-3 border-b border-white/[0.06]">
+                    <span className="text-[9px] uppercase tracking-[0.15em] text-white/30 font-mono">
                       Notifications
                     </span>
 
                     {unreadCount > 0 && (
                       <button
                         onClick={handleClearAll}
-                        className="text-xs text-muted hover:text-red-400 transition"
+                        className="text-xs text-white/40 hover:text-red-400 transition"
                       >
                         Clear all
                       </button>
@@ -949,7 +949,7 @@ const SynapseOS = () => {
 
                   <div className="max-h-80 overflow-y-auto">
                     {unreadNotifications.length === 0 ? (
-                      <div className="p-4 text-sm text-muted text-center">
+                      <div className="text-white/30 text-sm text-center py-6">
                         No notifications yet
                       </div>
                     ) : (
@@ -996,14 +996,14 @@ const SynapseOS = () => {
               <div className="relative" ref={accountDropdownRef}>
                 <button
                   onClick={() => setAccountDropdownOpen(!accountDropdownOpen)}
-                  className="flex items-center gap-2 p-1 rounded-lg hover:bg-white/5 transition"
+                  className="flex items-center gap-2 p-1 rounded-lg bg-transparent border-0 hover:bg-white/5 transition"
                   aria-label="Account menu"
                 >
                   <div className="text-right hidden md:block">
-                    <div className="text-xs font-bold">
+                    <div className="text-sm font-medium text-white">
                       {profile.full_name || "User"}
                     </div>
-                    <div className="text-[10px] text-muted">
+                    <div className="text-[10px] text-white/40">
                       {profile.stage || "Student"}
                     </div>
                   </div>
@@ -1022,41 +1022,37 @@ const SynapseOS = () => {
 
                 {/* Account Dropdown */}
                 {accountDropdownOpen && (
-                  <div className="absolute right-0 top-12 z-[9999] w-64 rounded-xl bg-[#1a1d24] border border-white/10 shadow-xl overflow-hidden">
+                  <div className="absolute right-0 top-12 z-[9999] w-64 rounded-2xl bg-[#0D0F12]/95 backdrop-blur-md border border-white/[0.08] shadow-xl overflow-hidden">
                     {/* Account Info */}
-                    <div className="p-4 border-b border-white/5">
-                      <div className="text-sm font-semibold text-white">
+                    <div className="p-4">
+                      <div className="text-white font-semibold text-sm">
                         {profile.full_name || "User"}
                       </div>
-                      <div className="text-xs text-muted mt-1">
+                      <div className="text-white/40 text-xs mt-1">
                         {profile.email}
                       </div>
                       {profile.stage && (
-                        <div className="text-xs text-muted mt-1">
-                          Stage: {profile.stage}
+                        <div className="text-white/40 text-xs mt-0.5">
+                          {profile.stage}
                         </div>
                       )}
                     </div>
 
-                    {/* Divider */}
-                    <div className="h-px bg-white/5" />
+                    <div className="border-t border-white/[0.06]" />
 
-                    {/* Change Password */}
                     <button
                       onClick={() => {
                         setAccountDropdownOpen(false);
                         setChangePasswordModalOpen(true);
                       }}
-                      className="w-full text-left px-4 py-3 text-sm text-white hover:bg-white/5 transition-colors flex items-center gap-3"
+                      className="w-full text-left py-2 px-3 text-sm text-white/60 hover:text-white flex items-center gap-2 rounded-lg hover:bg-white/[0.04] transition-colors mx-2 my-1"
                     >
-                      <Lock size={16} className="text-muted" />
+                      <Lock size={16} className="text-white/30 shrink-0" />
                       Change Password
                     </button>
 
-                    {/* Divider */}
-                    <div className="h-px bg-white/5" />
+                    <div className="border-t border-white/[0.06]" />
 
-                    {/* Logout */}
                     <button
                       onClick={async () => {
                         setAccountDropdownOpen(false);
@@ -1069,7 +1065,7 @@ const SynapseOS = () => {
                           setIsAuthenticated(false);
                         }
                       }}
-                      className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+                      className="w-full text-left py-2 px-3 text-sm text-red-400/70 hover:text-red-400 rounded-lg hover:bg-red-500/[0.06] transition-colors mx-2 my-1"
                     >
                       Logout
                     </button>
