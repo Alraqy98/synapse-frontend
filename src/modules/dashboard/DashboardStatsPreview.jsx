@@ -4,31 +4,13 @@ import { Link, useNavigate } from "react-router-dom";
 import { Zap, Target } from "lucide-react";
 import api from "../../lib/api";
 
-// ─── Compact sparkline (no labels) ─────────────────────────────────────────────
-function CompactSparkline({ data }) {
-  if (!data || data.length < 2) return null;
-  const sessions = data.slice(-7);
-  const W = 80;
-  const H = 28;
-  const accuracies = sessions.map(s => s.accuracy);
-  const max = Math.max(...accuracies);
-  const min = Math.min(...accuracies);
-  const range = max - min || 1;
-  const x = i => (i / (sessions.length - 1)) * W;
-  const y = v => H - ((v - min) / range) * (H - 6) - 3;
-
-  const points = sessions.map((s, i) => [x(i), y(s.accuracy)]);
-  const linePath = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(" ");
-  const trend = sessions[sessions.length - 1].accuracy - sessions[0].accuracy;
-  const color = trend > 2 ? "#00F5CC" : trend < -2 ? "#FF4B4B" : "#F5A623";
-
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: 80, height: 28, flexShrink: 0 }}>
-      <path d={linePath} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx={points[points.length - 1][0]} cy={points[points.length - 1][1]} r="2" fill={color} />
-    </svg>
-  );
-}
+// ─── Format risk_level for display ─────────────────────────────────────────────
+const formatRiskLevel = (raw) => {
+  if (raw == null || raw === "") return null;
+  const key = String(raw).toUpperCase().replace(/\s+/g, "_");
+  const map = { HIGH_RISK: "High Risk", MEDIUM_RISK: "Medium Risk", LOW_RISK: "Low Risk" };
+  return map[key] ?? raw.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+};
 
 // ─── Empty state ───────────────────────────────────────────────────────────────
 const EmptyState = ({ navigate }) => (
@@ -107,58 +89,40 @@ const DashboardStatsPreview = () => {
       ) : (
         <div
           style={{
-            borderRadius: 18,
-            border: "1px solid rgba(255,255,255,0.06)",
-            background: "rgba(13,15,18,0.6)",
-            padding: "22px 20px",
-            backdropFilter: "blur(8px)",
-            position: "relative",
-            overflow: "hidden",
+            background: "rgba(255,255,255,0.03)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            borderRadius: 12,
+            padding: 24,
+            borderTop: "2px solid rgba(239,68,68,0.6)",
           }}
         >
-          <div aria-hidden style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent, rgba(255,75,75,0.4), transparent)", pointerEvents: "none" }} />
-
-          {/* Top row: rotation tag (left) + sparkline (right) */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-            {data.plannerContext?.activePeriod?.name ? (
-              <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(245,245,247,0.5)", padding: "5px 10px", borderRadius: 8, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
+          {/* Rotation tag */}
+          {data.plannerContext?.activePeriod?.name && (
+            <div style={{ marginBottom: 16 }}>
+              <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(245,245,247,0.5)", padding: "6px 10px", borderRadius: 8, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", display: "inline-block" }}>
                 {data.plannerContext.activePeriod.name}
               </span>
-            ) : (
-              <span />
-            )}
-            {data.session_accuracy && data.session_accuracy.length > 1 && (
-              <CompactSparkline data={data.session_accuracy} />
-            )}
-          </div>
+            </div>
+          )}
 
-          {/* Main: large concept name + red risk pill */}
-          <div style={{ marginBottom: 10 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 6 }}>
-              <h3 style={{ fontSize: "1.5rem", fontWeight: 700, color: "#F5F5F7", margin: 0, lineHeight: 1.25, letterSpacing: "-0.02em" }}>
+          {/* FOCUS AREA label + concept name + red risk pill */}
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(245,245,247,0.3)", marginBottom: 6 }}>
+              FOCUS AREA
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, marginBottom: 8 }}>
+              <h3 style={{ fontSize: "1.5rem", fontWeight: 600, color: "#fff", lineHeight: 1.25, letterSpacing: "-0.02em", margin: 0 }}>
                 {data.primary_risk.concept_name}
               </h3>
-              <span
-                style={{
-                  padding: "4px 10px",
-                  borderRadius: 100,
-                  background: "rgba(255,75,75,0.12)",
-                  border: "1px solid rgba(255,75,75,0.25)",
-                  fontSize: 13,
-                  fontWeight: 700,
-                  color: "#FF4B4B",
-                  fontFamily: "'Geist Mono', monospace",
-                  flexShrink: 0,
-                }}
-              >
+              <span style={{ flexShrink: 0, padding: "4px 10px", borderRadius: 100, background: "rgba(248,113,113,0.15)", border: "1px solid rgba(248,113,113,0.3)", fontSize: 13, fontWeight: 700, color: "#f87171", fontFamily: "'Geist Mono', monospace" }}>
                 {Math.round(data.primary_risk.accuracy ?? 0)}%
               </span>
             </div>
-            {/* Subtext: attempts · risk_level */}
-            <p style={{ fontSize: 12, color: "rgba(245,245,247,0.45)", fontFamily: "'Geist Mono', monospace", margin: 0 }}>
+            {/* Subtext: attempts · risk_level (text-red-400 text-xs font-mono) */}
+            <p style={{ fontSize: 12, fontFamily: "'Geist Mono', monospace", color: "#f87171", margin: 0 }}>
               {data.primary_risk.attempts} attempts
-              {data.primary_risk.risk_level != null && data.primary_risk.risk_level !== "" && (
-                <> · {String(data.primary_risk.risk_level).toUpperCase().replace(/\s+/g, " ")}</>
+              {formatRiskLevel(data.primary_risk.risk_level) && (
+                <> · {formatRiskLevel(data.primary_risk.risk_level)}</>
               )}
             </p>
           </div>
@@ -171,16 +135,16 @@ const DashboardStatsPreview = () => {
               alignItems: "center",
               justifyContent: "center",
               width: "100%",
+              marginTop: 20,
               padding: "12px 20px",
               borderRadius: 10,
               background: "linear-gradient(135deg, #00C8B4, #00F5CC)",
               color: "#0D0F12",
               fontFamily: "'Syne', sans-serif",
-              fontWeight: 700,
+              fontWeight: 600,
               fontSize: 14,
               textDecoration: "none",
               transition: "opacity 0.15s",
-              marginTop: 20,
             }}
             onMouseEnter={e => { e.currentTarget.style.opacity = "0.9"; }}
             onMouseLeave={e => { e.currentTarget.style.opacity = "1"; }}
