@@ -179,7 +179,8 @@
 }
 
 .file-viewer-v3 .thumb-strip.collapsed .thumb-list,
-.file-viewer-v3 .thumb-strip.collapsed .thumb-header-content {
+.file-viewer-v3 .thumb-strip.collapsed .thumb-header-content,
+.file-viewer-v3 .thumb-strip.collapsed .thumb-file-row {
   display: none;
 }
 

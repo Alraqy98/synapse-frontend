@@ -604,7 +604,11 @@ export default function FileViewerV3({
             <div className="thumb-file-name" title={title}>{title}</div>
           </div>
           <button type="button" className="collapse-btn" onClick={() => setThumbCollapsed((c) => !c)} title={thumbCollapsed ? "Expand" : "Collapse"} aria-label={thumbCollapsed ? "Expand" : "Collapse"}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6" /></svg>
+            {thumbCollapsed ? (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
+            ) : (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6" /></svg>
+            )}
           </button>
         </div>
         <div className="thumb-header-content">

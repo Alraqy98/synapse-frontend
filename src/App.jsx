@@ -210,11 +210,8 @@ const SynapseOS = () => {
   // Detect admin route
   const isAdminRoute = location.pathname.startsWith("/admin");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [notificationSource, setNotificationSource] = useState(null); // 'header' | 'sidebar' | null
-  const notificationsRef = useRef(null);
+  const [notificationSource, setNotificationSource] = useState(null); // 'sidebar' | null
   const sidebarNotificationsRef = useRef(null);
-  const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
-  const accountDropdownRef = useRef(null);
   const [changePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
 
   // Notifications state - empty initial state, fetched from backend only
@@ -660,9 +657,8 @@ const SynapseOS = () => {
     if (!notificationsOpen) return;
 
     const handleClickOutside = (event) => {
-      const inHeader = notificationsRef.current && notificationsRef.current.contains(event.target);
       const inSidebar = sidebarNotificationsRef.current && sidebarNotificationsRef.current.contains(event.target);
-      if (!inHeader && !inSidebar) {
+      if (!inSidebar) {
         setNotificationsOpen(false);
         setNotificationSource(null);
       }
@@ -676,25 +672,6 @@ const SynapseOS = () => {
     };
   }, [notificationsOpen]);
 
-  // Close account dropdown when clicking outside
-  useEffect(() => {
-    if (!accountDropdownOpen) return;
-
-    const handleClickOutside = (event) => {
-      if (
-        accountDropdownRef.current &&
-        !accountDropdownRef.current.contains(event.target)
-      ) {
-        setAccountDropdownOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [accountDropdownOpen]);
 
   // Admin role validation after profile fetch
   useEffect(() => {
@@ -862,8 +839,8 @@ const SynapseOS = () => {
     const sidebarItems = isAdminRoute ? adminSidebarItems : userSidebarItems;
 
     return (
-    <aside className="w-20 bg-void border-r border-white/5 flex flex-col items-center py-6 z-40 h-full fixed left-0 top-0">
-      <div className="mb-8 flex items-center justify-center">
+    <aside className="w-20 bg-void border-r border-white/5 flex flex-col items-center py-2 z-40 h-full fixed left-0 top-0">
+      <div className="mb-4 flex items-center justify-center">
         <img
           src={logo}
           alt="Synapse Logo"
@@ -871,7 +848,7 @@ const SynapseOS = () => {
         />
       </div>
 
-      <nav className="flex flex-col gap-4 w-full px-2">
+      <nav className="flex flex-col gap-1 w-full px-2">
         {sidebarItems.map((item, idx) => (
           <SidebarItem
             key={idx}
@@ -884,21 +861,27 @@ const SynapseOS = () => {
         ))}
       </nav>
 
-        <div className="mt-auto flex flex-col items-center gap-3 w-full px-2">
+        <div className="mt-auto flex flex-col items-center gap-1 w-full px-2">
+          {/* Settings (first in bottom group) */}
+          <SidebarItem
+            icon={Settings}
+            label="Settings"
+            to={isAdminRoute ? "/admin/settings" : "/settings"}
+          />
           {/* Notifications bell */}
-          <div className="relative" ref={sidebarNotificationsRef}>
+          <div className="relative w-8 h-8 flex items-center justify-center" ref={sidebarNotificationsRef}>
             <button
               type="button"
-              className="relative p-2 rounded-lg text-white/40 hover:text-teal/70 transition-colors"
+              className="relative w-8 h-8 flex items-center justify-center rounded-lg text-white/40 hover:text-teal/70 transition-colors"
               onClick={() => {
                 setNotificationSource("sidebar");
                 setNotificationsOpen((prev) => !prev);
               }}
               aria-label="Notifications"
             >
-              <Bell size={20} />
+              <Bell size={16} />
               {unreadCount > 0 && (
-                <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-teal" />
+                <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500" />
               )}
             </button>
             {notificationsOpen && notificationSource === "sidebar" && (
@@ -950,11 +933,11 @@ const SynapseOS = () => {
               </div>
             )}
           </div>
-          {/* Profile avatar */}
+          {/* Profile avatar (bottom) */}
           {profile && (
             <Link
               to={isAdminRoute ? "/admin/settings" : "/settings"}
-              className="flex items-center justify-center w-10 h-10 rounded-full bg-teal/20 text-teal font-semibold text-sm border border-teal/30 hover:bg-teal/30 transition"
+              className="flex items-center justify-center w-8 h-8 rounded-lg bg-teal/20 text-teal font-semibold text-xs border border-teal/30 hover:bg-teal/30 transition shrink-0"
               title={profile.full_name || "Profile"}
               aria-label="Profile settings"
             >
@@ -962,7 +945,7 @@ const SynapseOS = () => {
                 <img
                   src={profile.avatar_url}
                   alt=""
-                  className="w-full h-full rounded-full object-cover"
+                  className="w-full h-full rounded-lg object-cover"
                 />
               ) : (
                 (profile.full_name || "U")
@@ -974,11 +957,6 @@ const SynapseOS = () => {
               )}
             </Link>
           )}
-          <SidebarItem
-            icon={Settings}
-            label="Settings"
-            to={isAdminRoute ? "/admin/settings" : "/settings"}
-          />
         </div>
     </aside>
   );
@@ -990,185 +968,6 @@ const SynapseOS = () => {
       <Sidebar />
 
       <main className="flex-1 ml-20 flex flex-col h-full overflow-y-auto relative">
-        {/* HEADER */}
-        <header className="h-16 flex-shrink-0 border-b border-white/5 flex justify-between items-center px-6 bg-void/90 backdrop-blur z-[10000] relative">
-
-          {/* LEFT: Logo + Title */}
-          <div className="text-xs uppercase tracking-wide text-muted">
-            Synapse
-            <span className="ml-2 text-teal border border-teal px-1 rounded">
-              Beta
-            </span>
-          </div>
-
-          {/* RIGHT: Notifications + Profile */}
-          <div className="flex items-center gap-3 relative">
-            {/* Notification Icon */}
-            <div className="relative" ref={notificationsRef}>
-            <button
-                className="relative p-2 rounded-lg text-white/40 hover:text-teal/70 transition-colors"
-                onClick={() => {
-                  setNotificationSource("header");
-                  setNotificationsOpen((prev) => !prev);
-                }}
-                aria-label="Notifications"
-                data-demo="notif-bell"
-              >
-                <Bell size={20} />
-
-                {/* Unread indicator */}
-                {unreadCount > 0 && (
-                  <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-teal" />
-                )}
-            </button>
-
-              {/* Notifications Dropdown (when opened from header) */}
-              {notificationsOpen && notificationSource === "header" && (
-                <div className="absolute right-0 top-12 z-50 w-80 rounded-2xl bg-[#0D0F12]/95 backdrop-blur-md border border-white/[0.08] border-l-2 border-l-teal/20 shadow-[0_8px_32px_rgba(0,200,180,0.06)] overflow-hidden">
-                  <div className="flex items-center justify-between p-3 border-b border-white/[0.06]">
-                    <span className="text-[9px] uppercase tracking-[0.15em] text-teal/40 font-mono">
-                      Notifications
-                    </span>
-
-                    {unreadCount > 0 && (
-                      <button
-                        onClick={handleClearAll}
-                        className="text-xs text-white/40 hover:text-red-400 transition"
-                      >
-                        Clear all
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="max-h-80 overflow-y-auto">
-                    {unreadNotifications.length === 0 ? (
-                      <div className="text-white/25 text-xs text-center py-6">
-                        No notifications yet
-                      </div>
-                    ) : (
-                      unreadNotifications.map((n) => {
-                        // Determine if notification is clickable using type handler
-                        const behavior = getNotificationBehavior(n.type);
-                        const isClickable = behavior === "modal" || behavior === "navigate";
-                        
-                        const dataDemo =
-                          n.type === "mcq_completed" ? "notif-item-mcq-ready" : undefined;
-
-                        return (
-                          <div
-                            key={n.id}
-                            onClick={() => handleNotificationClick(n)}
-                            className={`p-3 text-sm transition border-b border-white/5 last:border-b-0 ${
-                              !n.read ? "bg-white/2" : ""
-                            } ${
-                              isClickable 
-                                ? "hover:bg-white/10 cursor-pointer" 
-                                : "hover:bg-white/5 cursor-default"
-                            }`}
-                            data-demo={dataDemo}
-                          >
-                            <div className="font-medium text-white">
-                              {n.title || n.message || "Notification"}
-                            </div>
-                            <div className="text-muted text-xs mt-1">
-                              {n.description || n.body || n.content || ""}
-                            </div>
-                            <div className="text-muted text-[10px] mt-1">
-                              {formatRelativeTime(n.createdAt || n.created_at || n.created_at)}
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {profile && (
-              <div className="relative" ref={accountDropdownRef}>
-                <button
-                  onClick={() => setAccountDropdownOpen(!accountDropdownOpen)}
-                  className="flex items-center gap-2 p-1 rounded-lg bg-transparent border-0 hover:bg-white/5 transition"
-                  aria-label="Account menu"
-                >
-                  <div className="text-right hidden md:block">
-                    <div className="text-sm font-medium text-white">
-                      {profile.full_name || "User"}
-                    </div>
-                    <div className="text-[10px] text-white/40">
-                      {profile.stage || "Student"}
-                    </div>
-                  </div>
-
-                  <img
-                    src={
-                      profile.avatar_url ||
-                      `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
-                        profile.full_name || "U"
-                      )}`
-                    }
-                    alt="avatar"
-                    className="w-8 h-8 rounded-full bg-teal/10"
-                  />
-                </button>
-
-                {/* Account Dropdown */}
-                {accountDropdownOpen && (
-                  <div className="absolute right-0 top-12 z-[9999] w-64 rounded-2xl bg-[#0D0F12]/95 backdrop-blur-md border border-white/[0.08] border-l-2 border-l-teal/20 shadow-[0_8px_32px_rgba(0,200,180,0.06)] overflow-hidden">
-                    {/* Account Info */}
-                    <div className="p-4">
-                      <div className="text-white font-semibold text-base">
-                        {profile.full_name || "User"}
-                      </div>
-                      <div className="text-white/40 text-xs mt-1">
-                        {profile.email}
-                      </div>
-                      {profile.stage && (
-                        <span className="inline-block mt-2 text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-full border border-teal/20 text-teal/50 font-mono bg-teal/[0.04]">
-                          {(profile.stage || "").replace(/_/g, " ")}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="border-t border-white/[0.06]" />
-
-                    <button
-                      onClick={() => {
-                        setAccountDropdownOpen(false);
-                        setChangePasswordModalOpen(true);
-                      }}
-                      className="w-full text-left py-2 px-3 text-sm text-white/60 hover:text-white flex items-center gap-2 rounded-lg hover:bg-white/[0.04] transition-colors mx-2 my-1"
-                    >
-                      <Lock size={16} className="text-teal/40 shrink-0" />
-                      Change Password
-                    </button>
-
-                    <div className="border-t border-white/[0.06]" />
-
-                    <button
-                      onClick={async () => {
-                        setAccountDropdownOpen(false);
-                        try {
-                          await supabase.auth.signOut();
-                        } catch (err) {
-                          console.error(err);
-                        } finally {
-                          localStorage.removeItem("access_token");
-                          setIsAuthenticated(false);
-                        }
-                      }}
-                      className="w-full text-left py-2 px-3 text-sm text-red-400/70 hover:text-red-400 rounded-lg hover:bg-red-500/[0.06] transition-colors mx-2 my-1"
-                    >
-                      Logout
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </header>
-
         {/* CONTENT */}
         <div className="flex-1 flex flex-col overflow-hidden relative">
           <ErrorBoundary>
