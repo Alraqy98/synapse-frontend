@@ -22,7 +22,7 @@ const LibraryFilters = ({
                 <div className="flex items-center gap-2">
                     <button
                         onClick={onUpload}
-                        className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl bg-teal/20 text-teal hover:bg-teal hover:text-black transition font-medium"
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl w-full text-sm font-medium bg-transparent border border-white/[0.08] text-white/70 hover:border-teal/40 hover:text-teal transition-colors"
                     >
                         <Plus size={16} />
                         Upload
@@ -45,7 +45,7 @@ const LibraryFilters = ({
                 {/* Folder Button (ONLY here) */}
                 <button
                     onClick={onCreateFolder}
-                    className="flex items-center justify-center gap-2 py-2 rounded-xl bg-white/10 text-white hover:bg-white/20 transition font-medium"
+                    className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl w-full text-sm bg-transparent border border-white/[0.06] text-white/40 hover:border-white/20 hover:text-white/70 transition-colors"
                 >
                     <FolderPlus size={16} />
                     New Folder
@@ -58,9 +58,9 @@ const LibraryFilters = ({
                     <button
                         key={f}
                         onClick={() => onSelectFilter(f)}
-                        className={`text-left px-3 py-2 rounded-lg transition ${activeFilter === f
-                                ? "bg-teal text-black font-medium"
-                                : "text-white/40 hover:text-white"
+                        className={`text-left text-sm px-3 py-2 rounded-lg transition-colors ${activeFilter === f
+                                ? "text-white bg-white/[0.06]"
+                                : "text-white/40 hover:text-white/80"
                             }`}
                     >
                         {f}

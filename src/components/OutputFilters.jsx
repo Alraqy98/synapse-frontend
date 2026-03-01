@@ -18,7 +18,7 @@ export default function OutputFilters({
                 <button
                     type="button"
                     onClick={onPrimary}
-                    className="flex items-center justify-center gap-2 py-2 rounded-xl bg-teal/20 text-teal hover:bg-teal hover:text-black transition font-medium"
+                    className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl w-full text-sm font-medium bg-transparent border border-white/[0.08] text-white/70 hover:border-teal/40 hover:text-teal transition-colors"
                 >
                     <Plus size={16} />
                     {primaryLabel}
@@ -26,7 +26,7 @@ export default function OutputFilters({
                 <button
                     type="button"
                     onClick={onCreateFolder}
-                    className="flex items-center justify-center gap-2 py-2 rounded-xl bg-white/10 text-white hover:bg-white/20 transition font-medium"
+                    className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl w-full text-sm bg-transparent border border-white/[0.06] text-white/40 hover:border-white/20 hover:text-white/70 transition-colors"
                 >
                     <FolderPlus size={16} />
                     New Folder
@@ -36,7 +36,7 @@ export default function OutputFilters({
                 <button
                     type="button"
                     onClick={() => onSelectFolder(null)}
-                    className={`text-left px-3 py-2 rounded-lg transition ${activeFolderId == null ? "bg-teal text-black font-medium" : "text-white/40 hover:text-white"}`}
+                    className={`text-left text-sm px-3 py-2 rounded-lg transition-colors ${activeFolderId == null ? "text-white bg-white/[0.06]" : "text-white/40 hover:text-white/80"}`}
                 >
                     {allLabel}
                 </button>
@@ -45,7 +45,7 @@ export default function OutputFilters({
                         key={f.id}
                         type="button"
                         onClick={() => onSelectFolder(f.id)}
-                        className={`text-left px-3 py-2 rounded-lg transition max-w-full truncate ${activeFolderId === f.id ? "bg-teal text-black font-medium" : "text-white/40 hover:text-white"}`}
+                        className={`text-left text-sm px-3 py-2 rounded-lg transition-colors max-w-full truncate ${activeFolderId === f.id ? "text-white bg-white/[0.06]" : "text-white/40 hover:text-white/80"}`}
                         title={f.name}
                     >
                         {f.name}
