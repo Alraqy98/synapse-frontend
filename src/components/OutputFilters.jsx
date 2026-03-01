@@ -13,7 +13,7 @@ export default function OutputFilters({
     allLabel = "All",
 }) {
     return (
-        <div className="w-60 bg-[#0f1115] bg-white/[0.01] border-r border-white/[0.06] flex flex-col shrink-0">
+        <div className="w-60 bg-[#0f1115] bg-white/[0.01] border-r border-white/5 flex flex-col shrink-0">
             <div className="p-4 flex flex-col gap-2">
                 <button
                     type="button"
