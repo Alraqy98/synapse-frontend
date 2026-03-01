@@ -132,7 +132,7 @@ const DashboardStatsPreview = () => {
 
           {/* Small outlined CTA button */}
           <Link
-            to="/learning"
+            to={`/learning/reinforce/${data.primary_risk.concept_id}`}
             style={{
               display: "inline-flex",
               alignItems: "center",
