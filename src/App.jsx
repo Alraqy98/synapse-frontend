@@ -916,7 +916,7 @@ const SynapseOS = () => {
             {/* Notification Icon */}
             <div className="relative" ref={notificationsRef}>
             <button
-                className="relative p-2 rounded-lg text-white/40 hover:text-white transition-colors"
+                className="relative p-2 rounded-lg text-white/40 hover:text-teal/70 transition-colors"
                 onClick={() => setNotificationsOpen((prev) => !prev)}
                 aria-label="Notifications"
                 data-demo="notif-bell"
@@ -931,9 +931,9 @@ const SynapseOS = () => {
 
               {/* Notifications Dropdown */}
               {notificationsOpen && (
-                <div className="absolute right-0 top-12 z-50 w-80 rounded-2xl bg-[#0D0F12]/95 backdrop-blur-md border border-white/[0.08] shadow-xl overflow-hidden">
+                <div className="absolute right-0 top-12 z-50 w-80 rounded-2xl bg-[#0D0F12]/95 backdrop-blur-md border border-white/[0.08] border-l-2 border-l-teal/20 shadow-[0_8px_32px_rgba(0,200,180,0.06)] overflow-hidden">
                   <div className="flex items-center justify-between p-3 border-b border-white/[0.06]">
-                    <span className="text-[9px] uppercase tracking-[0.15em] text-white/30 font-mono">
+                    <span className="text-[9px] uppercase tracking-[0.15em] text-teal/40 font-mono">
                       Notifications
                     </span>
 
@@ -949,7 +949,7 @@ const SynapseOS = () => {
 
                   <div className="max-h-80 overflow-y-auto">
                     {unreadNotifications.length === 0 ? (
-                      <div className="text-white/30 text-sm text-center py-6">
+                      <div className="text-white/25 text-xs text-center py-6">
                         No notifications yet
                       </div>
                     ) : (
@@ -1022,19 +1022,19 @@ const SynapseOS = () => {
 
                 {/* Account Dropdown */}
                 {accountDropdownOpen && (
-                  <div className="absolute right-0 top-12 z-[9999] w-64 rounded-2xl bg-[#0D0F12]/95 backdrop-blur-md border border-white/[0.08] shadow-xl overflow-hidden">
+                  <div className="absolute right-0 top-12 z-[9999] w-64 rounded-2xl bg-[#0D0F12]/95 backdrop-blur-md border border-white/[0.08] border-l-2 border-l-teal/20 shadow-[0_8px_32px_rgba(0,200,180,0.06)] overflow-hidden">
                     {/* Account Info */}
                     <div className="p-4">
-                      <div className="text-white font-semibold text-sm">
+                      <div className="text-white font-semibold text-base">
                         {profile.full_name || "User"}
                       </div>
                       <div className="text-white/40 text-xs mt-1">
                         {profile.email}
                       </div>
                       {profile.stage && (
-                        <div className="text-white/40 text-xs mt-0.5">
-                          {profile.stage}
-                        </div>
+                        <span className="inline-block mt-2 text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-full border border-teal/20 text-teal/50 font-mono bg-teal/[0.04]">
+                          {(profile.stage || "").replace(/_/g, " ")}
+                        </span>
                       )}
                     </div>
 
@@ -1047,7 +1047,7 @@ const SynapseOS = () => {
                       }}
                       className="w-full text-left py-2 px-3 text-sm text-white/60 hover:text-white flex items-center gap-2 rounded-lg hover:bg-white/[0.04] transition-colors mx-2 my-1"
                     >
-                      <Lock size={16} className="text-white/30 shrink-0" />
+                      <Lock size={16} className="text-teal/40 shrink-0" />
                       Change Password
                     </button>
 
