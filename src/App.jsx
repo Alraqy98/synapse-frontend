@@ -1012,7 +1012,7 @@ const SynapseOS = () => {
                       } finally {
                         localStorage.removeItem("access_token");
                         setIsAuthenticated(false);
-                      }}
+                      }
                     }}
                   >
                     Sign out
