@@ -5,8 +5,9 @@ import { useParams, useNavigate } from "react-router-dom";
 import { apiMCQ } from "./apiMCQ";
 import GenerateMCQModal from "./GenerateMCQModal";
 import MCQDeckView from "./MCQDeckView";
-import UnifiedCard from "../../components/UnifiedCard";
-import { Search, Plus, Upload, Folder, Edit2, Copy, Trash2 } from "lucide-react";
+import OutputCard from "../../components/OutputCard";
+import OutputFilters from "../../components/OutputFilters";
+import { Upload, Folder, Edit2, Copy, Trash2 } from "lucide-react";
 import { isValidCodeFormat } from "../summaries/utils/summaryCode";
 import { sanitizeErrorMessage } from "../utils/errorSanitizer";
 import { useDemo } from "../demo/DemoContext";
@@ -160,7 +161,7 @@ export default function MCQTab() {
     const [importError, setImportError] = useState(null);
     const [isImporting, setIsImporting] = useState(false);
     const [folders, setFolders] = useState([]);
-    const [selectedFolderId, setSelectedFolderId] = useState("all");
+    const [selectedFolderId, setSelectedFolderId] = useState(null);
     const [folderAssignDeck, setFolderAssignDeck] = useState(null);
     const [creatingFolder, setCreatingFolder] = useState(false);
     const [newFolderName, setNewFolderName] = useState("");
@@ -187,11 +188,7 @@ export default function MCQTab() {
     }, []);
 
     useEffect(() => {
-        if (selectedFolderId === "all") {
-            loadDecks();
-        } else {
-            loadDecks(selectedFolderId);
-        }
+        loadDecks(selectedFolderId ?? null);
     }, [selectedFolderId]);
 
     const loadFolders = async () => {
@@ -347,181 +344,126 @@ export default function MCQTab() {
                 }} />
             ) : (
                 <>
-                    <div className="max-w-7xl mx-auto px-6 pb-28">
-                        <div className="rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-xl p-8">
-
-                            {/* HEADER */}
-                            <div className="flex items-center justify-between mb-8">
-                                <div>
-                                    <h1 className="text-4xl font-bold tracking-tight text-white">
-                                        MCQ Decks
-                                    </h1>
-                                    <p className="text-sm text-muted mt-1">
-                                        Generate, organize, and revise your MCQs
-                                    </p>
-                                </div>
-
+                    <div className="flex flex-1 h-full overflow-hidden bg-[#0D0F12]">
+                        <OutputFilters
+                            primaryLabel="Generate MCQs"
+                            onPrimary={() => setOpenModal(true)}
+                            onCreateFolder={async () => {
+                                const name = window.prompt("Folder name");
+                                if (name?.trim()) {
+                                    const created = await handleCreateFolder(name.trim());
+                                    if (created?.id) setSelectedFolderId(created.id);
+                                }
+                            }}
+                            folders={folders}
+                            activeFolderId={selectedFolderId}
+                            onSelectFolder={setSelectedFolderId}
+                            allLabel="All MCQs"
+                        />
+                        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+                            {/* Breadcrumbs */}
+                            <div className="h-12 flex items-center px-6 border-b border-white/[0.06] bg-[#0f1115] text-xs shrink-0">
+                                <nav className="flex items-center gap-1 text-white/50">
+                                    <button
+                                        type="button"
+                                        onClick={() => setSelectedFolderId(null)}
+                                        className={selectedFolderId == null ? "text-white font-medium cursor-default" : "hover:text-teal"}
+                                    >
+                                        All MCQs
+                                    </button>
+                                    {selectedFolderId != null && (() => {
+                                        const folder = folders.find((f) => f.id === selectedFolderId);
+                                        return (
+                                            <>
+                                                <span className="mx-1 text-white/30">/</span>
+                                                <span className="text-white font-medium truncate max-w-[180px]" title={folder?.name}>
+                                                    {folder?.name ?? "Folder"}
+                                                </span>
+                                            </>
+                                        );
+                                    })()}
+                                </nav>
                                 <button
-                                    className="btn btn-primary gap-2"
-                                    onClick={() => setOpenModal(true)}
+                                    type="button"
+                                    className="ml-auto px-3 py-1.5 text-xs bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-white transition"
+                                    onClick={() => setShowImport(true)}
                                 >
-                                    <Plus size={16} />
-                                    Generate MCQs
+                                    <Upload size={12} className="inline mr-1" /> Import
                                 </button>
                             </div>
-
-                            {/* COMMAND BAR */}
-                            <div className="flex flex-wrap items-center gap-3 mb-10 p-3 rounded-2xl bg-black/40 border border-white/10">
-                                <div className="relative flex-1 min-w-[240px]">
-                                    <Search
-                                        size={16}
-                                        className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"
-                                    />
-                                    <input
-                                        type="text"
-                                        placeholder="Search MCQ decks…"
-                                        value={search}
-                                        onChange={(e) => setSearch(e.target.value)}
-                                        className="w-full pl-9 pr-4 py-2 rounded-lg bg-black/40 border border-white/10 text-sm text-white"
-                                    />
-                                </div>
-
-                                <select
-                                    className="px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-sm text-white"
-                                    value={sort}
-                                    onChange={(e) => setSort(e.target.value)}
-                                >
-                                    <option value="newest">Newest</option>
-                                    <option value="oldest">Oldest</option>
-                                </select>
-
-                            <div className="flex items-center gap-2">
-                                <FolderDropdown
-                                    label="Folder"
-                                    value={selectedFolderId}
-                                    onChange={setSelectedFolderId}
-                                    folders={folders}
-                                    includeAll
-                                    allowCreate
-                                    onCreateFolder={async (name) => {
-                                        const created = await handleCreateFolder(name);
-                                        if (created?.id) {
-                                            setSelectedFolderId(created.id);
-                                        }
-                                        return created;
-                                    }}
-                                />
-                            </div>
-
-                            <div className="flex gap-2 ml-auto">
-                                    <button 
-                                        className="btn btn-secondary gap-2"
-                                        onClick={() => setShowImport(true)}
-                                    >
-                                        <Upload size={14} /> Import
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* GRID */}
-                            {loading ? (
-                                <div className="text-sm text-muted">Loading MCQ decks…</div>
-                            ) : visibleDecks.length === 0 ? (
-                                <div className="text-center py-12">
-                                    <p className="text-sm text-muted mb-4">
-                                        {search
-                                            ? "No MCQ decks match your search."
-                                            : "No MCQ decks available. Generate an MCQ deck from a file to get started."}
-                                    </p>
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                                    {visibleDecks.map((deck) => {
-                                        const isGenerating = deck.generating === true || deck.status === "generating";
-                                        
-                                        // Determine status and progress
-                                        let status = "ready";
-                                        let progress = 100;
-                                        let statusLabel = "MCQ Deck";
-                                        
-                                        if (isGenerating) {
-                                            status = "generating";
-                                            progress = 60; // Simulated progress during generation
-                                        } else if (deck.status === "failed") {
-                                            status = "failed";
-                                            progress = 0;
-                                        } else {
-                                            // For ready decks, show 100% progress
-                                            const current = deck.question_count || 0;
-                                            const target = deck.question_count_target ?? deck.question_count ?? 1;
-                                            progress = Math.min(100, Math.round((current / target) * 100));
-                                            
-                                            // Add progress status label if available
-                                            if (deck.progress?.status === "completed") {
-                                                statusLabel = "Completed";
-                                            } else if (deck.progress?.status === "in_progress") {
-                                                statusLabel = "In progress";
-                                            }
-                                        }
-
-                                        // Compute demo props before JSX (only for demo deck)
-                                        const cardProps =
-                                            isDemo && deck.id === DEMO_MCQ_DECK_ID
-                                                ? { dataDemo: "mcq-deck-card" }
-                                                : {};
-
+                            {/* Grid */}
+                            <div className="flex-1 overflow-y-auto p-6">
+                                {loading ? (
+                                    <div className="text-sm text-white/40">Loading…</div>
+                                ) : (() => {
+                                    const showFolders = selectedFolderId == null && folders.length > 0;
+                                    const hasDecks = visibleDecks.length > 0;
+                                    if (!showFolders && !hasDecks) {
                                         return (
-                                            <UnifiedCard
-                                                key={deck.id}
-                                                {...cardProps}
-                                                title={deck.title}
-                                                progress={progress}
-                                                status={status}
-                                                statusText={statusLabel}
-                                                date={deck.created_at ? new Date(deck.created_at).toLocaleDateString() : null}
-                                                isGenerating={isGenerating}
-                                                onClick={() => openDeck(deck.id)}
-                                                onDelete={() => setConfirmDelete({ id: deck.id, title: deck.title })}
-                                                onRename={(newTitle) => {
-                                                    setDecks((prev) =>
-                                                        prev.map((d) => (d.id === deck.id ? { ...d, title: newTitle } : d))
-                                                    );
-                                                    apiMCQ.renameMCQDeck(deck.id, newTitle).catch((err) => {
-                                                        console.error("Rename failed", err);
-                                                        loadDecks();
-                                                    });
-                                                }}
-                                                actionsOverride={[
-                                                    {
-                                                        label: "Rename",
-                                                        icon: Edit2,
-                                                        actionKey: "rename",
-                                                    },
-                                                    {
-                                                        label: "Move to folder",
-                                                        icon: Folder,
-                                                        onClick: () => setFolderAssignDeck(deck),
-                                                    },
-                                                    {
-                                                        label: "Generate import code",
-                                                        icon: Copy,
-                                                        actionKey: "generateImportCode",
-                                                    },
-                                                    { divider: true },
-                                                    {
-                                                        label: "Delete",
-                                                        icon: Trash2,
-                                                        actionKey: "delete",
-                                                        destructive: true,
-                                                    },
-                                                ]}
-                                                itemId={deck.id}
-                                                shareItem={apiMCQ.shareDeck}
-                                            />
+                                            <div className="text-center py-12 text-white/40 text-sm">
+                                                {search ? "No MCQ decks match your search." : "No MCQ decks here. Generate one or select a folder."}
+                                            </div>
                                         );
-                                    })}
-                                </div>
-                            )}
+                                    }
+                                    return (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+                                            {showFolders && folders.map((folder) => (
+                                                <OutputCard
+                                                    key={folder.id}
+                                                    type="folder"
+                                                    id={folder.id}
+                                                    title={folder.name}
+                                                    folderColor={folder.color || "#f7c948"}
+                                                    onClick={() => setSelectedFolderId(folder.id)}
+                                                    onDelete={async () => {
+                                                        if (!window.confirm("Delete this folder? Decks inside will move to All MCQs.")) return;
+                                                        try {
+                                                            await apiMCQ.deleteMCQFolder(folder.id);
+                                                            setFolders((prev) => prev.filter((f) => f.id !== folder.id));
+                                                            if (selectedFolderId === folder.id) setSelectedFolderId(null);
+                                                        } catch (e) {
+                                                            console.error(e);
+                                                        }
+                                                    }}
+                                                    onRename={async (id, newTitle) => {
+                                                        try {
+                                                            await apiMCQ.renameMCQFolder(id, newTitle);
+                                                            setFolders((prev) => prev.map((f) => (f.id === id ? { ...f, name: newTitle } : f)));
+                                                        } catch (e) {
+                                                            console.error(e);
+                                                        }
+                                                    }}
+                                                />
+                                            ))}
+                                            {visibleDecks.map((deck) => {
+                                                const isGenerating = deck.generating === true || deck.status === "generating";
+                                                const sourceName = deck.file_name ?? deck.source_file_name ?? null;
+                                                return (
+                                                    <OutputCard
+                                                        key={deck.id}
+                                                        type="mcq"
+                                                        id={deck.id}
+                                                        title={deck.title}
+                                                        category="MCQ"
+                                                        sourceFileName={sourceName}
+                                                        date={deck.created_at ? new Date(deck.created_at).toLocaleDateString() : null}
+                                                        isGenerating={isGenerating}
+                                                        statusText={isGenerating ? "Generating…" : null}
+                                                        onClick={() => openDeck(deck.id)}
+                                                        onDelete={() => setConfirmDelete({ id: deck.id, title: deck.title })}
+                                                        onRename={(id, newTitle) => {
+                                                            setDecks((prev) => prev.map((d) => (d.id === id ? { ...d, title: newTitle } : d)));
+                                                            apiMCQ.renameMCQDeck(id, newTitle).catch(() => loadDecks(selectedFolderId ?? null));
+                                                        }}
+                                                        onMoveToFolder={() => setFolderAssignDeck(deck)}
+                                                        dataDemo={isDemo && deck.id === DEMO_MCQ_DECK_ID ? "mcq-deck-card" : undefined}
+                                                    />
+                                                );
+                                            })}
+                                        </div>
+                                    );
+                                })()}
+                            </div>
                         </div>
                     </div>
 

@@ -19,9 +19,10 @@ export const getSummariesByFile = async (fileId) => {
 /**
  * Get all summaries for the current user
  * GET /ai/summaries
+ * Optional: ?folder_id=uuid
  * Returns: { summaries: [...] }
  */
-export const getAllSummaries = async () => {
+export const getAllSummaries = async (folderId = null) => {
     // Demo Mode interception: summaries list → demo summary
     const demoRes = demoApiIntercept({
         method: "GET",
@@ -32,7 +33,8 @@ export const getAllSummaries = async () => {
     }
 
     try {
-        const res = await api.get("/ai/summaries");
+        const params = folderId ? { folder_id: folderId } : {};
+        const res = await api.get("/ai/summaries", { params });
         return res.data?.summaries || [];
     } catch (err) {
         // If endpoint doesn't exist, return empty array
@@ -41,6 +43,39 @@ export const getAllSummaries = async () => {
         }
         throw err;
     }
+};
+
+// ===============================================================
+// SUMMARY FOLDERS
+// ===============================================================
+
+export const getSummaryFolders = async () => {
+    try {
+        const res = await api.get("/ai/summaries/folders");
+        if (Array.isArray(res.data)) return res.data;
+        return res.data?.folders || [];
+    } catch (err) {
+        if (err.response?.status === 404) return [];
+        throw err;
+    }
+};
+
+export const createSummaryFolder = async (name) => {
+    if (!name?.trim()) throw new Error("Folder name required");
+    const res = await api.post("/ai/summaries/folders", { name: name.trim() });
+    return res.data?.folder || res.data;
+};
+
+export const updateSummaryFolder = async (folderId, name) => {
+    if (!folderId) throw new Error("Folder ID missing");
+    const res = await api.patch(`/ai/summaries/folders/${folderId}`, { name: name?.trim() || "" });
+    return res.data?.folder || res.data;
+};
+
+export const deleteSummaryFolder = async (folderId) => {
+    if (!folderId) throw new Error("Folder ID missing");
+    await api.delete(`/ai/summaries/folders/${folderId}`);
+    return { success: true };
 };
 
 /**
@@ -170,6 +205,10 @@ export const apiSummaries = {
     getSummariesByFile,
     getAllSummaries,
     getSummary,
+    getSummaryFolders,
+    createSummaryFolder,
+    updateSummaryFolder,
+    deleteSummaryFolder,
     generateSummary,
     getSummaryJobStatus,
     deleteSummary,

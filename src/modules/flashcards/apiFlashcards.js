@@ -14,7 +14,7 @@ const authHeaders = () => ({
 // DECKS
 // ======================================================
 
-export const getDecks = async () => {
+export const getDecks = async (folderId = null) => {
     // Demo Mode interception: flashcards list → demo deck
     const { demoApiIntercept } = await import("../demo/demoApiRuntime");
     const demoRes = demoApiIntercept({
@@ -25,10 +25,51 @@ export const getDecks = async () => {
         return demoRes.data?.decks || [];
     }
 
-    const res = await axios.get(`${API_BASE}/flashcards/decks`, {
+    const query = folderId ? `?folder_id=${encodeURIComponent(folderId)}` : "";
+    const res = await axios.get(`${API_BASE}/flashcards/decks${query}`, {
         headers: authHeaders(),
     });
     return res.data?.decks || [];
+};
+
+// ======================================================
+// FLASHCARD FOLDERS
+// ======================================================
+
+export const getFlashcardFolders = async () => {
+    const res = await axios.get(`${API_BASE}/flashcards/folders`, {
+        headers: authHeaders(),
+    });
+    if (Array.isArray(res.data)) return res.data;
+    return res.data?.folders || [];
+};
+
+export const createFlashcardFolder = async (name) => {
+    if (!name?.trim()) throw new Error("Folder name required");
+    const res = await axios.post(
+        `${API_BASE}/flashcards/folders`,
+        { name: name.trim() },
+        { headers: authHeaders() }
+    );
+    return res.data?.folder || res.data;
+};
+
+export const updateFlashcardFolder = async (folderId, name) => {
+    if (!folderId) throw new Error("Folder ID missing");
+    const res = await axios.patch(
+        `${API_BASE}/flashcards/folders/${folderId}`,
+        { name: name?.trim() || "" },
+        { headers: authHeaders() }
+    );
+    return res.data?.folder || res.data;
+};
+
+export const deleteFlashcardFolder = async (folderId) => {
+    if (!folderId) throw new Error("Folder ID missing");
+    await axios.delete(`${API_BASE}/flashcards/folders/${folderId}`, {
+        headers: authHeaders(),
+    });
+    return { success: true };
 };
 
 /**

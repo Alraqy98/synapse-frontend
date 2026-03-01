@@ -1,10 +1,11 @@
 // src/modules/summaries/SummariesTab.jsx
 import React, { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate, useParams } from "react-router-dom";
-import { Search, Plus, MoreHorizontal, Upload } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Plus, Upload } from "lucide-react";
 import { apiSummaries } from "./apiSummaries";
-import SummaryCard from "./SummaryCard";
+import OutputCard from "../../components/OutputCard";
+import OutputFilters from "../../components/OutputFilters";
 import GenerateSummaryModal from "./GenerateSummaryModal";
 import { isValidCodeFormat } from "./utils/summaryCode";
 import SummaryFailurePopup from "../../components/SummaryFailurePopup";
@@ -57,6 +58,8 @@ const sanitizeErrorMessage = (errorMsg) => {
 
 export default function SummariesTab() {
     const navigate = useNavigate();
+    const [folders, setFolders] = useState([]);
+    const [selectedFolderId, setSelectedFolderId] = useState(null);
     const [summaries, setSummaries] = useState([]);
     const [loading, setLoading] = useState(true);
     const [initialLoadDone, setInitialLoadDone] = useState(false);
@@ -70,14 +73,20 @@ export default function SummariesTab() {
     const [isImporting, setIsImporting] = useState(false);
     const [failurePopup, setFailurePopup] = useState({ isOpen: false, isProcessing: false, onRetry: null });
 
-    // Deep links are now handled by routing - no need for local state
+    const loadFolders = async () => {
+        try {
+            const list = await apiSummaries.getSummaryFolders();
+            setFolders(list || []);
+        } catch (err) {
+            console.error("Failed to load summary folders:", err);
+        }
+    };
 
-    // Load summaries (matching MCQ pattern exactly)
-    const loadSummaries = async () => {
+    const loadSummaries = async (folderId = null) => {
         try {
             if (!initialLoadDone) setLoading(true);
-            const summaries = await apiSummaries.getAllSummaries();
-            setSummaries(summaries || []);
+            const list = await apiSummaries.getAllSummaries(folderId);
+            setSummaries(list || []);
         } catch (err) {
             console.error("Failed to load summaries:", err);
             setSummaries([]);
@@ -88,16 +97,20 @@ export default function SummariesTab() {
     };
 
     useEffect(() => {
-        loadSummaries();
+        loadFolders();
     }, []);
+
+    useEffect(() => {
+        loadSummaries(selectedFolderId ?? null);
+    }, [selectedFolderId]);
 
     // Poll for all summaries every 15 seconds to catch backend updates
     useEffect(() => {
         if (!initialLoadDone) return; // Don't poll until initial load is done
         
         const interval = setInterval(() => {
-            loadSummaries();
-        }, 15000); // Poll every 15 seconds
+            loadSummaries(selectedFolderId ?? null);
+        }, 15000);
 
         return () => clearInterval(interval);
     }, [initialLoadDone]);
@@ -218,95 +231,130 @@ export default function SummariesTab() {
         console.log(`Export code for summary ${id}: ${code}`);
     };
 
+    const activeFolder = selectedFolderId != null ? folders.find((f) => f.id === selectedFolderId) : null;
+
     return (
-        <div className="h-full w-full">
-            <>
-                    <div className="max-w-7xl mx-auto px-6 pb-28">
-                        <div className="rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-xl p-8">
-                            {/* HEADER */}
-                            <div className="flex items-center justify-between mb-8">
-                                <div>
-                                    <h1 className="text-4xl font-bold tracking-tight text-white">
-                                        Summaries
-                                    </h1>
-                                    <p className="text-sm text-muted mt-1">
-                                        AI-generated summaries from your library files
-                                    </p>
+        <div className="flex flex-1 h-full overflow-hidden bg-[#0D0F12]">
+            <OutputFilters
+                primaryLabel="Generate Summary"
+                onPrimary={() => setOpenModal(true)}
+                onCreateFolder={async () => {
+                    const name = window.prompt("Folder name");
+                    if (name?.trim()) {
+                        try {
+                            const created = await apiSummaries.createSummaryFolder(name.trim());
+                            if (created?.id) {
+                                setFolders((prev) => [...prev, created]);
+                                setSelectedFolderId(created.id);
+                            }
+                        } catch (e) {
+                            console.error(e);
+                        }
+                    }
+                }}
+                folders={folders}
+                activeFolderId={selectedFolderId}
+                onSelectFolder={setSelectedFolderId}
+                allLabel="All Summaries"
+            />
+            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+                <div className="h-12 flex items-center px-6 border-b border-white/[0.06] bg-[#0f1115] text-xs shrink-0">
+                    <nav className="flex items-center gap-1 text-white/50">
+                        <button
+                            type="button"
+                            onClick={() => setSelectedFolderId(null)}
+                            className={selectedFolderId == null ? "text-white font-medium cursor-default" : "hover:text-teal"}
+                        >
+                            All Summaries
+                        </button>
+                        {activeFolder && (
+                            <>
+                                <span className="mx-1 text-white/30">/</span>
+                                <span className="text-white font-medium truncate max-w-[180px]" title={activeFolder.name}>
+                                    {activeFolder.name}
+                                </span>
+                            </>
+                        )}
+                    </nav>
+                    <button
+                        type="button"
+                        className="ml-auto px-3 py-1.5 text-xs bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-white transition"
+                        onClick={() => setShowImport(true)}
+                    >
+                        <Upload size={12} className="inline mr-1" /> Import
+                    </button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-6">
+                    {loading ? (
+                        <div className="text-sm text-white/40">Loading…</div>
+                    ) : (() => {
+                        const showFolders = selectedFolderId == null && folders.length > 0;
+                        const hasSummaries = visibleSummaries.length > 0;
+                        if (!showFolders && !hasSummaries) {
+                            return (
+                                <div className="text-center py-12 text-white/40 text-sm">
+                                    {search ? "No summaries match your search." : "No summaries here. Generate one or select a folder."}
                                 </div>
-
-                                <button
-                                    className="btn btn-primary gap-2"
-                                    onClick={() => setOpenModal(true)}
-                                >
-                                    <Plus size={16} />
-                                    Generate Summary
-                                </button>
-                            </div>
-
-                            {/* COMMAND BAR */}
-                            <div className="flex flex-wrap items-center gap-3 mb-10 p-3 rounded-2xl bg-black/40 border border-white/10">
-                                <div className="relative flex-1 min-w-[240px]">
-                                    <Search
-                                        size={16}
-                                        className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"
-                                    />
-                                    <input
-                                        type="text"
-                                        placeholder="Search summaries…"
-                                        value={search}
-                                        onChange={(e) => setSearch(e.target.value)}
-                                        className="w-full pl-9 pr-4 py-2 rounded-lg bg-black/40 border border-white/10 text-sm text-white"
-                                    />
-                                </div>
-
-                                <select
-                                    className="px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-sm text-white"
-                                    value={sort}
-                                    onChange={(e) => setSort(e.target.value)}
-                                >
-                                    <option value="newest">Newest</option>
-                                    <option value="oldest">Oldest</option>
-                                </select>
-
-                                <div className="flex gap-2 ml-auto">
-                                    <button 
-                                        className="btn btn-secondary gap-2"
-                                        onClick={() => setShowImport(true)}
-                                    >
-                                        <Upload size={14} /> Import
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* GRID */}
-                            {loading ? (
-                                <div className="text-sm text-muted">Loading summaries…</div>
-                            ) : visibleSummaries.length === 0 ? (
-                                <div className="text-center py-12">
-                                    <p className="text-sm text-muted mb-4">
-                                        {search
-                                            ? "No summaries match your search."
-                                            : "No summaries available. Generate a summary from a file to get started."}
-                                    </p>
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                                    {visibleSummaries.map((summary) => (
-                                        <SummaryCard
-                                            key={summary.id}
-                                            summary={summary}
-                                            onClick={() => openSummary(summary.id)}
-                                            onDelete={(id) =>
-                                                setConfirmDelete({ id, title: summary.title })
+                            );
+                        }
+                        return (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+                                {showFolders && folders.map((folder) => (
+                                    <OutputCard
+                                        key={folder.id}
+                                        type="folder"
+                                        id={folder.id}
+                                        title={folder.name}
+                                        folderColor={folder.color || "#f7c948"}
+                                        onClick={() => setSelectedFolderId(folder.id)}
+                                        onDelete={async () => {
+                                            if (!window.confirm("Delete this folder?")) return;
+                                            try {
+                                                await apiSummaries.deleteSummaryFolder(folder.id);
+                                                setFolders((prev) => prev.filter((f) => f.id !== folder.id));
+                                                if (selectedFolderId === folder.id) setSelectedFolderId(null);
+                                            } catch (e) {
+                                                console.error(e);
                                             }
-                                            onRename={handleRename}
-                                            onExportCode={handleExportCode}
+                                        }}
+                                        onRename={async (id, newTitle) => {
+                                            try {
+                                                await apiSummaries.updateSummaryFolder(id, newTitle);
+                                                setFolders((prev) => prev.map((f) => (f.id === id ? { ...f, name: newTitle } : f)));
+                                            } catch (e) {
+                                                console.error(e);
+                                            }
+                                        }}
+                                    />
+                                ))}
+                                {visibleSummaries.map((summary) => {
+                                    const isGenerating = summary.generating === true || summary.status === "generating";
+                                    return (
+                                        <OutputCard
+                                            key={summary.id}
+                                            type="summary"
+                                            id={summary.id}
+                                            title={summary.title}
+                                            category="Summary"
+                                            sourceFileName={summary.file_name ?? null}
+                                            date={summary.created_at ? new Date(summary.created_at).toLocaleDateString() : null}
+                                            isGenerating={isGenerating}
+                                            statusText={isGenerating ? "Generating…" : null}
+                                            onClick={() => openSummary(summary.id)}
+                                            onDelete={() => setConfirmDelete({ id: summary.id, title: summary.title })}
+                                            onRename={(id, newTitle) => {
+                                                setSummaries((prev) => prev.map((s) => (s.id === id ? { ...s, title: newTitle } : s)));
+                                                handleRename(id, newTitle);
+                                            }}
+                                            onMoveToFolder={null}
                                         />
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    </div>
+                                    );
+                                })}
+                            </div>
+                        );
+                    })()}
+                </div>
+            </div>
 
                     {/* DELETE CONFIRM */}
                     {confirmDelete && (
@@ -433,8 +481,7 @@ export default function SummariesTab() {
                                                 const res = await apiSummaries.importSummary(importCode);
                                                 
                                                 if (res?.success) {
-                                                    // Success - reload summaries and close modal
-                                                    await loadSummaries();
+                                                    await loadSummaries(selectedFolderId ?? null);
                                                     setShowImport(false);
                                                     setImportCode("");
                                                     setImportError(null);
@@ -465,13 +512,12 @@ export default function SummariesTab() {
                     )}
 
                     {/* Summary Failure Popup */}
-                    <SummaryFailurePopup
-                        isOpen={failurePopup.isOpen}
-                        onClose={() => setFailurePopup({ isOpen: false, isProcessing: false, onRetry: null })}
-                        onRetry={failurePopup.onRetry || (() => setFailurePopup({ isOpen: false, isProcessing: false, onRetry: null }))}
-                        isProcessing={failurePopup.isProcessing}
-                    />
-            </>
+            <SummaryFailurePopup
+                isOpen={failurePopup.isOpen}
+                onClose={() => setFailurePopup({ isOpen: false, isProcessing: false, onRetry: null })}
+                onRetry={failurePopup.onRetry || (() => setFailurePopup({ isOpen: false, isProcessing: false, onRetry: null }))}
+                isProcessing={failurePopup.isProcessing}
+            />
         </div>
     );
 }

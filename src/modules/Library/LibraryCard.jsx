@@ -160,16 +160,22 @@ const LibraryCard = ({
                 </div>
             )}
 
-            {/* DONE MARKER - Top-left (files only, when not in selection mode; only show when done) */}
-            {!selectionMode && !isFolder && item.is_done && (
+            {/* DONE MARKER - Top-left (files only, when not in selection mode); visible when done, or on card hover when not done */}
+            {!selectionMode && !isFolder && (
                 <div
-                    className="absolute top-2 left-2 z-10 done-marker"
+                    className={`absolute top-2 left-2 z-10 done-marker transition-opacity duration-150 ${item.is_done ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
                     onClick={(e) => {
                         e.stopPropagation();
                         onToggleDone?.(item.id, !item.is_done);
                     }}
                 >
-                    <div className="w-6 h-6 rounded-full flex items-center justify-center bg-teal/80 border border-teal/80 text-black cursor-pointer">
+                    <div
+                        className={
+                            item.is_done
+                                ? "w-6 h-6 rounded-full flex items-center justify-center bg-teal/80 border border-teal/80 text-black cursor-pointer"
+                                : "w-6 h-6 rounded-full flex items-center justify-center border border-gray-600 text-transparent hover:border-teal-400 cursor-pointer"
+                        }
+                    >
                         <Check className="w-4 h-4" />
                     </div>
                 </div>
