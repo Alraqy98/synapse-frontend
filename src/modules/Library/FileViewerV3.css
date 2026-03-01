@@ -520,6 +520,17 @@
   font-size: 14px;
 }
 
+.file-viewer-v3 .pdf-canvas-wrap.cursor-crosshair {
+  cursor: crosshair;
+}
+
+.file-viewer-v3 .pdf-highlight {
+  position: absolute;
+  background: rgba(250, 204, 21, 0.35);
+  pointer-events: none;
+  border-radius: 2px;
+}
+
 .file-viewer-v3 .pdf-page.cursor-default {
   cursor: default;
 }
@@ -732,8 +743,8 @@
 }
 
 .file-viewer-v3 .rp-strip-icon {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -782,6 +793,23 @@
 .file-viewer-v3 .rp-expand-btn svg {
   width: 11px;
   height: 11px;
+}
+
+.file-viewer-v3 .rp-link-card {
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 12px;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.file-viewer-v3 .rp-link-card:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-accent);
 }
 
 .file-viewer-v3 .rp-full {

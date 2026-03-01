@@ -15,6 +15,10 @@ import {
 } from "./apiLibrary";
 import { uploadToSignedUrl } from "../../lib/uploadStorage";
 import { sendMessageToTutor, createNewSession } from "../Tutor/apiTutor";
+import { getMCQDecksByFile } from "../mcq/apiMCQ";
+import { getFlashcardDecksByFile } from "../flashcards/apiFlashcards";
+import { getSummariesByFile } from "../summaries/apiSummaries";
+import { useNavigate } from "react-router-dom";
 const id = (fileId, file) => fileId || file?.id || "";
 const uuid = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `pin-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`);
 
@@ -53,6 +57,8 @@ export default function FileViewerV3({
   const [currentPage, setCurrentPage] = useState(initialPage);
   const [totalPages, setTotalPages] = useState(0);
   const [pins, setPins] = useState([]);
+  const [highlights, setHighlights] = useState([]);
+  const [highlightStart, setHighlightStart] = useState(null);
   const [activeTab, setActiveTab] = useState("chat");
   const [thumbCollapsed, setThumbCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
@@ -66,7 +72,11 @@ export default function FileViewerV3({
   const [tutorMode, setTutorMode] = useState("page_locked");
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [conceptMastery, setConceptMastery] = useState([]);
+  const [mcqDecksForFile, setMcqDecksForFile] = useState([]);
+  const [flashcardDecksForFile, setFlashcardDecksForFile] = useState([]);
+  const [summariesForFile, setSummariesForFile] = useState([]);
   const [zoom, setZoom] = useState(1);
+  const navigate = useNavigate();
   const [pinToolActive, setPinToolActive] = useState(false);
   const [highlightToolActive, setHighlightToolActive] = useState(false);
   const [sessionId, setSessionId] = useState(() => {
@@ -168,36 +178,46 @@ export default function FileViewerV3({
   useEffect(() => {
     if (!fileId || !currentPage) {
       setPins([]);
+      setHighlights([]);
       return;
     }
     let cancelled = false;
     getAnnotations(fileId, currentPage)
       .then(({ strokes }) => {
         if (cancelled) return;
-        const list = strokes?.pins ? [...strokes.pins] : [];
-        setPins(list);
+        setPins(strokes?.pins ? [...strokes.pins] : []);
+        setHighlights(strokes?.highlights ? [...strokes.highlights] : []);
       })
       .catch(() => {
-        if (!cancelled) setPins([]);
+        if (!cancelled) {
+          setPins([]);
+          setHighlights([]);
+        }
       });
     return () => {
       cancelled = true;
     };
   }, [fileId, currentPage]);
 
-  // Load concept mastery and recordings for right panel
+  // Load concept mastery, recordings, and file-scoped MCQ/Flashcards/Summaries for right panel
   useEffect(() => {
     if (!fileId) return;
     let cancelled = false;
     Promise.all([
       getConceptMastery(fileId).catch(() => []),
       getRecordings(fileId).catch(() => []),
-    ]).then(([concepts, recs]) => {
+      getMCQDecksByFile(fileId).catch(() => []),
+      getFlashcardDecksByFile(fileId).catch(() => []),
+      getSummariesByFile(fileId).catch(() => []),
+    ]).then(([concepts, recs, mcqDecks, fcDecks, summaries]) => {
       if (cancelled) return;
       setConceptMastery(Array.isArray(concepts) ? concepts : []);
       const list = Array.isArray(recs) ? recs : [];
       setLectureRecording(list.find((r) => r.type === "lecture") || null);
       setSlideNotes(list.filter((r) => r.type === "slide_note") || []);
+      setMcqDecksForFile(Array.isArray(mcqDecks) ? mcqDecks : []);
+      setFlashcardDecksForFile(Array.isArray(fcDecks) ? fcDecks : []);
+      setSummariesForFile(Array.isArray(summaries) ? summaries : []);
     });
     return () => {
       cancelled = true;
@@ -392,6 +412,48 @@ export default function FileViewerV3({
     setPinDraftText("");
   };
 
+  const pctFromEvent = (e, el) => {
+    const rect = el.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+    return { xPct: Math.max(0, Math.min(100, x * 100)), yPct: Math.max(0, Math.min(100, y * 100)) };
+  };
+
+  const handlePageMouseDown = (e, pageNum) => {
+    if (!highlightToolActive || e.target.closest(".annotation-pin") || e.target.closest(".ann-input-popup")) return;
+    const el = e.currentTarget;
+    const { xPct, yPct } = pctFromEvent(e, el);
+    setHighlightStart({ pageNum, xPct, yPct });
+  };
+
+  const handlePageMouseUp = async (e, pageNum) => {
+    if (!highlightStart || highlightStart.pageNum !== pageNum || pageNum !== currentPage) return;
+    const el = e.currentTarget;
+    const { xPct, yPct } = pctFromEvent(e, el);
+    const minX = Math.min(highlightStart.xPct, xPct);
+    const minY = Math.min(highlightStart.yPct, yPct);
+    const absW = Math.abs(xPct - highlightStart.xPct);
+    const absH = Math.abs(yPct - highlightStart.yPct);
+    setHighlightStart(null);
+    if (absW < 1 || absH < 1) return;
+    const newHighlight = {
+      id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `hl-${Date.now()}`,
+      x: minX,
+      y: minY,
+      width: absW,
+      height: absH,
+      color: "rgba(250,204,21,0.35)",
+    };
+    const nextHighlights = [...highlights, newHighlight];
+    setHighlights(nextHighlights);
+    try {
+      await putAnnotations(fileId, currentPage, { pins, highlights: nextHighlights });
+    } catch (err) {
+      console.error("Save highlight failed:", err);
+      setHighlights(highlights);
+    }
+  };
+
   const savePin = async () => {
     const text = (pinDraftText || "").trim();
     if (!text || !fileId || currentPage == null) return;
@@ -519,6 +581,7 @@ export default function FileViewerV3({
   const currentPageData = pages[currentPage - 1];
   const title = file?.title || "Document";
   const titleTruncated = title.length > 35 ? title.slice(0, 32) + "…" : title;
+  const pageMaxWidth = Math.round(860 * zoom);
 
   const ZOOM_MIN = 0.5;
   const ZOOM_MAX = 2;
@@ -578,10 +641,10 @@ export default function FileViewerV3({
           </button>
         </div>
         <div className="fv-toolbar-right">
-          <button type="button" className={`fv-tb-btn ${highlightToolActive ? "active" : ""}`} onClick={() => setHighlightToolActive((a) => !a)} title="Highlight tool" aria-label="Highlight tool">
+          <button type="button" className={`fv-tb-btn ${highlightToolActive ? "active" : ""}`} onClick={() => { setHighlightToolActive((a) => !a); setPinToolActive(false); }} title="Highlight tool" aria-label="Highlight tool">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h7" /></svg>
           </button>
-          <button type="button" className={`fv-tb-btn ${pinToolActive ? "active" : ""}`} onClick={() => setPinToolActive((a) => !a)} title="Pin tool" aria-label="Pin tool">
+          <button type="button" className={`fv-tb-btn ${pinToolActive ? "active" : ""}`} onClick={() => { setPinToolActive((a) => !a); setHighlightToolActive(false); }} title="Pin tool" aria-label="Pin tool">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" /><circle cx="12" cy="10" r="3" /></svg>
           </button>
           <button type="button" className={`fv-tb-btn ${recordingMode === "lecture" ? "active" : ""}`} onClick={() => setRecordingMode("lecture")} title="Lecture">Lecture</button>
@@ -710,7 +773,7 @@ export default function FileViewerV3({
 
       {/* Main area — continuous scroll, all pages */}
       <main className="main-area">
-        <div ref={pdfCanvasWrapRef} className="pdf-canvas-wrap">
+        <div ref={pdfCanvasWrapRef} className={`pdf-canvas-wrap ${highlightToolActive ? "cursor-crosshair" : ""}`}>
           {pages.length === 0 ? (
             <div className="pdf-page">
               <div className="pdf-page-inner">
@@ -731,11 +794,11 @@ export default function FileViewerV3({
                   }}
                   data-page={num}
                   className="pdf-page"
-                  style={{
-                    transform: `scale(${zoom})`,
-                    transformOrigin: "top center",
-                  }}
+                  style={{ maxWidth: pageMaxWidth }}
                   onClick={(e) => handlePdfPageClick(e, num)}
+                  onMouseDown={(e) => handlePageMouseDown(e, num)}
+                  onMouseUp={(e) => handlePageMouseUp(e, num)}
+                  onMouseLeave={() => setHighlightStart(null)}
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => e.key === "Enter" && handlePdfPageClick(e, num)}
@@ -751,6 +814,9 @@ export default function FileViewerV3({
                         Loading page {num}…
                       </div>
                     )}
+                    {(isCurrentPage ? highlights : []).map((h) => (
+                      <div key={h.id} className="pdf-highlight" style={{ left: `${h.x}%`, top: `${h.y}%`, width: `${h.width}%`, height: `${h.height}%`, background: h.color || "rgba(250,204,21,0.35)" }} />
+                    ))}
                     {pagePins.map((pin, pinIdx) => (
                       <div
                         key={pin.id || `${pin.x}-${pin.y}-${pinIdx}`}
@@ -844,83 +910,38 @@ export default function FileViewerV3({
       <aside className={`right-panel ${rightCollapsed ? "collapsed" : ""}`}>
         {rightCollapsed ? (
           <div className="rp-collapsed-strip">
-            <button
-              type="button"
-              className="rp-expand-btn"
-              onClick={() => setRightCollapsed(false)}
-              aria-label="Expand panel"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="9 18 15 12 9 6" />
-              </svg>
+            <button type="button" className="rp-expand-btn" onClick={() => setRightCollapsed(false)} aria-label="Expand panel">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
             </button>
-            <button
-              type="button"
-              className={`rp-strip-icon ${activeTab === "chat" ? "active" : ""}`}
-              onClick={() => {
-                setRightCollapsed(false);
-                setActiveTab("chat");
-              }}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-                <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
-              </svg>
+            <button type="button" className={`rp-strip-icon ${activeTab === "chat" ? "active" : ""}`} onClick={() => { setRightCollapsed(false); setActiveTab("chat"); }} title="Chat">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>
             </button>
-            <button
-              type="button"
-              className={`rp-strip-icon ${activeTab === "performance" ? "active" : ""}`}
-              onClick={() => {
-                setRightCollapsed(false);
-                setActiveTab("performance");
-              }}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-                <line x1="18" y1="20" x2="18" y2="10" />
-                <line x1="12" y1="20" x2="12" y2="4" />
-                <line x1="6" y1="20" x2="6" y2="14" />
-              </svg>
+            <button type="button" className={`rp-strip-icon ${activeTab === "mcq" ? "active" : ""}`} onClick={() => { setRightCollapsed(false); setActiveTab("mcq"); }} title="MCQ">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="9" y1="15" x2="15" y2="15" /><line x1="9" y1="11" x2="15" y2="11" /></svg>
             </button>
-            <button
-              type="button"
-              className={`rp-strip-icon ${activeTab === "recordings" ? "active" : ""}`}
-              onClick={() => {
-                setRightCollapsed(false);
-                setActiveTab("recordings");
-              }}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-                <path d="M12 2a3 3 0 013 3v6a3 3 0 01-6 0V5a3 3 0 013-3z" />
-                <path d="M19 10v2a7 7 0 01-14 0v-2" />
-                <line x1="12" y1="19" x2="12" y2="23" />
-                <line x1="8" y1="23" x2="16" y2="23" />
-              </svg>
+            <button type="button" className={`rp-strip-icon ${activeTab === "cards" ? "active" : ""}`} onClick={() => { setRightCollapsed(false); setActiveTab("cards"); }} title="Flashcards">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="2" y="4" width="20" height="14" rx="2" /><path d="M2 10h20" /></svg>
+            </button>
+            <button type="button" className={`rp-strip-icon ${activeTab === "summary" ? "active" : ""}`} onClick={() => { setRightCollapsed(false); setActiveTab("summary"); }} title="Summary">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" /></svg>
+            </button>
+            <button type="button" className={`rp-strip-icon ${activeTab === "performance" ? "active" : ""}`} onClick={() => { setRightCollapsed(false); setActiveTab("performance"); }} title="Stats">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg>
+            </button>
+            <button type="button" className={`rp-strip-icon ${activeTab === "recordings" ? "active" : ""}`} onClick={() => { setRightCollapsed(false); setActiveTab("recordings"); }} title="Recordings">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M12 2a3 3 0 013 3v6a3 3 0 01-6 0V5a3 3 0 013-3z" /><path d="M19 10v2a7 7 0 01-14 0v-2" /><line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" /></svg>
             </button>
           </div>
         ) : (
           <div className="rp-full">
             <div className="rp-header">
               <div className="rp-tabs">
-                <button
-                  type="button"
-                  className={`rp-tab ${activeTab === "chat" ? "active" : ""}`}
-                  onClick={() => setActiveTab("chat")}
-                >
-                  Chat
-                </button>
-                <button
-                  type="button"
-                  className={`rp-tab ${activeTab === "performance" ? "active" : ""}`}
-                  onClick={() => setActiveTab("performance")}
-                >
-                  Performance
-                </button>
-                <button
-                  type="button"
-                  className={`rp-tab ${activeTab === "recordings" ? "active" : ""}`}
-                  onClick={() => setActiveTab("recordings")}
-                >
-                  Recordings
-                </button>
+                <button type="button" className={`rp-tab ${activeTab === "chat" ? "active" : ""}`} onClick={() => setActiveTab("chat")}>Chat</button>
+                <button type="button" className={`rp-tab ${activeTab === "mcq" ? "active" : ""}`} onClick={() => setActiveTab("mcq")}>MCQ</button>
+                <button type="button" className={`rp-tab ${activeTab === "cards" ? "active" : ""}`} onClick={() => setActiveTab("cards")}>Cards</button>
+                <button type="button" className={`rp-tab ${activeTab === "summary" ? "active" : ""}`} onClick={() => setActiveTab("summary")}>Summary</button>
+                <button type="button" className={`rp-tab ${activeTab === "performance" ? "active" : ""}`} onClick={() => setActiveTab("performance")}>Stats</button>
+                <button type="button" className={`rp-tab ${activeTab === "recordings" ? "active" : ""}`} onClick={() => setActiveTab("recordings")}>Rec</button>
               </div>
               <button
                 type="button"
@@ -1008,6 +1029,60 @@ export default function FileViewerV3({
                     </svg>
                   </button>
                 </div>
+              </div>
+            </div>
+
+            {/* MCQ tab */}
+            <div className={`tab-pane ${activeTab === "mcq" ? "active" : ""}`}>
+              <div className="rp-pane-inner" style={{ padding: 12 }}>
+                <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 8 }}>MCQ decks for this file</div>
+                {mcqDecksForFile.length === 0 ? (
+                  <div style={{ color: "var(--text-muted)", fontSize: 12 }}>No MCQ decks yet. Generate from the MCQ page.</div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {mcqDecksForFile.map((deck) => (
+                      <button key={deck.id} type="button" className="rp-link-card" onClick={() => navigate(`/mcq/${deck.id}`)}>
+                        {deck.title || "Untitled deck"}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Cards tab */}
+            <div className={`tab-pane ${activeTab === "cards" ? "active" : ""}`}>
+              <div className="rp-pane-inner" style={{ padding: 12 }}>
+                <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 8 }}>Flashcard decks for this file</div>
+                {flashcardDecksForFile.length === 0 ? (
+                  <div style={{ color: "var(--text-muted)", fontSize: 12 }}>No flashcard decks yet. Generate from the Flashcards page.</div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {flashcardDecksForFile.map((deck) => (
+                      <button key={deck.id} type="button" className="rp-link-card" onClick={() => navigate(`/flashcards/${deck.id}`)}>
+                        {deck.title || "Untitled deck"}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Summary tab */}
+            <div className={`tab-pane ${activeTab === "summary" ? "active" : ""}`}>
+              <div className="rp-pane-inner" style={{ padding: 12 }}>
+                <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 8 }}>Summaries for this file</div>
+                {summariesForFile.length === 0 ? (
+                  <div style={{ color: "var(--text-muted)", fontSize: 12 }}>No summaries yet. Generate from the Summaries page.</div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {summariesForFile.map((s) => (
+                      <button key={s.id} type="button" className="rp-link-card" onClick={() => navigate(`/summaries/${s.id}`)}>
+                        {s.title || "Untitled summary"}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
