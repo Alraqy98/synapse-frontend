@@ -630,6 +630,15 @@ export const getAnnotations = async (fileId, page) => {
 };
 
 // ------------------------------------------------------
+// AUTHENTICATED FETCH (for render URLs that need auth headers)
+// ------------------------------------------------------
+export const apiFetch = (url) => {
+    if (!url || typeof url !== "string") return Promise.reject(new Error("Invalid url"));
+    const fullUrl = url.startsWith("http") ? url : `${API_BASE}${url.startsWith("/") ? url : `/${url}`}`;
+    return fetch(fullUrl, { headers: { ...getAuthHeaders() } });
+};
+
+// ------------------------------------------------------
 // FILE VIEWER: PAGES
 // GET /library/item/:id/pages
 // Returns: { data: [{ page_number, image_path, image_url, render_status, ocr_status, ocr_text }] }

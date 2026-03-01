@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import "./FileViewerV3.css";
 import {
   getFilePages,
+  apiFetch,
   getAnnotations,
   putAnnotations,
   deleteAnnotations,
@@ -16,6 +17,20 @@ import { uploadToSignedUrl } from "../../lib/uploadStorage";
 import { sendMessageToTutor, createNewSession } from "../Tutor/apiTutor";
 const id = (fileId, file) => fileId || file?.id || "";
 const uuid = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `pin-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`);
+
+// Resolve image URL: signed Supabase (https) use as-is; render URLs fetch with auth → blob URL
+async function resolveImageUrl(url) {
+  if (!url) return null;
+  if (url.startsWith("https://")) return url;
+  try {
+    const res = await apiFetch(url);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return URL.createObjectURL(blob);
+  } catch {
+    return null;
+  }
+}
 
 // Seeded random for stable waveform bar heights (seed = string)
 function seededRandom(seed) {
@@ -56,7 +71,7 @@ export default function FileViewerV3({
     if (!fileId) return null;
     return localStorage.getItem(`synapse_file_session_${fileId}`) || null;
   });
-  const [pinPopover, setPinPopover] = useState({ visible: false, xPct: 0, yPct: 0 });
+  const [pinPopover, setPinPopover] = useState({ visible: false, xPct: 0, yPct: 0, pageNumber: null });
   const [pinDraftText, setPinDraftText] = useState("");
   const [recordingTags, setRecordingTags] = useState([]);
   const [audioCurrentTime, setAudioCurrentTime] = useState(0);
@@ -69,22 +84,30 @@ export default function FileViewerV3({
   const uploadTokenRef = useRef(null);
   const recordingElapsedRef = useRef(0);
   const chunksRef = useRef([]);
-  const pdfPageRef = useRef(null);
+  const pdfCanvasWrapRef = useRef(null);
+  const pageRefs = useRef({});
   const audioRef = useRef(null);
   const pinInputRef = useRef(null);
 
-  // Load pages on mount
+  // Load pages on mount and resolve image URLs (signed vs render)
   useEffect(() => {
     if (!fileId) return;
     let cancelled = false;
     getFilePages(fileId)
-      .then((list) => {
+      .then(async (list) => {
         if (cancelled) return;
         const pagesList = Array.isArray(list) ? list : [];
-        setPages(pagesList);
-        setTotalPages(pagesList.length);
+        const resolved = await Promise.all(
+          pagesList.map(async (p) => ({
+            ...p,
+            resolved_url: await resolveImageUrl(p.image_url),
+          }))
+        );
+        if (cancelled) return;
+        setPages(resolved);
+        setTotalPages(resolved.length);
         setCurrentPage((p) =>
-          initialPage >= 1 && initialPage <= pagesList.length ? initialPage : Math.min(p, pagesList.length || 1)
+          initialPage >= 1 && initialPage <= resolved.length ? initialPage : Math.min(p, resolved.length || 1)
         );
       })
       .catch(() => {
@@ -94,6 +117,41 @@ export default function FileViewerV3({
       cancelled = true;
     };
   }, [fileId, initialPage]);
+
+  // Revoke blob URLs on unmount to avoid memory leaks
+  useEffect(() => {
+    return () => {
+      pages.forEach((p) => {
+        if (p.resolved_url?.startsWith("blob:")) URL.revokeObjectURL(p.resolved_url);
+      });
+    };
+  }, [pages]);
+
+  // IntersectionObserver: when a page is >50% visible, set currentPage (URL sync is in another effect)
+  useEffect(() => {
+    const wrap = pdfCanvasWrapRef.current;
+    if (!wrap || pages.length === 0) return;
+    const pageEls = wrap.querySelectorAll("[data-page]");
+    if (pageEls.length === 0) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        let bestPage = null;
+        let bestRatio = 0.5;
+        entries.forEach((entry) => {
+          const ratio = entry.intersectionRatio;
+          if (ratio >= 0.5 && ratio > bestRatio) {
+            bestRatio = ratio;
+            const n = Number(entry.target.getAttribute("data-page"));
+            if (Number.isInteger(n) && n >= 1) bestPage = n;
+          }
+        });
+        if (bestPage != null) setCurrentPage(bestPage);
+      },
+      { root: wrap, rootMargin: "0px", threshold: [0, 0.25, 0.5, 0.75, 1] }
+    );
+    pageEls.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, [pages.length]);
 
   // Sync URL with current page
   useEffect(() => {
@@ -189,9 +247,19 @@ export default function FileViewerV3({
     return () => { cancelled = true; };
   }, [fileId, file?.title]);
 
-  const goPrev = () => setCurrentPage((p) => Math.max(1, p - 1));
-  const goNext = () => setCurrentPage((p) => Math.min(totalPages, p + 1));
-  const goToPage = (n) => setCurrentPage(Math.max(1, Math.min(totalPages || 1, Number(n))));
+  const goPrev = () => {
+    const prev = Math.max(1, currentPage - 1);
+    pageRefs.current[prev]?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  const goNext = () => {
+    const next = Math.min(totalPages, currentPage + 1);
+    pageRefs.current[next]?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  const scrollToPage = (n) => {
+    const num = Math.max(1, Math.min(totalPages || 1, Number(n)));
+    pageRefs.current[num]?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  const goToPage = (n) => scrollToPage(n);
 
   const sendChat = async () => {
     const text = (chatInput || "").trim();
@@ -307,16 +375,17 @@ export default function FileViewerV3({
     }
   };
 
-  const handlePdfPageClick = (e) => {
+  const handlePdfPageClick = (e, pageNum) => {
     if (e.target.closest(".annotation-pin") || e.target.closest(".ann-input-popup")) return;
-    const el = pdfPageRef.current;
+    const el = e.currentTarget;
     if (!el) return;
+    setCurrentPage(pageNum);
     const rect = el.getBoundingClientRect();
     const x = (e.clientX - rect.left) / rect.width;
     const y = (e.clientY - rect.top) / rect.height;
     const xPct = Math.max(0, Math.min(100, x * 100));
     const yPct = Math.max(0, Math.min(100, y * 100));
-    setPinPopover({ visible: true, xPct, yPct });
+    setPinPopover({ visible: true, xPct, yPct, pageNumber: pageNum });
     setPinDraftText("");
   };
 
@@ -445,7 +514,6 @@ export default function FileViewerV3({
     return { weak, strong };
   })();
   const currentPageData = pages[currentPage - 1];
-  const pageImageUrl = currentPageData?.image_url || currentPageData?.image_path || null;
   const title = file?.title || "Document";
 
   return (
@@ -535,7 +603,7 @@ export default function FileViewerV3({
                 type="button"
                 key={page.id ?? `page-${idx}`}
                 className={`thumb-item ${isActive ? "active" : ""}`}
-                onClick={() => setCurrentPage(num)}
+                onClick={() => scrollToPage(num)}
               >
                 <div className="thumb-preview">
                   {isWeak && <div className="thumb-weak weak-red" title="Weak" />}
@@ -546,9 +614,9 @@ export default function FileViewerV3({
                       title="Strong"
                     />
                   )}
-                  {page.image_url || page.image_path ? (
+                  {page.resolved_url || page.image_path ? (
                     <img
-                      src={page.image_url || page.image_path}
+                      src={page.resolved_url || page.image_path}
                       alt={`Page ${num}`}
                       style={{
                         width: "100%",
@@ -572,124 +640,124 @@ export default function FileViewerV3({
         </div>
       </aside>
 
-      {/* Main area */}
+      {/* Main area — continuous scroll, all pages */}
       <main className="main-area">
-        <div className="pdf-canvas-wrap">
-          <div
-            ref={pdfPageRef}
-            className="pdf-page"
-            style={{
-              transform: `scale(${zoom})`,
-              transformOrigin: "top center",
-            }}
-            onClick={handlePdfPageClick}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => e.key === "Enter" && handlePdfPageClick(e)}
-          >
-            {(currentPageData?.image_url || currentPageData?.image_path) ? (
-              <img
-                src={currentPageData?.image_url || currentPageData?.image_path}
-                alt={`Page ${currentPage}`}
-                style={{
-                  maxWidth: "100%",
-                  height: "auto",
-                  display: "block",
-                }}
-              />
-            ) : (
-              <div
-                className="pdf-page-skeleton"
-                style={{
-                  width: "100%",
-                  minHeight: 400,
-                  background: "var(--bg-raised)",
-                  borderRadius: 8,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "var(--text-muted)",
-                  fontSize: 14,
-                }}
-              >
-                Loading page {currentPage}…
+        <div ref={pdfCanvasWrapRef} className="pdf-canvas-wrap">
+          {pages.length === 0 ? (
+            <div className="pdf-page">
+              <div className="pdf-page-inner">
+                <div className="pdf-page-skeleton">Loading…</div>
               </div>
-            )}
-            {pins.map((pin, pinIdx) => (
-              <div
-                key={pin.id || `${pin.x}-${pin.y}-${pinIdx}`}
-                className="annotation-pin"
-                style={{
-                  left: `${pin.x}%`,
-                  top: `${pin.y}%`,
-                }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="pin-dot pin-green" style={{ position: "relative" }}>
-                  {pinIdx + 1}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deletePin(pin.id);
-                    }}
-                    aria-label="Delete pin"
-                    style={{
-                      position: "absolute",
-                      top: -6,
-                      right: -6,
-                      width: 14,
-                      height: 14,
-                      borderRadius: "50%",
-                      background: "#fc8181",
-                      border: "none",
-                      color: "#0a0a0c",
-                      fontSize: 10,
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      padding: 0,
-                      lineHeight: 1,
-                    }}
-                  >
-                    ×
-                  </button>
+            </div>
+          ) : (
+            pages.map((page, idx) => {
+              const num = page.page_number ?? idx + 1;
+              const isCurrentPage = num === currentPage;
+              const pagePins = isCurrentPage ? pins : [];
+              const showPopover = pinPopover.visible && pinPopover.pageNumber === num;
+              return (
+                <div
+                  key={page.id ?? `page-${idx}`}
+                  ref={(el) => {
+                    if (el) pageRefs.current[num] = el;
+                  }}
+                  data-page={num}
+                  className="pdf-page"
+                  onClick={(e) => handlePdfPageClick(e, num)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === "Enter" && handlePdfPageClick(e, num)}
+                >
+                  <div className="pdf-page-inner">
+                    {page.resolved_url || page.image_path ? (
+                      <img
+                        src={page.resolved_url || page.image_path}
+                        alt={`Page ${num}`}
+                      />
+                    ) : (
+                      <div className="pdf-page-skeleton">
+                        Loading page {num}…
+                      </div>
+                    )}
+                    {pagePins.map((pin, pinIdx) => (
+                      <div
+                        key={pin.id || `${pin.x}-${pin.y}-${pinIdx}`}
+                        className="annotation-pin"
+                        style={{
+                          left: `${pin.x}%`,
+                          top: `${pin.y}%`,
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="pin-dot pin-green" style={{ position: "relative" }}>
+                          {pinIdx + 1}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deletePin(pin.id);
+                            }}
+                            aria-label="Delete pin"
+                            style={{
+                              position: "absolute",
+                              top: -6,
+                              right: -6,
+                              width: 14,
+                              height: 14,
+                              borderRadius: "50%",
+                              background: "#fc8181",
+                              border: "none",
+                              color: "#0a0a0c",
+                              fontSize: 10,
+                              fontWeight: 700,
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              padding: 0,
+                              lineHeight: 1,
+                            }}
+                          >
+                            ×
+                          </button>
+                        </div>
+                        {pin.text && <div className="pin-note">{pin.text}</div>}
+                      </div>
+                    ))}
+                    {showPopover && (
+                      <div
+                        className="ann-input-popup visible"
+                        style={{
+                          left: `${Math.min(pinPopover.xPct, 85)}%`,
+                          top: `${Math.max(0, pinPopover.yPct - 12)}%`,
+                          transform: "translate(-50%, -100%)",
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <textarea
+                          ref={pinInputRef}
+                          rows={3}
+                          placeholder="Add a note…"
+                          value={pinDraftText}
+                          onChange={(e) => setPinDraftText(e.target.value)}
+                          onKeyDown={(e) => e.key === "Escape" && cancelPin()}
+                          className="file-viewer-v3-ann-input"
+                        />
+                        <div className="ann-input-actions">
+                          <button type="button" className="ann-save-btn" onClick={savePin}>
+                            Save
+                          </button>
+                          <button type="button" className="ann-cancel-btn" onClick={cancelPin}>
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                {pin.text && <div className="pin-note">{pin.text}</div>}
-              </div>
-            ))}
-            {pinPopover.visible && (
-              <div
-                className="ann-input-popup visible"
-                style={{
-                  left: `${Math.min(pinPopover.xPct, 85)}%`,
-                  top: `${Math.max(0, pinPopover.yPct - 12)}%`,
-                  transform: "translate(-50%, -100%)",
-                }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <textarea
-                  ref={pinInputRef}
-                  rows={3}
-                  placeholder="Add a note…"
-                  value={pinDraftText}
-                  onChange={(e) => setPinDraftText(e.target.value)}
-                  onKeyDown={(e) => e.key === "Escape" && cancelPin()}
-                  className="file-viewer-v3-ann-input"
-                />
-                <div className="ann-input-actions">
-                  <button type="button" className="ann-save-btn" onClick={savePin}>
-                    Save
-                  </button>
-                  <button type="button" className="ann-cancel-btn" onClick={cancelPin}>
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+              );
+            })
+          )}
         </div>
 
         <div className="status-bar">
