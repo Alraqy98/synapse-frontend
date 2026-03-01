@@ -901,7 +901,7 @@ const SynapseOS = () => {
 
       <main className="flex-1 ml-20 flex flex-col h-full overflow-y-auto relative">
         {/* HEADER */}
-        <header className="h-16 flex-shrink-0 border-b border-white/5 flex justify-between items-center px-6 bg-void/90 backdrop-blur z-10">
+        <header className="h-16 flex-shrink-0 border-b border-white/5 flex justify-between items-center px-6 bg-void/90 backdrop-blur z-[10000] relative">
 
           {/* LEFT: Logo + Title */}
           <div className="text-xs uppercase tracking-wide text-muted">
@@ -1022,7 +1022,7 @@ const SynapseOS = () => {
 
                 {/* Account Dropdown */}
                 {accountDropdownOpen && (
-                  <div className="absolute right-0 top-12 z-50 w-64 rounded-xl bg-[#1a1d24] border border-white/10 shadow-xl overflow-hidden">
+                  <div className="absolute right-0 top-12 z-[9999] w-64 rounded-xl bg-[#1a1d24] border border-white/10 shadow-xl overflow-hidden">
                     {/* Account Info */}
                     <div className="p-4 border-b border-white/5">
                       <div className="text-sm font-semibold text-white">
