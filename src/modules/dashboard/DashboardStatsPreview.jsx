@@ -1,7 +1,7 @@
 // src/modules/dashboard/DashboardStatsPreview.jsx
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Zap, TrendingDown, TrendingUp, Minus, ArrowRight, Target } from "lucide-react";
+import { Zap, ArrowRight, Target } from "lucide-react";
 import api from "../../lib/api";
 
 // ─── Mini trend chart ──────────────────────────────────────────────────────────
@@ -37,20 +37,11 @@ function MiniTrendChart({ data }) {
         </defs>
         <path d={areaPath} fill="url(#areaGrad)" />
         <path d={linePath} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        {/* Last point dot */}
         <circle cx={points[points.length-1][0]} cy={points[points.length-1][1]} r="3" fill={color} />
       </svg>
-      <div>
-        <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
-          {trend > 2 ? <TrendingUp size={12} style={{ color }} /> : trend < -2 ? <TrendingDown size={12} style={{ color }} /> : <Minus size={12} style={{ color }} />}
-          <span style={{ fontSize: 13, fontWeight: 700, color, fontFamily: "'Geist Mono', monospace" }}>
-            {trend > 0 ? "+" : ""}{Math.round(trend)}%
-          </span>
-        </div>
-        <span style={{ fontSize: 11, color: "rgba(245,245,247,0.35)", fontFamily: "'Geist Mono', monospace" }}>
-          last 7 sessions
-        </span>
-      </div>
+      <span style={{ fontSize: 11, color: "rgba(245,245,247,0.35)", fontFamily: "'Geist Mono', monospace" }}>
+        last 7 sessions
+      </span>
     </div>
   );
 }
@@ -234,7 +225,7 @@ const DashboardStatsPreview = () => {
                 Focus Today
               </div>
               <div style={{ fontSize: 15, fontWeight: 700, color: "#F5F5F7" }}>
-                Primary risk concept
+                Focus Area
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
