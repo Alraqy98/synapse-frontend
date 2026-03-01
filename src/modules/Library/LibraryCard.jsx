@@ -160,8 +160,8 @@ const LibraryCard = ({
                 </div>
             )}
 
-            {/* DONE MARKER - Top-left (files only, when not in selection mode) */}
-            {!selectionMode && !isFolder && (
+            {/* DONE MARKER - Top-left (files only, when not in selection mode; only show when done) */}
+            {!selectionMode && !isFolder && item.is_done && (
                 <div
                     className="absolute top-2 left-2 z-10 done-marker"
                     onClick={(e) => {
@@ -169,15 +169,7 @@ const LibraryCard = ({
                         onToggleDone?.(item.id, !item.is_done);
                     }}
                 >
-                    <div
-                        className={`
-                            w-6 h-6 rounded-full flex items-center justify-center border transition-colors cursor-pointer
-                            ${item.is_done
-                                ? "bg-teal/80 border-teal/80 text-black"
-                                : "border-gray-600 text-transparent hover:border-teal-400"
-                            }
-                        `}
-                    >
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center bg-teal/80 border border-teal/80 text-black cursor-pointer">
                         <Check className="w-4 h-4" />
                     </div>
                 </div>
@@ -292,7 +284,7 @@ const LibraryCard = ({
                     }}
                     className="
                         w-full flex items-center justify-center gap-2 py-2 rounded-xl
-                        bg-transparent border border-white/[0.08] text-white/50
+                        bg-transparent border border-white/[0.15] text-white/60
                         hover:border-teal/40 hover:text-teal transition-colors text-xs
                     "
                 >
