@@ -75,6 +75,16 @@
   justify-content: flex-end;
 }
 
+.file-viewer-v3 .fv-tb-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 4px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-mid);
+  border-radius: 8px;
+}
+
 .file-viewer-v3 .fv-tb-btn,
 .file-viewer-v3 .fv-tb-icon {
   display: inline-flex;
@@ -520,16 +530,6 @@
   font-size: 14px;
 }
 
-.file-viewer-v3 .pdf-canvas-wrap.cursor-crosshair {
-  cursor: crosshair;
-}
-
-.file-viewer-v3 .pdf-highlight {
-  position: absolute;
-  background: rgba(250, 204, 21, 0.35);
-  pointer-events: none;
-  border-radius: 2px;
-}
 
 .file-viewer-v3 .pdf-page.cursor-default {
   cursor: default;
@@ -766,8 +766,9 @@
 }
 
 .file-viewer-v3 .rp-strip-icon svg {
-  width: 15px;
-  height: 15px;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
 }
 
 .file-viewer-v3 .rp-expand-btn {
@@ -793,6 +794,32 @@
 .file-viewer-v3 .rp-expand-btn svg {
   width: 11px;
   height: 11px;
+}
+
+.file-viewer-v3 .fv-generate-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--green);
+  background: transparent;
+  border: 1px solid var(--green);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.file-viewer-v3 .fv-generate-btn:hover {
+  background: var(--green-dim);
+}
+
+.file-viewer-v3 .fv-generate-icon {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
 }
 
 .file-viewer-v3 .rp-link-card {

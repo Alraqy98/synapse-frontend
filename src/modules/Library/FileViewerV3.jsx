@@ -19,6 +19,7 @@ import { getMCQDecksByFile } from "../mcq/apiMCQ";
 import { getFlashcardDecksByFile } from "../flashcards/apiFlashcards";
 import { getSummariesByFile } from "../summaries/apiSummaries";
 import { useNavigate } from "react-router-dom";
+import { MessageCircle, CheckSquare, Zap, FileText, BarChart2, Mic } from "lucide-react";
 const id = (fileId, file) => fileId || file?.id || "";
 const uuid = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `pin-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`);
 
@@ -57,8 +58,6 @@ export default function FileViewerV3({
   const [currentPage, setCurrentPage] = useState(initialPage);
   const [totalPages, setTotalPages] = useState(0);
   const [pins, setPins] = useState([]);
-  const [highlights, setHighlights] = useState([]);
-  const [highlightStart, setHighlightStart] = useState(null);
   const [activeTab, setActiveTab] = useState("chat");
   const [thumbCollapsed, setThumbCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
@@ -78,7 +77,6 @@ export default function FileViewerV3({
   const [zoom, setZoom] = useState(1);
   const navigate = useNavigate();
   const [pinToolActive, setPinToolActive] = useState(false);
-  const [highlightToolActive, setHighlightToolActive] = useState(false);
   const [sessionId, setSessionId] = useState(() => {
     if (!fileId) return null;
     return localStorage.getItem(`synapse_file_session_${fileId}`) || null;
@@ -178,7 +176,6 @@ export default function FileViewerV3({
   useEffect(() => {
     if (!fileId || !currentPage) {
       setPins([]);
-      setHighlights([]);
       return;
     }
     let cancelled = false;
@@ -186,13 +183,9 @@ export default function FileViewerV3({
       .then(({ strokes }) => {
         if (cancelled) return;
         setPins(strokes?.pins ? [...strokes.pins] : []);
-        setHighlights(strokes?.highlights ? [...strokes.highlights] : []);
       })
       .catch(() => {
-        if (!cancelled) {
-          setPins([]);
-          setHighlights([]);
-        }
+        if (!cancelled) setPins([]);
       });
     return () => {
       cancelled = true;
@@ -412,48 +405,6 @@ export default function FileViewerV3({
     setPinDraftText("");
   };
 
-  const pctFromEvent = (e, el) => {
-    const rect = el.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width;
-    const y = (e.clientY - rect.top) / rect.height;
-    return { xPct: Math.max(0, Math.min(100, x * 100)), yPct: Math.max(0, Math.min(100, y * 100)) };
-  };
-
-  const handlePageMouseDown = (e, pageNum) => {
-    if (!highlightToolActive || e.target.closest(".annotation-pin") || e.target.closest(".ann-input-popup")) return;
-    const el = e.currentTarget;
-    const { xPct, yPct } = pctFromEvent(e, el);
-    setHighlightStart({ pageNum, xPct, yPct });
-  };
-
-  const handlePageMouseUp = async (e, pageNum) => {
-    if (!highlightStart || highlightStart.pageNum !== pageNum || pageNum !== currentPage) return;
-    const el = e.currentTarget;
-    const { xPct, yPct } = pctFromEvent(e, el);
-    const minX = Math.min(highlightStart.xPct, xPct);
-    const minY = Math.min(highlightStart.yPct, yPct);
-    const absW = Math.abs(xPct - highlightStart.xPct);
-    const absH = Math.abs(yPct - highlightStart.yPct);
-    setHighlightStart(null);
-    if (absW < 1 || absH < 1) return;
-    const newHighlight = {
-      id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `hl-${Date.now()}`,
-      x: minX,
-      y: minY,
-      width: absW,
-      height: absH,
-      color: "rgba(250,204,21,0.35)",
-    };
-    const nextHighlights = [...highlights, newHighlight];
-    setHighlights(nextHighlights);
-    try {
-      await putAnnotations(fileId, currentPage, { pins, highlights: nextHighlights });
-    } catch (err) {
-      console.error("Save highlight failed:", err);
-      setHighlights(highlights);
-    }
-  };
-
   const savePin = async () => {
     const text = (pinDraftText || "").trim();
     if (!text || !fileId || currentPage == null) return;
@@ -590,18 +541,6 @@ export default function FileViewerV3({
   const zoomIn = () => setZoom((z) => Math.min(ZOOM_MAX, z + ZOOM_STEP));
   const zoomFitWidth = () => setZoom(1);
 
-  const handleDownload = () => {
-    const url = file?.signed_url || file?.file_url || currentPageData?.resolved_url || currentPageData?.image_path;
-    if (url) {
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = title || "document";
-      a.rel = "noopener";
-      a.target = "_blank";
-      a.click();
-    }
-  };
-
   return (
     <div
       className="file-viewer-v3"
@@ -617,11 +556,9 @@ export default function FileViewerV3({
       <header className="file-viewer-toolbar">
         <div className="fv-toolbar-left">
           <button type="button" className="fv-tb-btn" onClick={onBack} title="Back to library" aria-label="Back to library">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6" /></svg>
           </button>
-          <div className="fv-tb-page-nav">
+          <div className="fv-tb-group fv-tb-page-nav">
             <button type="button" className="fv-tb-icon" onClick={goPrev} disabled={currentPage <= 1} title="Previous page" aria-label="Previous page">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6" /></svg>
             </button>
@@ -633,26 +570,26 @@ export default function FileViewerV3({
           <span className="fv-tb-filename" title={title}>{titleTruncated}</span>
         </div>
         <div className="fv-toolbar-center">
-          <button type="button" className="fv-tb-icon" onClick={zoomOut} disabled={zoom <= ZOOM_MIN} title="Zoom out" aria-label="Zoom out">−</button>
-          <span className="fv-tb-zoom">{Math.round(zoom * 100)}%</span>
-          <button type="button" className="fv-tb-icon" onClick={zoomIn} disabled={zoom >= ZOOM_MAX} title="Zoom in" aria-label="Zoom in">+</button>
-          <button type="button" className="fv-tb-btn" onClick={zoomFitWidth} title="Fit width" aria-label="Fit width">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" /></svg>
-          </button>
+          <div className="fv-tb-group">
+            <button type="button" className="fv-tb-icon" onClick={zoomOut} disabled={zoom <= ZOOM_MIN} title="Zoom out" aria-label="Zoom out">−</button>
+            <span className="fv-tb-zoom">{Math.round(zoom * 100)}%</span>
+            <button type="button" className="fv-tb-icon" onClick={zoomIn} disabled={zoom >= ZOOM_MAX} title="Zoom in" aria-label="Zoom in">+</button>
+            <button type="button" className="fv-tb-btn" onClick={zoomFitWidth} title="Fit width" aria-label="Fit width">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" /></svg>
+            </button>
+          </div>
         </div>
         <div className="fv-toolbar-right">
-          <button type="button" className={`fv-tb-btn ${highlightToolActive ? "active" : ""}`} onClick={() => { setHighlightToolActive((a) => !a); setPinToolActive(false); }} title="Highlight tool" aria-label="Highlight tool">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h7" /></svg>
-          </button>
-          <button type="button" className={`fv-tb-btn ${pinToolActive ? "active" : ""}`} onClick={() => { setPinToolActive((a) => !a); setHighlightToolActive(false); }} title="Pin tool" aria-label="Pin tool">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" /><circle cx="12" cy="10" r="3" /></svg>
-          </button>
-          <button type="button" className={`fv-tb-btn ${recordingMode === "lecture" ? "active" : ""}`} onClick={() => setRecordingMode("lecture")} title="Lecture">Lecture</button>
-          <button type="button" className={`fv-tb-btn ${recordingMode === "slide_note" ? "active" : ""}`} onClick={() => setRecordingMode("slide_note")} title="Slide note">Slide Note</button>
-          <button type="button" className="fv-tb-btn" onClick={startRecording} title="Start recording">Record</button>
-          <button type="button" className="fv-tb-btn" onClick={handleDownload} title="Download" aria-label="Download">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
-          </button>
+          <div className="fv-tb-group">
+            <button type="button" className={`fv-tb-btn ${pinToolActive ? "active" : ""}`} onClick={() => setPinToolActive((a) => !a)} title="Pin tool" aria-label="Pin tool">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" /><circle cx="12" cy="10" r="3" /></svg>
+            </button>
+          </div>
+          <div className="fv-tb-group">
+            <button type="button" className={`fv-tb-btn ${recordingMode === "lecture" ? "active" : ""}`} onClick={() => setRecordingMode("lecture")} title="Lecture">Lecture</button>
+            <button type="button" className={`fv-tb-btn ${recordingMode === "slide_note" ? "active" : ""}`} onClick={() => setRecordingMode("slide_note")} title="Slide note">Slide Note</button>
+            <button type="button" className="fv-tb-btn" onClick={startRecording} title="Start recording">Record</button>
+          </div>
         </div>
       </header>
 
@@ -660,62 +597,17 @@ export default function FileViewerV3({
       {/* Thumbnail strip */}
       <aside className={`thumb-strip ${thumbCollapsed ? "collapsed" : ""}`}>
         <div className="thumb-top">
-          <div className="thumb-page-nav">
-            <button
-              type="button"
-              className="thumb-nav-btn"
-              onClick={goPrev}
-              disabled={currentPage <= 1}
-              aria-label="Previous page"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="15 18 9 12 15 6" />
-              </svg>
+          <div className="thumb-file-row">
+            <button type="button" className="thumb-back" onClick={onBack} aria-label="Back to library">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6" /></svg>
             </button>
-            <span className="thumb-page-indicator">
-              <span className="cur">{currentPage}</span>
-              <span> / {totalPages || 0}</span>
-            </span>
-            <button
-              type="button"
-              className="thumb-nav-btn"
-              onClick={goNext}
-              disabled={currentPage >= totalPages || totalPages === 0}
-              aria-label="Next page"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="9 18 15 12 9 6" />
-              </svg>
-            </button>
+            <div className="thumb-file-name" title={title}>{title}</div>
           </div>
-          <button
-            type="button"
-            className="collapse-btn"
-            onClick={() => setThumbCollapsed((c) => !c)}
-            title={thumbCollapsed ? "Expand" : "Collapse"}
-            aria-label={thumbCollapsed ? "Expand" : "Collapse"}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
+          <button type="button" className="collapse-btn" onClick={() => setThumbCollapsed((c) => !c)} title={thumbCollapsed ? "Expand" : "Collapse"} aria-label={thumbCollapsed ? "Expand" : "Collapse"}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6" /></svg>
           </button>
         </div>
         <div className="thumb-header-content">
-          <div className="thumb-file-row">
-            <button
-              type="button"
-              className="thumb-back"
-              onClick={onBack}
-              aria-label="Back to library"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="15 18 9 12 15 6" />
-              </svg>
-            </button>
-            <div className="thumb-file-name" title={title}>
-              {title}
-            </div>
-          </div>
           <div className="thumb-progress">
             <div
               className="thumb-progress-fill"
@@ -773,7 +665,7 @@ export default function FileViewerV3({
 
       {/* Main area — continuous scroll, all pages */}
       <main className="main-area">
-        <div ref={pdfCanvasWrapRef} className={`pdf-canvas-wrap ${highlightToolActive ? "cursor-crosshair" : ""}`}>
+        <div ref={pdfCanvasWrapRef} className="pdf-canvas-wrap">
           {pages.length === 0 ? (
             <div className="pdf-page">
               <div className="pdf-page-inner">
@@ -796,9 +688,6 @@ export default function FileViewerV3({
                   className="pdf-page"
                   style={{ maxWidth: pageMaxWidth }}
                   onClick={(e) => handlePdfPageClick(e, num)}
-                  onMouseDown={(e) => handlePageMouseDown(e, num)}
-                  onMouseUp={(e) => handlePageMouseUp(e, num)}
-                  onMouseLeave={() => setHighlightStart(null)}
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => e.key === "Enter" && handlePdfPageClick(e, num)}
@@ -814,9 +703,6 @@ export default function FileViewerV3({
                         Loading page {num}…
                       </div>
                     )}
-                    {(isCurrentPage ? highlights : []).map((h) => (
-                      <div key={h.id} className="pdf-highlight" style={{ left: `${h.x}%`, top: `${h.y}%`, width: `${h.width}%`, height: `${h.height}%`, background: h.color || "rgba(250,204,21,0.35)" }} />
-                    ))}
                     {pagePins.map((pin, pinIdx) => (
                       <div
                         key={pin.id || `${pin.x}-${pin.y}-${pinIdx}`}
@@ -914,22 +800,22 @@ export default function FileViewerV3({
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
             </button>
             <button type="button" className={`rp-strip-icon ${activeTab === "chat" ? "active" : ""}`} onClick={() => { setRightCollapsed(false); setActiveTab("chat"); }} title="Chat">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>
+              <MessageCircle size={18} strokeWidth={1.6} />
             </button>
             <button type="button" className={`rp-strip-icon ${activeTab === "mcq" ? "active" : ""}`} onClick={() => { setRightCollapsed(false); setActiveTab("mcq"); }} title="MCQ">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="9" y1="15" x2="15" y2="15" /><line x1="9" y1="11" x2="15" y2="11" /></svg>
+              <CheckSquare size={18} strokeWidth={1.6} />
             </button>
             <button type="button" className={`rp-strip-icon ${activeTab === "cards" ? "active" : ""}`} onClick={() => { setRightCollapsed(false); setActiveTab("cards"); }} title="Flashcards">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="2" y="4" width="20" height="14" rx="2" /><path d="M2 10h20" /></svg>
+              <Zap size={18} strokeWidth={1.6} />
             </button>
             <button type="button" className={`rp-strip-icon ${activeTab === "summary" ? "active" : ""}`} onClick={() => { setRightCollapsed(false); setActiveTab("summary"); }} title="Summary">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" /></svg>
+              <FileText size={18} strokeWidth={1.6} />
             </button>
             <button type="button" className={`rp-strip-icon ${activeTab === "performance" ? "active" : ""}`} onClick={() => { setRightCollapsed(false); setActiveTab("performance"); }} title="Stats">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg>
+              <BarChart2 size={18} strokeWidth={1.6} />
             </button>
             <button type="button" className={`rp-strip-icon ${activeTab === "recordings" ? "active" : ""}`} onClick={() => { setRightCollapsed(false); setActiveTab("recordings"); }} title="Recordings">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M12 2a3 3 0 013 3v6a3 3 0 01-6 0V5a3 3 0 013-3z" /><path d="M19 10v2a7 7 0 01-14 0v-2" /><line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" /></svg>
+              <Mic size={18} strokeWidth={1.6} />
             </button>
           </div>
         ) : (
@@ -1035,9 +921,12 @@ export default function FileViewerV3({
             {/* MCQ tab */}
             <div className={`tab-pane ${activeTab === "mcq" ? "active" : ""}`}>
               <div className="rp-pane-inner" style={{ padding: 12 }}>
-                <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 8 }}>MCQ decks for this file</div>
+                <button type="button" className="fv-generate-btn" onClick={() => navigate(`/mcq?fileId=${fileId}&page=${currentPage}`)}>
+                  <span className="fv-generate-icon">+</span> Generate MCQ
+                </button>
+                <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 8, marginTop: 12 }}>MCQ decks for this file</div>
                 {mcqDecksForFile.length === 0 ? (
-                  <div style={{ color: "var(--text-muted)", fontSize: 12 }}>No MCQ decks yet. Generate from the MCQ page.</div>
+                  <div style={{ color: "var(--text-muted)", fontSize: 12 }}>No MCQ decks yet.</div>
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     {mcqDecksForFile.map((deck) => (
@@ -1053,9 +942,12 @@ export default function FileViewerV3({
             {/* Cards tab */}
             <div className={`tab-pane ${activeTab === "cards" ? "active" : ""}`}>
               <div className="rp-pane-inner" style={{ padding: 12 }}>
-                <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 8 }}>Flashcard decks for this file</div>
+                <button type="button" className="fv-generate-btn" onClick={() => navigate(`/flashcards?fileId=${fileId}&page=${currentPage}`)}>
+                  <span className="fv-generate-icon">+</span> Generate Flashcards
+                </button>
+                <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 8, marginTop: 12 }}>Flashcard decks for this file</div>
                 {flashcardDecksForFile.length === 0 ? (
-                  <div style={{ color: "var(--text-muted)", fontSize: 12 }}>No flashcard decks yet. Generate from the Flashcards page.</div>
+                  <div style={{ color: "var(--text-muted)", fontSize: 12 }}>No flashcard decks yet.</div>
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     {flashcardDecksForFile.map((deck) => (
@@ -1071,9 +963,12 @@ export default function FileViewerV3({
             {/* Summary tab */}
             <div className={`tab-pane ${activeTab === "summary" ? "active" : ""}`}>
               <div className="rp-pane-inner" style={{ padding: 12 }}>
-                <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 8 }}>Summaries for this file</div>
+                <button type="button" className="fv-generate-btn" onClick={() => navigate(`/summaries?fileId=${fileId}&page=${currentPage}`)}>
+                  <span className="fv-generate-icon">+</span> Generate Summary
+                </button>
+                <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 8, marginTop: 12 }}>Summaries for this file</div>
                 {summariesForFile.length === 0 ? (
-                  <div style={{ color: "var(--text-muted)", fontSize: 12 }}>No summaries yet. Generate from the Summaries page.</div>
+                  <div style={{ color: "var(--text-muted)", fontSize: 12 }}>No summaries yet.</div>
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     {summariesForFile.map((s) => (
