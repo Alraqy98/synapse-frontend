@@ -755,7 +755,7 @@ const LibraryPage = () => {
     // GRID MODE (Library browsing only)
     // ----------------------------------------------
     return (
-        <div className="flex flex-1 h-full overflow-hidden relative">
+        <div className="flex flex-1 h-full overflow-hidden relative bg-[#0D0F12]">
             <LibraryFilters
                 activeFilter={activeFilter}
                 onSelectFilter={handleFilterChange}

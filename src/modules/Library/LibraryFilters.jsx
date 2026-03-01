@@ -60,7 +60,7 @@ const LibraryFilters = ({
                         onClick={() => onSelectFilter(f)}
                         className={`text-left px-3 py-2 rounded-lg transition ${activeFilter === f
                                 ? "bg-teal text-black font-medium"
-                                : "text-muted hover:text-white hover:bg-white/5"
+                                : "text-white/40 hover:text-white"
                             }`}
                     >
                         {f}

@@ -130,11 +130,11 @@ const LibraryCard = ({
             data-demo="demo-file-card"
             onClick={handleCardClick}
             className={`
-                group bg-[#1a1d24] border rounded-2xl p-4
+                group bg-[#0D0F12]/60 border border-white/[0.06] rounded-2xl p-4 backdrop-blur-sm
                 hover:border-teal/40 transition-all hover:shadow-[0_0_35px_rgba(0,200,180,0.12)]
                 flex flex-col cursor-pointer relative
                 ${item.is_done ? "opacity-75" : ""}
-                ${isSelected ? "border-teal bg-teal/10" : "border-white/5"}
+                ${isSelected ? "border-teal bg-teal/10" : ""}
             `}
         >
             {/* SELECTION CHECKBOX - Top-left (files only, selection mode only) */}
@@ -173,7 +173,7 @@ const LibraryCard = ({
                         className={`
                             w-6 h-6 rounded-full flex items-center justify-center border transition-colors cursor-pointer
                             ${item.is_done
-                                ? "bg-teal-500 border-teal-500 text-black"
+                                ? "bg-teal/80 border-teal/80 text-black"
                                 : "border-gray-600 text-transparent hover:border-teal-400"
                             }
                         `}
@@ -188,7 +188,7 @@ const LibraryCard = ({
                 <div
                     className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
                     style={{
-                        backgroundColor: isFolder ? `${folderColor}22` : "rgba(255,255,255,0.05)",
+                        backgroundColor: isFolder ? `${folderColor}22` : "rgba(255,255,255,0.04)",
                     }}
                 >
                     {getIcon()}
@@ -262,25 +262,25 @@ const LibraryCard = ({
 
             {/* TITLE */}
             <h3
-                className="font-medium text-white truncate mb-2 text-sm"
+                className="font-medium text-white truncate mb-2 text-base"
                 title={item.title}
             >
                 {item.title}
             </h3>
 
             {/* META */}
-            <div className="flex items-center gap-2 text-[11px] text-muted mb-3">
+            <div className="flex items-center gap-2 mb-3">
                 <span
-                    className="px-2 py-0.5 rounded-full border border-white/5 capitalize"
-                    style={{
-                        backgroundColor: isFolder ? `${folderColor}33` : "rgba(255,255,255,0.05)",
-                        color: isFolder ? folderColor : "#ccc",
-                    }}
+                    className={isFolder
+                        ? "px-2 py-0.5 rounded-full border border-white/[0.06] text-[9px] uppercase tracking-widest"
+                        : "px-2 py-0.5 rounded-full border border-white/[0.06] bg-white/[0.04] text-white/40 text-[9px] uppercase tracking-widest"
+                    }
+                    style={isFolder ? { backgroundColor: `${folderColor}22`, color: folderColor } : undefined}
                 >
                     {isFolder ? "Folder" : item.uiCategory || "File"}
                 </span>
 
-                {formattedDate && <span>{formattedDate}</span>}
+                {formattedDate && <span className="text-[10px] text-white/30">{formattedDate}</span>}
             </div>
 
             {/* PRIMARY ACTION BUTTON */}
@@ -292,8 +292,8 @@ const LibraryCard = ({
                     }}
                     className="
                         w-full flex items-center justify-center gap-2 py-2 rounded-xl
-                        bg-teal/10 text-teal hover:bg-teal hover:text-black
-                        transition-colors text-sm font-medium
+                        bg-transparent border border-white/[0.08] text-white/50
+                        hover:border-teal/40 hover:text-teal transition-colors text-xs
                     "
                 >
                     <Eye size={14} />
