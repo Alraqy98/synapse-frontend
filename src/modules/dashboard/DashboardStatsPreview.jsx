@@ -55,21 +55,28 @@ function MiniTrendChart({ data }) {
   );
 }
 
-// ─── Accuracy badge color ──────────────────────────────────────────────────────
-const accuracyColor = (acc) => {
-  if (acc >= 70) return { color: "#00F5CC", bg: "rgba(0,245,204,0.08)", border: "rgba(0,245,204,0.2)" };
+// ─── Risk accent (red/amber) ───────────────────────────────────────────────────
+const riskAccuracyColor = (acc) => {
   if (acc >= 50) return { color: "#F5A623", bg: "rgba(245,166,35,0.08)", border: "rgba(245,166,35,0.2)" };
   return { color: "#FF4B4B", bg: "rgba(255,75,75,0.08)", border: "rgba(255,75,75,0.2)" };
 };
 
-// ─── Concept row ───────────────────────────────────────────────────────────────
-const ConceptRow = ({ concept, rank }) => {
+// ─── Learning state badge colors ─────────────────────────────────────────────────
+const stateBadgeStyle = (state) => {
+  const s = (state || "").toUpperCase();
+  if (s === "IMPROVING") return { color: "#00F5CC", bg: "rgba(0,245,204,0.12)", border: "rgba(0,245,204,0.25)" };
+  if (s === "DECLINING") return { color: "#FF4B4B", bg: "rgba(255,75,75,0.12)", border: "rgba(255,75,75,0.25)" };
+  return { color: "#F5A623", bg: "rgba(245,166,35,0.12)", border: "rgba(245,166,35,0.25)" }; // STABLE / default
+};
+
+// ─── Primary risk row (single focus item, red/amber accent) ─────────────────────
+const PrimaryRiskRow = ({ concept }) => {
   const [hovered, setHovered] = useState(false);
-  const colors = accuracyColor(concept.accuracy);
+  const colors = riskAccuracyColor(concept.accuracy);
 
   return (
     <Link
-      to={`/analytics/concepts/${concept.id}`}
+      to={concept.id ? `/analytics/concepts/${concept.id}` : "/learning"}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -78,40 +85,20 @@ const ConceptRow = ({ concept, rank }) => {
         gap: 12,
         padding: "11px 14px",
         borderRadius: 12,
-        background: hovered ? "rgba(255,255,255,0.03)" : "transparent",
-        border: `1px solid ${hovered ? "rgba(255,255,255,0.08)" : "transparent"}`,
+        background: hovered ? "rgba(255,75,75,0.06)" : "rgba(255,75,75,0.04)",
+        border: `1px solid ${colors.border}`,
         textDecoration: "none",
         transition: "all 0.15s",
-        marginBottom: 6,
       }}
     >
-      {/* Rank */}
-      <div
-        style={{
-          width: 22, height: 22,
-          borderRadius: "50%",
-          background: "rgba(255,255,255,0.04)",
-          border: "1px solid rgba(255,255,255,0.06)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          flexShrink: 0,
-        }}
-      >
-        <span style={{ fontSize: 10, color: "rgba(245,245,247,0.3)", fontFamily: "'Geist Mono', monospace" }}>
-          {rank}
-        </span>
-      </div>
-
-      {/* Concept info */}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: hovered ? "#F5F5F7" : "rgba(245,245,247,0.85)", transition: "color 0.15s", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: hovered ? "#F5F5F7" : "rgba(245,245,247,0.9)", transition: "color 0.15s", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {concept.concept_name}
         </div>
-        <div style={{ fontSize: 11, color: "rgba(245,245,247,0.35)", fontFamily: "'Geist Mono', monospace", marginTop: 2 }}>
+        <div style={{ fontSize: 11, color: "rgba(245,245,247,0.4)", fontFamily: "'Geist Mono', monospace", marginTop: 2 }}>
           {concept.attempts} attempts
         </div>
       </div>
-
-      {/* Accuracy badge */}
       <div style={{ padding: "4px 10px", borderRadius: 100, background: colors.bg, border: `1px solid ${colors.border}`, flexShrink: 0 }}>
         <span style={{ fontSize: 12, fontWeight: 700, color: colors.color, fontFamily: "'Geist Mono', monospace" }}>
           {Math.round(concept.accuracy)}%
@@ -190,13 +177,13 @@ const DashboardStatsPreview = () => {
   const [data, setData] = useState(null);
 
   useEffect(() => {
-    api.get("/api/analytics/dashboard")
-      .then(r => setData(r.data.data))
+    api.get("/api/learning/state")
+      .then(r => setData(r.data?.data ?? null))
       .catch(() => setData(null))
       .finally(() => setLoading(false));
   }, []);
 
-  const hasData = data && data.weakest_concepts && data.weakest_concepts.length > 0;
+  const hasData = data && (data.primary_risk || data.overall?.state || (Array.isArray(data.session_accuracy) && data.session_accuracy.length > 0) || data.plannerContext?.activePeriod?.name);
 
   return (
     <div style={{ paddingBottom: 32 }}>
@@ -231,27 +218,53 @@ const DashboardStatsPreview = () => {
           {/* Top glow */}
           <div aria-hidden style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent, rgba(255,75,75,0.4), transparent)", pointerEvents: "none" }} />
 
-          {/* Header */}
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20 }}>
+          {/* Rotation context tag */}
+          {data.plannerContext?.activePeriod?.name && (
+            <div style={{ marginBottom: 12 }}>
+              <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(245,245,247,0.4)", padding: "4px 8px", borderRadius: 6, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                {data.plannerContext.activePeriod.name}
+              </span>
+            </div>
+          )}
+
+          {/* Header + state badge + trend */}
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
             <div>
               <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(245,245,247,0.3)", marginBottom: 4 }}>
-                Priority Concepts
+                Focus Today
               </div>
               <div style={{ fontSize: 15, fontWeight: 700, color: "#F5F5F7" }}>
-                Weakest areas to fix today
+                Primary risk concept
               </div>
             </div>
-            {data.trend && data.trend.length > 1 && (
-              <MiniTrendChart data={data.trend} />
-            )}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              {data.overall?.state && (
+                <span
+                  style={{
+                    fontFamily: "'Geist Mono', monospace",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    letterSpacing: "0.06em",
+                    padding: "4px 10px",
+                    borderRadius: 100,
+                    ...stateBadgeStyle(data.overall.state),
+                  }}
+                >
+                  {data.overall.state}
+                </span>
+              )}
+              {data.session_accuracy && data.session_accuracy.length > 1 && (
+                <MiniTrendChart data={data.session_accuracy} />
+              )}
+            </div>
           </div>
 
-          {/* Concept rows */}
-          <div style={{ marginBottom: 20 }}>
-            {data.weakest_concepts.slice(0, 3).map((concept, i) => (
-              <ConceptRow key={concept.id} concept={concept} rank={i + 1} />
-            ))}
-          </div>
+          {/* Primary risk row */}
+          {data.primary_risk && (
+            <div style={{ marginBottom: 20 }}>
+              <PrimaryRiskRow concept={data.primary_risk} />
+            </div>
+          )}
 
           {/* Divider */}
           <div style={{ height: 1, background: "rgba(255,255,255,0.04)", marginBottom: 16 }} />
