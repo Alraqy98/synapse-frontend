@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import FileViewer from "./FileViewer";
+import FileViewerV3 from "./FileViewerV3";
 import { getItemById } from "./apiLibrary";
 
 const FileViewerPage = () => {
@@ -63,10 +63,9 @@ const FileViewerPage = () => {
     }
 
     return (
-        <FileViewer
+        <FileViewerV3
             file={file}
             fileId={fileId}
-            pageNumber={pageNumber ? Number(pageNumber) : null}
             onBack={handleBack}
             initialPage={pageNumber ? Number(pageNumber) : 1}
         />

@@ -628,3 +628,112 @@ export const getAnnotations = async (fileId, page) => {
         strokes: data.strokes || null,
     };
 };
+
+// ------------------------------------------------------
+// FILE VIEWER: PAGES
+// GET /library/item/:id/pages
+// Returns: { data: [{ page_number, image_path, image_url, render_status, ocr_status, ocr_text }] }
+// ------------------------------------------------------
+export const getFilePages = async (id) => {
+    const res = await fetch(`${API_BASE}/library/item/${id}/pages`, {
+        headers: { ...getAuthHeaders() },
+    });
+    const data = await handleJson(res);
+    return data.data || [];
+};
+
+// ------------------------------------------------------
+// PUT ANNOTATIONS (full replace)
+// PUT /library/annotations  body: { file_id, page, strokes }
+// strokes: { pins: [{ id, x, y, text, created_at }] }  x/y = 0–100%
+// ------------------------------------------------------
+export const putAnnotations = async (fileId, page, strokes) => {
+    const res = await fetch(`${API_BASE}/library/annotations`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({ file_id: fileId, page, strokes }),
+    });
+    if (res.status === 204) return;
+    await handleJson(res);
+};
+
+// ------------------------------------------------------
+// DELETE ANNOTATIONS
+// DELETE /library/annotations  body: { file_id, page }
+// ------------------------------------------------------
+export const deleteAnnotations = async (fileId, page) => {
+    const res = await fetch(`${API_BASE}/library/annotations`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({ file_id: fileId, page }),
+    });
+    if (res.status === 204) return;
+    await handleJson(res);
+};
+
+// ------------------------------------------------------
+// CONCEPT MASTERY (file viewer performance tab)
+// GET /api/learning/files/:fileId/concept-mastery
+// ------------------------------------------------------
+export const getConceptMastery = async (fileId) => {
+    const res = await fetch(`${API_BASE}/api/learning/files/${fileId}/concept-mastery`, {
+        headers: { ...getAuthHeaders() },
+    });
+    const data = await handleJson(res);
+    return data.data || [];
+};
+
+// ------------------------------------------------------
+// RECORDINGS
+// ------------------------------------------------------
+export const createRecording = async (fileId, body) => {
+    const res = await fetch(`${API_BASE}/library/files/${fileId}/recordings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify(body),
+    });
+    return handleJson(res);
+};
+
+export const getRecordings = async (fileId) => {
+    const res = await fetch(`${API_BASE}/library/files/${fileId}/recordings`, {
+        headers: { ...getAuthHeaders() },
+    });
+    const data = await handleJson(res);
+    return Array.isArray(data) ? data : data.data || [];
+};
+
+export const patchRecording = async (id, body) => {
+    const res = await fetch(`${API_BASE}/library/recordings/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify(body),
+    });
+    return handleJson(res);
+};
+
+export const createRecordingTag = async (recordingId, body) => {
+    const res = await fetch(`${API_BASE}/library/recordings/${recordingId}/tags`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify(body),
+    });
+    return handleJson(res);
+};
+
+export const getRecordingTags = async (recordingId) => {
+    const res = await fetch(`${API_BASE}/library/recordings/${recordingId}/tags`, {
+        headers: { ...getAuthHeaders() },
+    });
+    const data = await handleJson(res);
+    return Array.isArray(data) ? data : data.data || [];
+};
+
+export const deleteRecordingTag = async (recordingId, tagId) => {
+    const res = await fetch(`${API_BASE}/library/recordings/${recordingId}/tags/${tagId}`, {
+        method: "DELETE",
+        headers: { ...getAuthHeaders() },
+    });
+    if (res.status === 204) return;
+    await handleJson(res);
+};

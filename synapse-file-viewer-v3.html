@@ -1,0 +1,1816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Synapse — File Viewer v2</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-void: #0a0a0c;
+  --bg-base: #111114;
+  --bg-surface: #17171b;
+  --bg-raised: #1e1e24;
+  --bg-hover: #25252d;
+  --border: rgba(255,255,255,0.06);
+  --border-mid: rgba(255,255,255,0.1);
+  --border-accent: rgba(255,255,255,0.15);
+  --text-primary: #f0f0f4;
+  --text-secondary: #8a8a9a;
+  --text-muted: #4a4a5a;
+  --green: #00e5a0;
+  --green-dim: rgba(0,229,160,0.1);
+  --green-glow: rgba(0,229,160,0.2);
+  --nav-w: 56px;
+  --nav-w-collapsed: 56px;
+  --thumb-w: 176px;
+  --chat-w: 320px;
+  --chat-w-collapsed: 48px;
+  --topbar-h: 50px;
+}
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg-void);
+  color: var(--text-primary);
+  height: 100vh;
+  display: flex;
+  overflow: hidden;
+  font-size: 13px;
+  user-select: none;
+}
+
+/* ─────────── TRANSITIONS ─────────── */
+.thumb-strip, .right-panel { transition: width 0.22s cubic-bezier(0.4,0,0.2,1); }
+
+/* ─────────── LEFT NAV ─────────── */
+.nav-sidebar {
+  width: var(--nav-w);
+  background: var(--bg-base);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 0;
+  gap: 2px;
+  flex-shrink: 0;
+  z-index: 20;
+  overflow: hidden;
+}
+
+.nav-logo {
+  width: 32px; height: 32px;
+  background: var(--green);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 14px;
+  box-shadow: 0 0 18px var(--green-glow);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.nav-logo svg { width: 16px; height: 16px; }
+
+.nav-icon {
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+  flex-shrink: 0;
+}
+.nav-icon:hover { background: var(--bg-hover); color: var(--text-secondary); }
+.nav-icon.active { background: var(--green-dim); color: var(--green); }
+.nav-icon.active::before {
+  content: '';
+  position: absolute;
+  left: -1px; top: 50%; transform: translateY(-50%);
+  width: 2px; height: 16px;
+  background: var(--green);
+  border-radius: 0 2px 2px 0;
+}
+.nav-icon svg { width: 16px; height: 16px; }
+.nav-spacer { flex: 1; }
+.nav-avatar {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #7c3aed, #2563eb);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 600; color: white;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* ─────────── THUMBNAIL STRIP ─────────── */
+.thumb-strip {
+  width: var(--thumb-w);
+  background: var(--bg-base);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.thumb-strip.collapsed { width: var(--nav-w); }
+.thumb-strip.collapsed .thumb-list,
+.thumb-strip.collapsed .thumb-header-content { display: none; }
+
+.thumb-top {
+  height: var(--topbar-h);
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--border);
+  gap: 8px;
+  flex-shrink: 0;
+}
+.thumb-top-title {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.thumb-strip.collapsed .thumb-top { justify-content: center; padding: 0; }
+.thumb-strip.collapsed .thumb-top-title { display: none; }
+
+.collapse-btn {
+  width: 24px; height: 24px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.collapse-btn:hover { background: var(--bg-hover); color: var(--text-secondary); }
+.collapse-btn svg { width: 11px; height: 11px; }
+
+.thumb-header-content {
+  padding: 10px 10px 8px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.thumb-file-row { display: flex; align-items: flex-start; gap: 7px; }
+.thumb-back {
+  width: 22px; height: 22px;
+  border-radius: 5px;
+  border: 1px solid var(--border-mid);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-secondary);
+  cursor: pointer; flex-shrink: 0;
+  transition: all 0.15s;
+}
+.thumb-back:hover { background: var(--bg-hover); }
+.thumb-back svg { width: 11px; height: 11px; }
+.thumb-file-name { font-size: 11.5px; font-weight: 500; color: var(--text-primary); line-height: 1.4; }
+.thumb-tags { display: flex; gap: 3px; flex-wrap: wrap; }
+.thumb-tag {
+  height: 17px; padding: 0 5px;
+  border-radius: 4px; font-size: 9px; font-weight: 500;
+  background: var(--bg-raised); color: var(--text-muted);
+  border: 1px solid var(--border); display: flex; align-items: center;
+}
+.thumb-tag.green { background: var(--green-dim); color: var(--green); border-color: rgba(0,229,160,0.2); }
+.thumb-progress { height: 2px; background: var(--bg-raised); border-radius: 1px; overflow: hidden; }
+.thumb-progress-fill { height: 100%; width: 1.3%; background: var(--green); border-radius: 1px; }
+
+.thumb-list {
+  flex: 1; overflow-y: auto;
+  padding: 8px;
+  display: flex; flex-direction: column; gap: 5px;
+}
+.thumb-list::-webkit-scrollbar { width: 3px; }
+.thumb-list::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 2px; }
+
+.thumb-item {
+  border-radius: 7px; overflow: hidden;
+  border: 1.5px solid transparent;
+  cursor: pointer; transition: all 0.15s; flex-shrink: 0;
+}
+.thumb-item:hover { border-color: var(--border-accent); }
+.thumb-item.active { border-color: var(--green); box-shadow: 0 0 0 1px var(--green-dim); }
+.thumb-preview {
+  width: 100%; aspect-ratio: 4/3;
+  background: #fff;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden; position: relative;
+}
+.thumb-label {
+  background: var(--bg-surface); padding: 3px 6px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.thumb-num { font-size: 9px; font-family: 'DM Mono', monospace; color: var(--text-muted); }
+.thumb-item.active .thumb-num { color: var(--green); }
+.thumb-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--green); opacity: 0; transition: 0.15s; }
+.thumb-item.active .thumb-dot { opacity: 1; }
+
+/* weak page indicator */
+.thumb-weak { position: absolute; top: 3px; right: 3px; width: 8px; height: 8px; border-radius: 50%; }
+.weak-red { background: #fc8181; }
+.weak-yellow { background: #f6e05e; }
+
+/* ─────────── MAIN ─────────── */
+.main-area {
+  flex: 1; display: flex; flex-direction: column;
+  overflow: hidden; background: var(--bg-void); position: relative;
+}
+
+/* ─────────── TOOLBAR ─────────── */
+.toolbar {
+  height: var(--topbar-h);
+  background: var(--bg-base);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 14px; gap: 6px; flex-shrink: 0;
+}
+.toolbar-group {
+  display: flex; align-items: center; gap: 1px;
+  padding: 2px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.tb-btn {
+  height: 26px; padding: 0 9px;
+  border-radius: 5px; border: none;
+  background: transparent; color: var(--text-secondary);
+  cursor: pointer; font-family: 'DM Sans', sans-serif;
+  font-size: 11.5px; font-weight: 500;
+  display: flex; align-items: center; gap: 4px;
+  transition: all 0.15s; white-space: nowrap;
+}
+.tb-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+.tb-btn.active { background: var(--bg-raised); color: var(--text-primary); }
+.tb-btn svg { width: 12px; height: 12px; flex-shrink: 0; }
+.tb-icon-btn {
+  width: 26px; height: 26px; border-radius: 5px; border: none;
+  background: transparent; color: var(--text-secondary);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+}
+.tb-icon-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+.tb-icon-btn svg { width: 12px; height: 12px; }
+.toolbar-divider { width: 1px; height: 18px; background: var(--border); margin: 0 2px; }
+.toolbar-spacer { flex: 1; }
+.page-indicator {
+  display: flex; align-items: center; gap: 5px;
+  padding: 3px 8px;
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: 7px;
+  font-family: 'DM Mono', monospace; font-size: 11px;
+  color: var(--text-secondary);
+}
+.page-indicator .cur { color: var(--text-primary); font-weight: 500; }
+.zoom-display { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text-secondary); min-width: 32px; text-align: center; }
+
+/* Highlight mode toolbar */
+.highlight-toolbar {
+  display: none;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  background: var(--bg-surface);
+  border: 1px solid rgba(0,229,160,0.25);
+  border-radius: 8px;
+}
+.highlight-toolbar.active { display: flex; }
+.hl-color {
+  width: 16px; height: 16px; border-radius: 50%;
+  cursor: pointer; transition: transform 0.15s;
+  border: 2px solid transparent;
+}
+.hl-color:hover { transform: scale(1.2); }
+.hl-color.selected { border-color: white; transform: scale(1.15); }
+.hl-yellow { background: #f6e05e; }
+.hl-green { background: #68d391; }
+.hl-blue { background: #63b3ed; }
+.hl-red { background: #fc8181; }
+.hl-divider { width: 1px; height: 14px; background: var(--border-mid); margin: 0 2px; }
+
+/* Annotation toolbar */
+.annotation-type-btn {
+  height: 22px; padding: 0 7px;
+  border-radius: 5px; border: none;
+  background: transparent; color: var(--text-secondary);
+  cursor: pointer; font-size: 10px; font-weight: 500;
+  display: flex; align-items: center; gap: 3px;
+  transition: all 0.15s;
+  font-family: 'DM Sans', sans-serif;
+}
+.annotation-type-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+.annotation-type-btn.active { background: var(--bg-raised); color: var(--text-primary); }
+.annotation-type-btn svg { width: 10px; height: 10px; }
+
+/* ─────────── PDF CANVAS ─────────── */
+.pdf-canvas-wrap {
+  flex: 1; overflow: auto;
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 24px 24px 16px;
+  background: #13131a;
+  background-image: radial-gradient(circle at 50% 0%, rgba(0,229,160,0.025) 0%, transparent 55%);
+}
+.pdf-canvas-wrap::-webkit-scrollbar { width: 5px; height: 5px; }
+.pdf-canvas-wrap::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 3px; }
+
+.pdf-page {
+  background: #fff; border-radius: 3px;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.04), 0 8px 32px rgba(0,0,0,0.6), 0 32px 64px rgba(0,0,0,0.3);
+  width: 680px; min-height: 880px;
+  position: relative; overflow: visible;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 16px;
+  flex-shrink: 0;
+  transition: transform 0.2s;
+  cursor: crosshair;
+}
+.pdf-page.cursor-default { cursor: default; }
+.pdf-page.cursor-text { cursor: text; }
+
+/* SOT badge */
+.sot-badge {
+  position: absolute; top: -1px; right: -1px;
+  background: var(--green); color: #0a0a0c;
+  font-size: 9px; font-weight: 700;
+  font-family: 'DM Mono', monospace;
+  padding: 3px 7px; border-radius: 0 3px 0 6px;
+  display: flex; align-items: center; gap: 4px;
+  pointer-events: none;
+}
+.sot-badge::before {
+  content: ''; width: 5px; height: 5px;
+  background: #0a0a0c; border-radius: 50%;
+  animation: sot-pulse 2s infinite;
+}
+@keyframes sot-pulse {
+  0%,100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.6); }
+}
+
+/* Slide content */
+.faux-slide-title {
+  font-size: 50px; font-weight: 900; color: #e53e3e;
+  text-align: center; line-height: 1.15; letter-spacing: -1px;
+  font-family: Arial Black, sans-serif; position: relative; z-index: 1;
+  pointer-events: none;
+}
+
+/* ── HIGHLIGHT LAYER ── */
+.highlight-layer {
+  position: absolute; inset: 0; pointer-events: none; z-index: 2;
+}
+.hl-rect {
+  position: absolute; border-radius: 2px;
+  cursor: pointer; pointer-events: all;
+  transition: opacity 0.15s;
+}
+.hl-rect:hover { opacity: 0.7 !important; }
+.hl-rect-yellow { background: rgba(246,224,94,0.45); }
+.hl-rect-green { background: rgba(104,211,145,0.45); }
+.hl-rect-blue { background: rgba(99,179,237,0.45); }
+.hl-rect-red { background: rgba(252,129,129,0.45); }
+
+/* ── ANNOTATION PINS ── */
+.annotation-pin {
+  position: absolute; z-index: 10;
+  display: flex; align-items: center; gap: 0;
+}
+.pin-dot {
+  width: 22px; height: 22px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; font-weight: 700; color: #0a0a0c;
+  cursor: pointer; flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  transition: transform 0.15s;
+}
+.pin-dot:hover { transform: scale(1.1); }
+.pin-green { background: var(--green); box-shadow: 0 0 0 4px var(--green-glow), 0 2px 8px rgba(0,0,0,0.4); animation: pin-pulse 3s infinite; }
+@keyframes pin-pulse {
+  0%,100% { box-shadow: 0 0 0 4px rgba(0,229,160,0.2); }
+  50% { box-shadow: 0 0 0 8px rgba(0,229,160,0.06); }
+}
+.pin-note {
+  background: #2d2d38; border: 1px solid var(--border-mid);
+  border-radius: 7px; padding: 7px 10px;
+  font-size: 11px; color: var(--text-primary); line-height: 1.45;
+  max-width: 200px; margin-left: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  pointer-events: none;
+  display: none;
+}
+.annotation-pin:hover .pin-note { display: block; }
+
+/* New annotation input */
+.ann-input-popup {
+  position: absolute; z-index: 30;
+  background: #1e1e26; border: 1px solid var(--border-mid);
+  border-radius: 10px; padding: 10px;
+  width: 220px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  display: none;
+}
+.ann-input-popup.visible { display: block; }
+.ann-input-popup textarea {
+  width: 100%; background: var(--bg-surface);
+  border: 1px solid var(--border-mid); border-radius: 7px;
+  padding: 7px 9px; color: var(--text-primary);
+  font-family: 'DM Sans', sans-serif; font-size: 11.5px;
+  resize: none; outline: none; line-height: 1.5;
+}
+.ann-input-popup textarea:focus { border-color: rgba(0,229,160,0.3); }
+.ann-input-actions { display: flex; gap: 5px; margin-top: 6px; }
+.ann-save-btn {
+  flex: 1; height: 26px; border-radius: 6px; border: none;
+  background: var(--green); color: #0a0a0c;
+  font-size: 11px; font-weight: 600; cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: opacity 0.15s;
+}
+.ann-save-btn:hover { opacity: 0.85; }
+.ann-cancel-btn {
+  height: 26px; padding: 0 10px; border-radius: 6px;
+  border: 1px solid var(--border-mid); background: transparent;
+  color: var(--text-secondary); font-size: 11px; cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+}
+
+/* Drag selection rect */
+.drag-select {
+  position: absolute; z-index: 5; border-radius: 2px;
+  pointer-events: none; display: none;
+}
+
+/* ─────────── STATUS BAR ─────────── */
+.status-bar {
+  height: 26px; background: var(--bg-void);
+  border-top: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 14px; gap: 14px; flex-shrink: 0;
+}
+.status-item {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 10px; font-family: 'DM Mono', monospace; color: var(--text-muted);
+}
+.s-dot { width: 5px; height: 5px; border-radius: 50%; }
+.dot-green { background: var(--green); }
+.dot-yellow { background: #f6e05e; }
+.dot-red { background: #fc8181; }
+
+/* ─────────── RIGHT PANEL ─────────── */
+.right-panel {
+  width: var(--chat-w);
+  background: var(--bg-base);
+  border-left: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  flex-shrink: 0; overflow: hidden;
+}
+.right-panel.collapsed { width: var(--chat-w-collapsed); }
+.right-panel.collapsed .rp-full { display: none; }
+
+/* Collapsed state: icon strip */
+.rp-collapsed-strip {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 0;
+  gap: 4px;
+  width: 100%;
+  height: 100%;
+}
+.right-panel.collapsed .rp-collapsed-strip { display: flex; }
+.right-panel.collapsed .rp-full { display: none; }
+.rp-strip-icon {
+  width: 34px; height: 34px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-muted); cursor: pointer; transition: all 0.15s;
+  position: relative;
+}
+.rp-strip-icon:hover { background: var(--bg-hover); color: var(--text-secondary); }
+.rp-strip-icon.active { background: var(--green-dim); color: var(--green); }
+.rp-strip-icon svg { width: 15px; height: 15px; }
+.rp-strip-divider { width: 20px; height: 1px; background: var(--border); margin: 4px 0; }
+.rp-strip-spacer { flex: 1; }
+
+/* Expand button (inside collapsed strip top) */
+.rp-expand-btn {
+  width: 28px; height: 28px; border-radius: 7px;
+  border: 1px solid var(--border);
+  background: transparent; color: var(--text-muted);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s; margin-bottom: 8px;
+}
+.rp-expand-btn:hover { background: var(--bg-hover); color: var(--text-secondary); }
+.rp-expand-btn svg { width: 11px; height: 11px; }
+
+/* Full panel */
+.rp-full { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+
+/* Panel header */
+.rp-header {
+  height: var(--topbar-h);
+  display: flex; align-items: center;
+  padding: 0 12px; gap: 6px;
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.rp-tabs { display: flex; gap: 1px; flex: 1; overflow: hidden; }
+.rp-tab {
+  height: 30px; padding: 0 10px;
+  border-radius: 7px; border: none;
+  background: transparent; color: var(--text-muted);
+  cursor: pointer; font-size: 11.5px; font-weight: 500;
+  display: flex; align-items: center; gap: 5px;
+  transition: all 0.15s; white-space: nowrap;
+  font-family: 'DM Sans', sans-serif;
+}
+.rp-tab:hover { color: var(--text-secondary); }
+.rp-tab.active { background: var(--bg-surface); color: var(--text-primary); }
+.rp-tab svg { width: 12px; height: 12px; }
+
+.rp-collapse-btn {
+  width: 26px; height: 26px; border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent; color: var(--text-muted);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s; flex-shrink: 0;
+}
+.rp-collapse-btn:hover { background: var(--bg-hover); color: var(--text-secondary); }
+.rp-collapse-btn svg { width: 11px; height: 11px; }
+
+/* Tab panes */
+.tab-pane { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+.tab-pane.active { display: flex; }
+
+/* ── CHAT PANE ── */
+.rp-page-ctx {
+  margin: 10px 10px 6px;
+  padding: 8px 10px;
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: 9px; display: flex; align-items: center; gap: 8px;
+}
+.ctx-icon {
+  width: 26px; height: 26px; border-radius: 6px;
+  background: var(--green-dim); border: 1px solid rgba(0,229,160,0.2);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.ctx-icon svg { width: 13px; height: 13px; color: var(--green); }
+.ctx-text { flex: 1; min-width: 0; }
+.ctx-label { font-size: 9px; color: var(--text-muted); font-family: 'DM Mono', monospace; }
+.ctx-value { font-size: 11.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Quick generations */
+.quick-gen-row {
+  display: flex; gap: 5px;
+  padding: 0 10px 8px;
+}
+.qg-btn {
+  flex: 1; height: 34px; border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-surface); color: var(--text-secondary);
+  cursor: pointer; font-size: 10.5px; font-weight: 500;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px; transition: all 0.18s;
+  font-family: 'DM Sans', sans-serif;
+}
+.qg-btn svg { width: 13px; height: 13px; }
+.qg-btn:hover { border-color: var(--green); color: var(--green); background: var(--green-dim); }
+.qg-btn:active { transform: scale(0.97); }
+.qg-label { font-size: 9px; font-weight: 600; font-family: 'DM Mono', monospace; }
+
+.chat-msgs { flex: 1; overflow-y: auto; padding: 0 10px; display: flex; flex-direction: column; gap: 14px; }
+.chat-msgs::-webkit-scrollbar { width: 3px; }
+.chat-msgs::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 2px; }
+.chat-msg { display: flex; gap: 7px; }
+.msg-avatar {
+  width: 20px; height: 20px; border-radius: 50%;
+  flex-shrink: 0; margin-top: 1px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 8px; font-weight: 700;
+}
+.av-ai { background: var(--green-dim); border: 1px solid rgba(0,229,160,0.2); color: var(--green); }
+.av-user { background: linear-gradient(135deg, #7c3aed, #2563eb); color: white; }
+.msg-body { flex: 1; min-width: 0; }
+.msg-sender { font-size: 9px; color: var(--text-muted); margin-bottom: 3px; font-family: 'DM Mono', monospace; }
+.chat-bubble {
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: 9px; padding: 8px 10px;
+  font-size: 12px; color: var(--text-primary); line-height: 1.55;
+}
+.chat-bubble.user { background: var(--green-dim); border-color: rgba(0,229,160,0.15); }
+.src-chip {
+  display: inline-flex; align-items: center; gap: 2px;
+  background: var(--bg-raised); border: 1px solid var(--border-mid);
+  border-radius: 4px; padding: 1px 5px;
+  font-size: 9px; font-family: 'DM Mono', monospace; color: var(--green);
+  margin-top: 5px;
+}
+
+/* scope pills */
+.scope-row { display: flex; gap: 4px; margin-bottom: 6px; }
+.scope-pill {
+  height: 20px; padding: 0 7px; border-radius: 10px;
+  border: 1px solid var(--border); background: transparent;
+  color: var(--text-muted); font-size: 9.5px; cursor: pointer;
+  transition: all 0.15s; display: flex; align-items: center; gap: 3px;
+  font-family: 'DM Sans', sans-serif;
+}
+.scope-pill.active { background: var(--green-dim); border-color: rgba(0,229,160,0.3); color: var(--green); }
+.scope-pill svg { width: 8px; height: 8px; }
+
+/* chat input */
+.chat-input-area { padding: 8px 10px; border-top: 1px solid var(--border); flex-shrink: 0; }
+.chat-input-box {
+  background: var(--bg-surface); border: 1px solid var(--border-mid);
+  border-radius: 9px; padding: 8px 10px;
+  display: flex; align-items: flex-end; gap: 7px;
+  transition: border-color 0.15s;
+}
+.chat-input-box:focus-within { border-color: rgba(0,229,160,0.3); box-shadow: 0 0 0 3px rgba(0,229,160,0.05); }
+.chat-input-box textarea {
+  flex: 1; background: transparent; border: none; outline: none;
+  font-family: 'DM Sans', sans-serif; font-size: 12px;
+  color: var(--text-primary); resize: none; line-height: 1.5;
+  min-height: 18px; max-height: 72px; overflow-y: auto;
+}
+.chat-input-box textarea::placeholder { color: var(--text-muted); }
+.send-btn {
+  width: 26px; height: 26px; border-radius: 6px; border: none;
+  background: var(--green); display: flex; align-items: center; justify-content: center;
+  cursor: pointer; flex-shrink: 0; transition: all 0.15s;
+}
+.send-btn:hover { box-shadow: 0 0 10px var(--green-glow); transform: scale(1.05); }
+.send-btn svg { width: 11px; height: 11px; color: #0a0a0c; }
+
+/* ── PERFORMANCE PANE ── */
+.perf-pane-inner { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 12px; }
+.perf-pane-inner::-webkit-scrollbar { width: 3px; }
+.perf-pane-inner::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 2px; }
+
+.perf-summary-row { display: flex; gap: 6px; }
+.perf-stat {
+  flex: 1; background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: 9px; padding: 9px 10px;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.perf-stat-val { font-size: 20px; font-weight: 600; font-family: 'DM Mono', monospace; line-height: 1; }
+.perf-stat-label { font-size: 9px; color: var(--text-muted); font-family: 'DM Mono', monospace; letter-spacing: 0.5px; }
+.val-green { color: var(--green); }
+.val-yellow { color: #f6e05e; }
+.val-red { color: #fc8181; }
+
+.perf-section-title {
+  font-size: 10px; font-weight: 600; color: var(--text-muted);
+  font-family: 'DM Mono', monospace; letter-spacing: 0.8px;
+  margin-bottom: 5px;
+}
+
+/* Concept bars */
+.concept-list { display: flex; flex-direction: column; gap: 6px; }
+.concept-row { display: flex; flex-direction: column; gap: 4px; }
+.concept-header { display: flex; justify-content: space-between; align-items: center; }
+.concept-name { font-size: 11.5px; color: var(--text-primary); }
+.concept-score {
+  font-size: 10px; font-family: 'DM Mono', monospace;
+  padding: 1px 5px; border-radius: 4px; font-weight: 500;
+}
+.score-red { background: rgba(252,129,129,0.15); color: #fc8181; border: 1px solid rgba(252,129,129,0.2); }
+.score-yellow { background: rgba(246,224,94,0.12); color: #f6e05e; border: 1px solid rgba(246,224,94,0.2); }
+.score-green { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,229,160,0.2); }
+.concept-bar { height: 4px; background: var(--bg-raised); border-radius: 2px; overflow: hidden; }
+.concept-bar-fill { height: 100%; border-radius: 2px; transition: width 0.4s ease; }
+.bar-red { background: #fc8181; }
+.bar-yellow { background: #f6e05e; }
+.bar-green { background: var(--green); }
+.concept-meta { font-size: 9.5px; color: var(--text-muted); font-family: 'DM Mono', monospace; }
+
+/* Weak pages */
+.weak-pages { display: flex; flex-direction: column; gap: 4px; }
+.weak-page-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 9px; border-radius: 8px;
+  background: var(--bg-surface); border: 1px solid var(--border);
+  cursor: pointer; transition: all 0.15s;
+}
+.weak-page-row:hover { border-color: var(--border-accent); background: var(--bg-raised); }
+.weak-page-num {
+  font-size: 10px; font-family: 'DM Mono', monospace;
+  color: var(--text-muted); min-width: 24px;
+}
+.weak-page-title { flex: 1; font-size: 11px; color: var(--text-primary); }
+.weak-page-badge {
+  font-size: 9px; font-family: 'DM Mono', monospace;
+  padding: 2px 5px; border-radius: 4px;
+}
+.badge-critical { background: rgba(252,129,129,0.15); color: #fc8181; }
+.badge-review { background: rgba(246,224,94,0.12); color: #f6e05e; }
+
+/* Decay timeline */
+.decay-chart {
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: 9px; padding: 12px; position: relative; height: 80px;
+  display: flex; align-items: flex-end; gap: 3px;
+}
+.decay-bar {
+  flex: 1; border-radius: 2px 2px 0 0; min-height: 4px;
+  background: var(--bg-raised); position: relative;
+  transition: background 0.2s;
+  cursor: pointer;
+}
+.decay-bar:hover { opacity: 0.8; }
+.decay-bar.d-green { background: var(--green); }
+.decay-bar.d-yellow { background: #f6e05e; }
+.decay-bar.d-red { background: #fc8181; }
+.decay-label {
+  position: absolute; bottom: -16px; left: 50%; transform: translateX(-50%);
+  font-size: 8px; font-family: 'DM Mono', monospace; color: var(--text-muted); white-space: nowrap;
+}
+.decay-chart-label {
+  position: absolute; top: 8px; left: 12px;
+  font-size: 9px; font-family: 'DM Mono', monospace; color: var(--text-muted);
+}
+
+@keyframes rec-blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+/* ── RECORDINGS PANE ── */
+.rec-pane-inner { flex:1; overflow-y:auto; padding:10px; display:flex; flex-direction:column; gap:12px; }
+.rec-pane-inner::-webkit-scrollbar { width:3px; }
+.rec-pane-inner::-webkit-scrollbar-thumb { background:var(--border-mid); border-radius:2px; }
+
+.rec-mode-toggle { display:flex; gap:3px; padding:3px; background:var(--bg-surface); border:1px solid var(--border); border-radius:9px; }
+.rec-mode-btn { flex:1; height:26px; border-radius:6px; border:none; background:transparent; color:var(--text-secondary); cursor:pointer; font-size:11px; font-weight:500; font-family:'DM Sans',sans-serif; display:flex; align-items:center; justify-content:center; gap:5px; transition:all 0.15s; }
+.rec-mode-btn:hover { color:var(--text-primary); }
+.rec-mode-btn.active { background:var(--bg-raised); color:var(--text-primary); }
+.rec-mode-btn svg { width:11px; height:11px; }
+
+.rec-empty { text-align:center; padding:20px 16px; color:var(--text-muted); font-size:11.5px; line-height:1.6; }
+
+/* Lecture recording card */
+.lecture-rec-card { background:var(--bg-surface); border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+.lecture-rec-header { padding:10px 12px 8px; display:flex; align-items:center; gap:10px; border-bottom:1px solid var(--border); }
+.rec-play-btn { width:28px; height:28px; border-radius:50%; background:var(--green); border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:transform 0.15s; }
+.rec-play-btn:hover { transform:scale(1.08); }
+.rec-play-btn svg { width:11px; height:11px; fill:#0a0a0c; }
+.rec-title { font-size:11.5px; font-weight:500; color:var(--text-primary); }
+.rec-meta { font-size:9.5px; color:var(--text-muted); font-family:'DM Mono',monospace; }
+.rec-duration { font-size:10px; font-family:'DM Mono',monospace; color:var(--text-secondary); margin-left:auto; }
+
+/* Waveform */
+.rec-waveform-wrap { padding:10px 12px; position:relative; }
+.rec-waveform { display:flex; align-items:center; gap:2px; height:36px; cursor:pointer; }
+.wav-bar { flex:1; border-radius:1px; min-height:3px; background:var(--bg-raised); transition:background 0.1s; }
+.wav-bar.played { background:var(--green); opacity:0.7; }
+.wav-bar.head { background:var(--green); opacity:1; }
+.rec-progress-line { position:absolute; top:10px; bottom:10px; width:2px; background:var(--green); border-radius:1px; pointer-events:none; transition:left 0.1s linear; box-shadow:0 0 6px var(--green); }
+
+/* Tap markers on waveform */
+.tap-marker { position:absolute; bottom:10px; width:2px; background:#f6e05e; border-radius:1px; cursor:pointer; }
+.tap-marker::before { content:attr(data-label); position:absolute; bottom:calc(100% + 3px); left:50%; transform:translateX(-50%); font-size:8px; font-family:'DM Mono',monospace; color:#f6e05e; white-space:nowrap; background:#1a1a20; padding:1px 4px; border-radius:3px; pointer-events:none; }
+
+/* Tag list */
+.rec-tags { padding:0 12px 10px; display:flex; flex-direction:column; gap:4px; }
+.rec-tag-item { display:flex; align-items:center; gap:8px; padding:5px 8px; border-radius:7px; cursor:pointer; transition:background 0.12s; }
+.rec-tag-item:hover { background:var(--bg-raised); }
+.rec-tag-time { font-size:9.5px; font-family:'DM Mono',monospace; color:var(--green); min-width:34px; }
+.rec-tag-label { font-size:11px; color:var(--text-primary); flex:1; }
+.rec-tag-page { font-size:9px; font-family:'DM Mono',monospace; color:var(--text-muted); }
+
+/* Slide notes */
+.slide-note-card { background:var(--bg-surface); border:1px solid var(--border); border-radius:10px; padding:10px 12px; display:flex; align-items:center; gap:10px; cursor:pointer; transition:border-color 0.15s; }
+.slide-note-card:hover { border-color:var(--border-accent); }
+.slide-note-page { font-size:9px; font-family:'DM Mono',monospace; color:var(--green); background:var(--green-dim); border:1px solid rgba(0,229,160,0.2); border-radius:4px; padding:2px 6px; white-space:nowrap; }
+.slide-note-duration { font-size:10px; font-family:'DM Mono',monospace; color:var(--text-muted); white-space:nowrap; margin-left:auto; }
+.slide-note-play { width:24px; height:24px; border-radius:50%; background:var(--bg-raised); border:1px solid var(--border-mid); display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; transition:background 0.12s; }
+.slide-note-play:hover { background:var(--green-dim); }
+.slide-note-play svg { width:9px; height:9px; fill:var(--text-secondary); }
+.slide-note-info { flex:1; }
+.slide-note-title { font-size:11px; font-weight:500; color:var(--text-primary); }
+.slide-note-sub { font-size:9.5px; color:var(--text-muted); font-family:'DM Mono',monospace; margin-top:2px; }
+
+/* ── ANNOTATIONS PANE ── */
+.ann-list { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+.ann-list::-webkit-scrollbar { width: 3px; }
+.ann-list::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 2px; }
+.ann-item {
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: 9px; padding: 9px 10px;
+  cursor: pointer; transition: all 0.15s;
+}
+.ann-item:hover { border-color: var(--border-accent); }
+.ann-item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.ann-page-chip {
+  font-size: 9px; font-family: 'DM Mono', monospace;
+  color: var(--green); background: var(--green-dim);
+  border: 1px solid rgba(0,229,160,0.2); border-radius: 4px; padding: 1px 5px;
+}
+.ann-color-dot { width: 8px; height: 8px; border-radius: 50%; }
+.ann-text { font-size: 11.5px; color: var(--text-primary); line-height: 1.45; }
+.ann-type-tag { font-size: 9px; color: var(--text-muted); margin-top: 4px; font-family: 'DM Mono', monospace; }
+</style>
+</head>
+<body>
+
+<!-- ── LEFT NAV ── -->
+<nav class="nav-sidebar">
+  <!-- S hexagon logo -->
+  <div class="nav-logo" style="background:transparent;box-shadow:none;width:38px;height:38px;margin-bottom:10px;">
+    <svg viewBox="0 0 40 40" fill="none" width="38" height="38">
+      <path d="M20 2L36 11V29L20 38L4 29V11L20 2Z" fill="none" stroke="var(--green)" stroke-width="2"/>
+      <text x="50%" y="53%" dominant-baseline="middle" text-anchor="middle" fill="var(--green)" font-size="15" font-weight="700" font-family="DM Sans,sans-serif">S</text>
+    </svg>
+  </div>
+  <!-- Home -->
+  <div class="nav-icon" title="Home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12l9-9 9 9M5 10v9a1 1 0 001 1h4v-5h4v5h4a1 1 0 001-1v-9"/></svg></div>
+  <!-- Library (active) -->
+  <div class="nav-icon active" title="Library"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></div>
+  <!-- Brain -->
+  <div class="nav-icon" title="AI Study"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9.5 2A2.5 2.5 0 007 4.5v.5a2 2 0 00-2 2v.5A2.5 2.5 0 002.5 10a2.5 2.5 0 002.5 2.5v.5a2 2 0 002 2 2 2 0 002 2v.5A2.5 2.5 0 0011.5 20h1a2.5 2.5 0 002.5-2.5V17a2 2 0 002-2 2 2 0 002-2v-.5A2.5 2.5 0 0021.5 10 2.5 2.5 0 0019 7.5V7a2 2 0 00-2-2v-.5A2.5 2.5 0 0014.5 2h-5z"/></svg></div>
+  <!-- Lightning / Flashcards -->
+  <div class="nav-icon" title="Flashcards"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
+  <!-- Checkbox / Tasks -->
+  <div class="nav-icon" title="Tasks"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></div>
+  <!-- Document / Notes -->
+  <div class="nav-icon" title="Notes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+  <!-- Pulse / Activity -->
+  <div class="nav-icon" title="Activity"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+  <!-- Mic / Recordings -->
+  <div class="nav-icon" title="Recordings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2a3 3 0 013 3v6a3 3 0 01-6 0V5a3 3 0 013-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></div>
+  <!-- Calendar -->
+  <div class="nav-icon" title="Schedule"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+  <!-- Bar chart / Analytics -->
+  <div class="nav-icon" title="Analytics"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
+
+  <div class="nav-spacer"></div>
+
+  <!-- Settings -->
+  <div class="nav-icon" title="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></div>
+  <!-- Bell -->
+  <div class="nav-icon" id="notifBell" onclick="toggleNotifDropdown()" title="Notifications" style="position:relative;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+    <div id="notifBadge" style="position:absolute;top:5px;right:5px;width:7px;height:7px;border-radius:50%;background:#fc8181;border:1.5px solid var(--bg-base);"></div>
+  </div>
+  <!-- Avatar -->
+  <div class="nav-avatar" style="margin-top:4px;" title="Mohammed Abuissa">MA</div>
+
+  <!-- Notification dropdown -->
+  <div id="notifDropdown" style="display:none;position:fixed;left:64px;bottom:52px;width:288px;background:#1a1a20;border:1px solid var(--border-mid);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.7);z-index:100;overflow:hidden;">
+    <div style="padding:12px 14px 8px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);">
+      <span style="font-size:12px;font-weight:600;color:var(--text-primary);">Notifications</span>
+      <span style="font-size:9px;font-family:'DM Mono',monospace;color:var(--green);cursor:pointer;" onclick="markAllRead()">MARK ALL READ</span>
+    </div>
+    <div>
+      <div style="padding:10px 14px;display:flex;gap:10px;align-items:flex-start;border-bottom:1px solid var(--border);background:rgba(0,229,160,0.03);cursor:pointer;" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='rgba(0,229,160,0.03)'">
+        <div style="width:6px;height:6px;border-radius:50%;background:#fc8181;margin-top:5px;flex-shrink:0;"></div>
+        <div><div style="font-size:11.5px;color:var(--text-primary);line-height:1.4;">MCQs for <b>Newborn PE</b> are ready</div><div style="font-size:9.5px;color:var(--text-muted);font-family:'DM Mono',monospace;margin-top:2px;">2 min ago · Pediatrics</div></div>
+      </div>
+      <div style="padding:10px 14px;display:flex;gap:10px;align-items:flex-start;border-bottom:1px solid var(--border);background:rgba(0,229,160,0.03);cursor:pointer;" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='rgba(0,229,160,0.03)'">
+        <div style="width:6px;height:6px;border-radius:50%;background:#fc8181;margin-top:5px;flex-shrink:0;"></div>
+        <div><div style="font-size:11.5px;color:var(--text-primary);line-height:1.4;"><b>APGAR Scoring</b> is due for review</div><div style="font-size:9.5px;color:var(--text-muted);font-family:'DM Mono',monospace;margin-top:2px;">1h ago · Performance</div></div>
+      </div>
+      <div style="padding:10px 14px;display:flex;gap:10px;align-items:flex-start;cursor:pointer;" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='transparent'">
+        <div style="width:6px;height:6px;border-radius:50%;background:var(--text-muted);margin-top:5px;flex-shrink:0;"></div>
+        <div><div style="font-size:11.5px;color:var(--text-secondary);line-height:1.4;">Flashcards for <b>Cardiac Assessment</b> ready</div><div style="font-size:9.5px;color:var(--text-muted);font-family:'DM Mono',monospace;margin-top:2px;">Yesterday · Pediatrics</div></div>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- ── THUMBNAIL STRIP ── -->
+<aside class="thumb-strip" id="thumbStrip">
+  <div class="thumb-top">
+    <span class="thumb-top-title">Pages</span>
+    <button class="collapse-btn" id="thumbCollapseBtn" title="Collapse">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+  </div>
+  <div class="thumb-header-content">
+    <div class="thumb-file-row">
+      <div class="thumb-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></div>
+      <div class="thumb-file-name">5 Newborn Physical Examination.pdf</div>
+    </div>
+    <div class="thumb-tags">
+      <span class="thumb-tag green">Pediatrics</span>
+      <span class="thumb-tag">77 pages</span>
+    </div>
+    <div class="thumb-progress"><div class="thumb-progress-fill"></div></div>
+    <div style="display:flex;justify-content:space-between;">
+      <span style="font-size:9px;color:var(--text-muted);font-family:'DM Mono',monospace;">PAGE 1 OF 77</span>
+      <span style="font-size:9px;color:var(--text-muted);font-family:'DM Mono',monospace;">1.3%</span>
+    </div>
+  </div>
+  <div class="thumb-list">
+    <div class="thumb-item active" onclick="selectPage(1)">
+      <div class="thumb-preview" style="background:#fff;flex-direction:column;gap:3px;">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px;">
+          <div style="position:relative;width:22px;height:18px;margin-bottom:2px;">
+            <div style="width:10px;height:10px;background:#f6e05e;position:absolute;top:0;left:0;"></div>
+            <div style="width:10px;height:10px;background:#f56565;position:absolute;top:5px;left:-2px;opacity:0.85;"></div>
+            <div style="width:10px;height:10px;background:#3182ce;position:absolute;top:7px;left:4px;opacity:0.9;"></div>
+          </div>
+          <div style="font-size:6px;font-weight:900;color:#e53e3e;text-align:center;line-height:1.2;">NEWBORN PHYSICAL EXAMINATION</div>
+        </div>
+      </div>
+      <div class="thumb-label"><span class="thumb-num">01</span><div class="thumb-dot"></div></div>
+    </div>
+    <div class="thumb-item" onclick="selectPage(2)">
+      <div class="thumb-preview" style="background:#f7fafc;padding:5px;align-items:flex-start;flex-direction:column;gap:2px;">
+        <div class="thumb-weak weak-yellow"></div>
+        <div style="height:4px;background:#3182ce;border-radius:1px;width:65%;margin-bottom:2px;"></div>
+        <div style="height:2px;background:#e2e8f0;border-radius:1px;width:90%;"></div>
+        <div style="height:2px;background:#e2e8f0;border-radius:1px;width:80%;"></div>
+        <div style="height:2px;background:#e2e8f0;border-radius:1px;width:85%;"></div>
+        <div style="height:2px;background:#e2e8f0;border-radius:1px;width:72%;"></div>
+      </div>
+      <div class="thumb-label"><span class="thumb-num">02</span><div class="thumb-dot"></div></div>
+    </div>
+    <div class="thumb-item" onclick="selectPage(3)">
+      <div class="thumb-preview" style="background:#fff;padding:5px;align-items:flex-start;flex-direction:column;gap:2px;">
+        <div style="height:4px;background:#e53e3e;border-radius:1px;width:55%;margin-bottom:2px;"></div>
+        <div style="display:flex;gap:3px;width:100%;">
+          <div style="flex:1;height:22px;background:#f7fafc;border:1px solid #e2e8f0;border-radius:2px;"></div>
+          <div style="flex:1;height:22px;background:#f7fafc;border:1px solid #e2e8f0;border-radius:2px;"></div>
+        </div>
+      </div>
+      <div class="thumb-label"><span class="thumb-num">03</span><div class="thumb-dot"></div></div>
+    </div>
+    <div class="thumb-item" onclick="selectPage(4)">
+      <div class="thumb-preview" style="background:#fff5f5;padding:5px;align-items:flex-start;flex-direction:column;gap:2px;">
+        <div class="thumb-weak weak-red"></div>
+        <div style="height:4px;background:#e53e3e;border-radius:1px;width:50%;margin-bottom:2px;"></div>
+        <div style="height:2px;background:#fed7d7;border-radius:1px;width:88%;"></div>
+        <div style="height:2px;background:#fed7d7;border-radius:1px;width:76%;"></div>
+        <div style="height:2px;background:#fed7d7;border-radius:1px;width:82%;"></div>
+      </div>
+      <div class="thumb-label"><span class="thumb-num">04</span><div class="thumb-dot"></div></div>
+    </div>
+    <div style="text-align:center;padding:6px 0;font-size:9px;color:var(--text-muted);font-family:'DM Mono',monospace;">· · · 73 more</div>
+  </div>
+</aside>
+
+<!-- ── MAIN ── -->
+<main class="main-area">
+  <div class="toolbar">
+    <!-- Page nav -->
+    <div class="toolbar-group">
+      <button class="tb-icon-btn" onclick="prevPage()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+      <div class="page-indicator"><span class="cur" id="curPage">1</span><span style="color:var(--text-muted)">/</span><span>77</span></div>
+      <button class="tb-icon-btn" onclick="nextPage()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button>
+    </div>
+    <div class="toolbar-divider"></div>
+    <!-- Zoom -->
+    <div class="toolbar-group">
+      <button class="tb-icon-btn" onclick="zoomOut()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg></button>
+      <span class="zoom-display" id="zoomVal">100%</span>
+      <button class="tb-icon-btn" onclick="zoomIn()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg></button>
+      <button class="tb-icon-btn" onclick="zoomFit()" style="font-size:9px;font-family:'DM Mono',monospace;width:auto;padding:0 6px;color:var(--text-muted);">FIT</button>
+    </div>
+    <div class="toolbar-divider"></div>
+    <!-- View mode -->
+    <div class="toolbar-group">
+      <button class="tb-btn active" id="pageModeBtn" onclick="setViewMode('page')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/></svg>Page
+      </button>
+      <button class="tb-btn" id="scrollModeBtn" onclick="setViewMode('scroll')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><polyline points="3 6 4 7 6 4"/><polyline points="3 12 4 13 6 10"/><polyline points="3 18 4 19 6 16"/></svg>Scroll
+      </button>
+    </div>
+    <div class="toolbar-divider"></div>
+    <!-- Annotate tools -->
+    <div class="toolbar-group">
+      <button class="tb-btn" id="highlightBtn" onclick="toggleHighlight()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 7H7a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4 0V3m0 4H7m6 0h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>Highlight
+      </button>
+      <button class="tb-btn" id="annotateBtn" onclick="toggleAnnotate()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Annotate
+      </button>
+    </div>
+    <!-- Highlight color picker (shows when highlight active) -->
+    <div class="highlight-toolbar" id="hlToolbar">
+      <div class="hl-color hl-yellow selected" onclick="setHlColor('yellow',this)" title="Yellow"></div>
+      <div class="hl-color hl-green" onclick="setHlColor('green',this)" title="Green"></div>
+      <div class="hl-color hl-blue" onclick="setHlColor('blue',this)" title="Blue"></div>
+      <div class="hl-color hl-red" onclick="setHlColor('red',this)" title="Red"></div>
+    </div>
+    <div class="toolbar-divider"></div>
+    <!-- Record -->
+    <div class="toolbar-group" id="recordGroup">
+      <button class="tb-btn" id="recordLectureBtn" onclick="toggleRecordMode('lecture')" title="Record full lecture with tap-to-tag timeline">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2a3 3 0 013 3v6a3 3 0 01-6 0V5a3 3 0 013-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>Lecture
+      </button>
+      <button class="tb-btn" id="recordSlideBtn" onclick="toggleRecordMode('slide')" title="Add a voice note to this slide">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/><path d="M12 14a3 3 0 013 3v1h-6v-1a3 3 0 013-3z"/><circle cx="12" cy="11" r="1.5"/></svg>Slide Note
+      </button>
+    </div>
+    <!-- Recording indicator (visible while recording) -->
+    <div id="recordIndicator" style="display:none;align-items:center;gap:7px;padding:3px 10px;background:rgba(252,129,129,0.1);border:1px solid rgba(252,129,129,0.25);border-radius:8px;">
+      <div id="recDot" style="width:8px;height:8px;border-radius:50%;background:#fc8181;animation:rec-blink 1s infinite;"></div>
+      <span id="recLabel" style="font-size:11px;font-family:'DM Mono',monospace;color:#fc8181;"></span>
+      <span id="recTimer" style="font-size:11px;font-family:'DM Mono',monospace;color:var(--text-muted);">0:00</span>
+      <button onclick="stopRecording()" style="margin-left:4px;height:20px;padding:0 7px;border-radius:4px;border:1px solid rgba(252,129,129,0.4);background:transparent;color:#fc8181;font-size:10px;font-family:'DM Mono',monospace;cursor:pointer;">STOP</button>
+      <button id="tapTagBtn" onclick="addTapTag()" style="display:none;height:20px;padding:0 7px;border-radius:4px;border:1px solid rgba(0,229,160,0.3);background:var(--green-dim);color:var(--green);font-size:10px;font-family:'DM Mono',monospace;cursor:pointer;">TAP TAG</button>
+    </div>
+    <div class="toolbar-spacer"></div>
+    <!-- Breadcrumb -->
+    <div style="display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--text-muted);font-family:'DM Mono',monospace;">
+      <span>Pediatrics</span><span>›</span><span style="color:var(--text-secondary)">Lectures</span><span>›</span><span style="color:var(--text-primary)">Newborn PE</span>
+    </div>
+  </div>
+
+  <!-- PDF CANVAS -->
+  <div class="pdf-canvas-wrap" id="canvasWrap">
+    <div style="display:flex;flex-direction:column;gap:14px;align-items:center;">
+      <div class="pdf-page cursor-default" id="pdfPage">
+        <div class="sot-badge" id="sotBadge">● SOT · PAGE 1</div>
+
+        <!-- Highlight layer -->
+        <div class="highlight-layer" id="hlLayer">
+          <!-- Example pre-existing highlight -->
+          <div class="hl-rect hl-rect-yellow" style="top:500px;left:130px;width:420px;height:22px;" title="Highlighted text"></div>
+        </div>
+
+        <!-- Drag selection rect -->
+        <div class="drag-select" id="dragSelect"></div>
+
+        <!-- Annotation input popup -->
+        <div class="ann-input-popup" id="annPopup">
+          <textarea id="annText" rows="3" placeholder="Add a note…"></textarea>
+          <div class="ann-input-actions">
+            <button class="ann-save-btn" onclick="saveAnnotation()">Save</button>
+            <button class="ann-cancel-btn" onclick="cancelAnnotation()">Cancel</button>
+          </div>
+        </div>
+
+        <!-- Annotation pins -->
+        <div class="annotation-pin" style="bottom:140px;right:90px;" id="pin1">
+          <div class="pin-dot pin-green">1</div>
+          <div class="pin-note">Key teaching point: always auscultate the heart before the baby cries — easier to detect murmurs.</div>
+        </div>
+
+        <!-- Slide content -->
+        <div style="position:absolute;top:64px;left:64px;width:52px;height:44px;">
+          <div style="width:34px;height:34px;background:#f6e05e;position:absolute;top:0;left:0;"></div>
+          <div style="width:34px;height:34px;background:#f56565;position:absolute;top:13px;left:-7px;opacity:0.85;"></div>
+          <div style="width:34px;height:34px;background:#3182ce;position:absolute;top:18px;left:11px;opacity:0.9;"></div>
+        </div>
+        <div style="position:absolute;left:64px;right:64px;top:50%;height:1px;background:rgba(0,0,0,0.07);"></div>
+        <div class="faux-slide-title">NEWBORN<br>PHYSICAL<br>EXAMINATION</div>
+      </div>
+
+      <!-- Ghost next page -->
+      <div style="background:#fff;border-radius:3px;width:680px;height:100px;opacity:0.25;box-shadow:0 4px 12px rgba(0,0,0,0.4);flex-shrink:0;"></div>
+    </div>
+  </div>
+
+  <!-- STATUS BAR -->
+  <div class="status-bar">
+    <div class="status-item"><div class="s-dot dot-green"></div>Indexed</div>
+    <div class="status-item"><div class="s-dot dot-green"></div>OCR</div>
+    <div class="status-item"><div class="s-dot dot-yellow"></div>2 highlights</div>
+    <div class="status-item"><div class="s-dot dot-green"></div>1 annotation</div>
+    <div style="flex:1;"></div>
+    <div class="status-item" id="modeStatus">Page mode</div>
+    <div class="status-item" id="toolStatus" style="color:var(--text-muted);">No tool active</div>
+  </div>
+</main>
+
+<!-- ── RIGHT PANEL ── -->
+<aside class="right-panel" id="rightPanel">
+
+  <!-- Collapsed strip -->
+  <div class="rp-collapsed-strip">
+    <button class="rp-expand-btn" onclick="expandRightPanel()" title="Expand panel">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <!-- Chat -->
+    <div class="rp-strip-icon active" onclick="expandRightPanel('chat')" title="Chat">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+    </div>
+    <!-- MCQ -->
+    <div class="rp-strip-icon" onclick="expandRightPanel('mcq')" title="Generate MCQs">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+    </div>
+    <!-- Flashcards -->
+    <div class="rp-strip-icon" onclick="expandRightPanel('flash')" title="Flashcards">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+    </div>
+    <!-- Summary -->
+    <div class="rp-strip-icon" onclick="expandRightPanel('summary')" title="Summary">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 6h16M4 12h16M4 18h7"/></svg>
+    </div>
+    <div class="rp-strip-divider"></div>
+    <!-- Performance -->
+    <div class="rp-strip-icon" onclick="expandRightPanel('perf')" title="Performance">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    </div>
+    <!-- Recordings -->
+    <div class="rp-strip-icon" onclick="expandRightPanel('recordings')" title="Recordings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2a3 3 0 013 3v6a3 3 0 01-6 0V5a3 3 0 013-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+    </div>
+    <div class="rp-strip-spacer"></div>
+  </div>
+
+  <!-- Full panel -->
+  <div class="rp-full">
+    <div class="rp-header">
+      <div class="rp-tabs">
+        <button class="rp-tab active" id="tab-chat" onclick="switchTab('chat')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>Chat
+        </button>
+        <button class="rp-tab" id="tab-perf" onclick="switchTab('perf')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Performance
+        </button>
+        <button class="rp-tab" id="tab-recordings" onclick="switchTab('recordings')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2a3 3 0 013 3v6a3 3 0 01-6 0V5a3 3 0 013-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>Recordings
+        </button>
+      </div>
+      <button class="rp-collapse-btn" onclick="collapseRightPanel()" title="Minimize">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+
+    <!-- ── CHAT PANE ── -->
+    <div class="tab-pane active" id="pane-chat">
+      <div class="rp-page-ctx">
+        <div class="ctx-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+        <div class="ctx-text">
+          <div class="ctx-label">CONTEXT</div>
+          <div class="ctx-value" id="ctxValue">Page 1 · Newborn Physical Examination</div>
+        </div>
+      </div>
+
+      <!-- Quick generations -->
+      <div class="quick-gen-row">
+        <button class="qg-btn" title="Generate MCQs from this page">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+          <span class="qg-label">MCQ</span>
+        </button>
+        <button class="qg-btn" title="Generate flashcards">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          <span class="qg-label">FLASH</span>
+        </button>
+        <button class="qg-btn" title="Summarize this page">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 6h16M4 12h16M4 18h7"/></svg>
+          <span class="qg-label">SUMMARY</span>
+        </button>
+      </div>
+
+      <div class="chat-msgs" id="chatMsgs">
+        <div class="chat-msg">
+          <div class="msg-avatar av-ai">S</div>
+          <div class="msg-body">
+            <div class="msg-sender">ASTRA · PAGE 1</div>
+            <div class="chat-bubble">This is the title slide for Lecture 5. The file has 77 pages indexed. What would you like to explore — APGAR scoring, physical findings, or red flags?<div><span class="src-chip">📍 p.1</span></div></div>
+          </div>
+        </div>
+        <div class="chat-msg" style="flex-direction:row-reverse;">
+          <div class="msg-avatar av-user">M</div>
+          <div class="msg-body" style="text-align:right;">
+            <div class="msg-sender" style="text-align:right;">YOU</div>
+            <div class="chat-bubble user">Key findings to check in a newborn PE?</div>
+          </div>
+        </div>
+        <div class="chat-msg">
+          <div class="msg-avatar av-ai">S</div>
+          <div class="msg-body">
+            <div class="msg-sender">ASTRA · PP. 8–14</div>
+            <div class="chat-bubble">Systematic head-to-toe approach: <b>General</b> (APGAR, tone, color), <b>Head</b> (fontanelles, sutures), <b>Eyes</b> (red reflex), <b>Heart</b> (murmurs, femoral pulses), <b>Abdomen</b> (cord, organomegaly), <b>Hips</b> (Barlow/Ortolani).<div><span class="src-chip">📍 pp. 8–14</span></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chat-input-area">
+        <div class="scope-row">
+          <button class="scope-pill active" id="scopePage" onclick="setScope('page')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/></svg>Page 1
+          </button>
+          <button class="scope-pill" id="scopeFile" onclick="setScope('file')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5m4 14V5m8 14V5m4 14V5"/></svg>Whole file
+          </button>
+        </div>
+        <div class="chat-input-box">
+          <textarea rows="1" id="chatInput" placeholder="Ask about this page…" onkeydown="handleKey(event)"></textarea>
+          <button class="send-btn" onclick="sendMessage()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── PERFORMANCE PANE ── -->
+    <div class="tab-pane" id="pane-perf">
+      <div class="perf-pane-inner">
+
+        <div class="perf-summary-row">
+          <div class="perf-stat">
+            <span class="perf-stat-val val-red">38%</span>
+            <span class="perf-stat-label">FILE MASTERY</span>
+          </div>
+          <div class="perf-stat">
+            <span class="perf-stat-val val-yellow">12</span>
+            <span class="perf-stat-label">WEAK CONCEPTS</span>
+          </div>
+          <div class="perf-stat">
+            <span class="perf-stat-val val-green">4</span>
+            <span class="perf-stat-label">STRONG</span>
+          </div>
+        </div>
+
+        <!-- Concept mastery -->
+        <div>
+          <div class="perf-section-title">CONCEPT MASTERY</div>
+          <div class="concept-list">
+            <div class="concept-row">
+              <div class="concept-header">
+                <span class="concept-name">APGAR Scoring</span>
+                <span class="concept-score score-red">24%</span>
+              </div>
+              <div class="concept-bar"><div class="concept-bar-fill bar-red" style="width:24%;"></div></div>
+              <div class="concept-meta">Last tested 8d ago · 3 attempts</div>
+            </div>
+            <div class="concept-row">
+              <div class="concept-header">
+                <span class="concept-name">Hip Dysplasia Tests</span>
+                <span class="concept-score score-red">31%</span>
+              </div>
+              <div class="concept-bar"><div class="concept-bar-fill bar-red" style="width:31%;"></div></div>
+              <div class="concept-meta">Last tested 5d ago · 5 attempts</div>
+            </div>
+            <div class="concept-row">
+              <div class="concept-header">
+                <span class="concept-name">Cardiac Auscultation</span>
+                <span class="concept-score score-yellow">58%</span>
+              </div>
+              <div class="concept-bar"><div class="concept-bar-fill bar-yellow" style="width:58%;"></div></div>
+              <div class="concept-meta">Last tested 3d ago · 8 attempts</div>
+            </div>
+            <div class="concept-row">
+              <div class="concept-header">
+                <span class="concept-name">Fontanelle Assessment</span>
+                <span class="concept-score score-yellow">62%</span>
+              </div>
+              <div class="concept-bar"><div class="concept-bar-fill bar-yellow" style="width:62%;"></div></div>
+              <div class="concept-meta">Last tested 2d ago · 6 attempts</div>
+            </div>
+            <div class="concept-row">
+              <div class="concept-header">
+                <span class="concept-name">Red Reflex Exam</span>
+                <span class="concept-score score-green">84%</span>
+              </div>
+              <div class="concept-bar"><div class="concept-bar-fill bar-green" style="width:84%;"></div></div>
+              <div class="concept-meta">Last tested 1d ago · 12 attempts</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Weak pages -->
+        <div>
+          <div class="perf-section-title">WEAK PAGES</div>
+          <div class="weak-pages">
+            <div class="weak-page-row" onclick="selectPage(4)">
+              <span class="weak-page-num">p.04</span>
+              <span class="weak-page-title">APGAR Scoring System</span>
+              <span class="weak-page-badge badge-critical">Critical</span>
+            </div>
+            <div class="weak-page-row" onclick="selectPage(2)">
+              <span class="weak-page-num">p.02</span>
+              <span class="weak-page-title">Hip Examination Techniques</span>
+              <span class="weak-page-badge badge-review">Review</span>
+            </div>
+            <div class="weak-page-row" onclick="selectPage(8)">
+              <span class="weak-page-num">p.08</span>
+              <span class="weak-page-title">Cardiac Assessment</span>
+              <span class="weak-page-badge badge-review">Review</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Decay chart -->
+        <div>
+          <div class="perf-section-title">RETENTION OVER TIME</div>
+          <div class="decay-chart">
+            <div class="decay-chart-label">RETENTION %</div>
+            <div class="decay-bar d-green" style="height:75%"><div class="decay-label">Day 1</div></div>
+            <div class="decay-bar d-green" style="height:68%"></div>
+            <div class="decay-bar d-yellow" style="height:55%"></div>
+            <div class="decay-bar d-yellow" style="height:47%"></div>
+            <div class="decay-bar d-yellow" style="height:41%"></div>
+            <div class="decay-bar d-red" style="height:33%"></div>
+            <div class="decay-bar d-red" style="height:28%"><div class="decay-label">Today</div></div>
+          </div>
+          <div style="margin-top:20px;font-size:10px;color:var(--text-muted);font-family:'DM Mono',monospace;">↑ Review now — retention dropping below threshold</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── RECORDINGS PANE ── -->
+    <div class="tab-pane" id="pane-recordings">
+      <div class="rec-pane-inner">
+
+        <!-- Mode toggle: Lecture vs Slide Notes -->
+        <div class="rec-mode-toggle">
+          <button class="rec-mode-btn active" id="rpModeLecture" onclick="setRecPaneMode('lecture')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2a3 3 0 013 3v6a3 3 0 01-6 0V5a3 3 0 013-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>Lecture
+          </button>
+          <button class="rec-mode-btn" id="rpModeSlide" onclick="setRecPaneMode('slide')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/></svg>Slide Notes
+          </button>
+        </div>
+
+        <!-- LECTURE MODE -->
+        <div id="rpLectureContent">
+          <!-- Existing lecture recording -->
+          <div class="lecture-rec-card" id="lectureCard1">
+            <div class="lecture-rec-header">
+              <button class="rec-play-btn" id="mainPlayBtn" onclick="togglePlayLecture()">
+                <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              </button>
+              <div>
+                <div class="rec-title">Lecture Recording</div>
+                <div class="rec-meta">Newborn PE · Pediatrics · Mar 1</div>
+              </div>
+              <span class="rec-duration">47:22</span>
+            </div>
+
+            <!-- Waveform -->
+            <div class="rec-waveform-wrap" id="waveformWrap">
+              <div class="rec-waveform" id="waveform" onclick="seekWaveform(event)"></div>
+              <div class="rec-progress-line" id="progressLine" style="left:23%;top:10px;height:calc(100% - 20px);"></div>
+              <!-- Tap markers -->
+              <div class="tap-marker" style="left:8%;height:26px;" data-label="Intro"></div>
+              <div class="tap-marker" style="left:22%;height:26px;" data-label="APGAR"></div>
+              <div class="tap-marker" style="left:41%;height:26px;background:#63b3ed;" data-label="Hip exam"></div>
+              <div class="tap-marker" style="left:67%;height:26px;background:#fc8181;" data-label="⚠ Key point"></div>
+              <div class="tap-marker" style="left:85%;height:26px;" data-label="Summary"></div>
+            </div>
+
+            <!-- Tags list -->
+            <div class="rec-tags" id="tagList">
+              <div style="font-size:9px;font-family:'DM Mono',monospace;color:var(--text-muted);margin-bottom:3px;letter-spacing:0.05em;">TAP MARKERS</div>
+              <div class="rec-tag-item" onclick="seekToTag(8)">
+                <span class="rec-tag-time">3:44</span>
+                <span class="rec-tag-label">Intro — overview of newborn exam</span>
+                <span class="rec-tag-page">p.1</span>
+              </div>
+              <div class="rec-tag-item" onclick="seekToTag(22)">
+                <span class="rec-tag-time">10:25</span>
+                <span class="rec-tag-label">APGAR scoring system explained</span>
+                <span class="rec-tag-page">p.4</span>
+              </div>
+              <div class="rec-tag-item" onclick="seekToTag(41)" style="color:#63b3ed;">
+                <span class="rec-tag-time" style="color:#63b3ed;">19:18</span>
+                <span class="rec-tag-label">Hip dysplasia — Barlow & Ortolani</span>
+                <span class="rec-tag-page">p.9</span>
+              </div>
+              <div class="rec-tag-item" onclick="seekToTag(67)">
+                <span class="rec-tag-time" style="color:#fc8181;">31:42</span>
+                <span class="rec-tag-label" style="color:#fc8181;">⚠ Cardiac auscultation before crying!</span>
+                <span class="rec-tag-page" style="color:#fc8181;">p.12</span>
+              </div>
+              <div class="rec-tag-item" onclick="seekToTag(85)">
+                <span class="rec-tag-time">40:11</span>
+                <span class="rec-tag-label">Summary — red flags to remember</span>
+                <span class="rec-tag-page">p.18</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- CTA if no recording active -->
+          <div style="text-align:center;padding:6px 0 2px;">
+            <div style="font-size:10px;color:var(--text-muted);font-family:'DM Mono',monospace;">Use the <b style="color:var(--text-secondary)">Lecture</b> button in the toolbar to start a new recording</div>
+          </div>
+        </div>
+
+        <!-- SLIDE NOTES MODE (hidden by default) -->
+        <div id="rpSlideContent" style="display:none;flex-direction:column;gap:6px;">
+          <div class="slide-note-card" onclick="selectPage(1)">
+            <span class="slide-note-page">p.1</span>
+            <div class="slide-note-info">
+              <div class="slide-note-title">Title slide — key framing</div>
+              <div class="slide-note-sub">Mar 1 · Newborn PE</div>
+            </div>
+            <span class="slide-note-duration">0:48</span>
+            <div class="slide-note-play" onclick="event.stopPropagation()"><svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>
+          </div>
+          <div class="slide-note-card" onclick="selectPage(4)">
+            <span class="slide-note-page">p.4</span>
+            <div class="slide-note-info">
+              <div class="slide-note-title">APGAR — what I keep forgetting</div>
+              <div class="slide-note-sub">Mar 1 · Newborn PE</div>
+            </div>
+            <span class="slide-note-duration">1:23</span>
+            <div class="slide-note-play" onclick="event.stopPropagation()"><svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>
+          </div>
+          <div class="slide-note-card" onclick="selectPage(12)">
+            <span class="slide-note-page">p.12</span>
+            <div class="slide-note-info">
+              <div class="slide-note-title">Cardiac — auscultation trick</div>
+              <div class="slide-note-sub">Mar 1 · Newborn PE</div>
+            </div>
+            <span class="slide-note-duration">0:31</span>
+            <div class="slide-note-play" onclick="event.stopPropagation()"><svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>
+          </div>
+          <div style="text-align:center;padding:6px 0 2px;">
+            <div style="font-size:10px;color:var(--text-muted);font-family:'DM Mono',monospace;">Use <b style="color:var(--text-secondary)">Slide Note</b> in the toolbar to record on the current page</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</aside>
+
+<script>
+// ── STATE ──
+let zoom = 100, currentPage = 1;
+let hlMode = false, annMode = false, hlColor = 'yellow';
+let annX = 0, annY = 0, annCounter = 2;
+let isDragging = false, dragStartX = 0, dragStartY = 0;
+
+// ── ZOOM ──
+function zoomIn() { zoom = Math.min(200, zoom + 10); applyZoom(); }
+function zoomOut() { zoom = Math.max(50, zoom - 10); applyZoom(); }
+function zoomFit() { zoom = 100; applyZoom(); }
+function applyZoom() {
+  document.getElementById('zoomVal').textContent = zoom + '%';
+  const page = document.getElementById('pdfPage');
+  page.style.transform = `scale(${zoom/100})`;
+  page.style.transformOrigin = 'top center';
+}
+
+// ── PAGE NAV ──
+function prevPage() { if (currentPage > 1) { currentPage--; updatePage(); } }
+function nextPage() { if (currentPage < 77) { currentPage++; updatePage(); } }
+function selectPage(n) {
+  currentPage = n;
+  document.querySelectorAll('.thumb-item').forEach((el,i) => el.classList.toggle('active', i === n-1));
+  updatePage();
+}
+function updatePage() {
+  document.getElementById('curPage').textContent = currentPage;
+  document.getElementById('sotBadge').textContent = `● SOT · PAGE ${currentPage}`;
+  document.getElementById('ctxValue').textContent = `Page ${currentPage} · Newborn Physical Examination`;
+  document.getElementById('scopePage').innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/></svg>Page ${currentPage}`;
+}
+
+// ── VIEW MODE ──
+function setViewMode(mode) {
+  document.getElementById('pageModeBtn').classList.toggle('active', mode === 'page');
+  document.getElementById('scrollModeBtn').classList.toggle('active', mode === 'scroll');
+  document.getElementById('modeStatus').textContent = mode === 'page' ? 'Page mode' : 'Scroll mode';
+}
+
+// ── HIGHLIGHT ──
+function toggleHighlight() {
+  hlMode = !hlMode;
+  annMode = false;
+  document.getElementById('highlightBtn').classList.toggle('active', hlMode);
+  document.getElementById('annotateBtn').classList.remove('active');
+  document.getElementById('hlToolbar').classList.toggle('active', hlMode);
+  const page = document.getElementById('pdfPage');
+  page.className = 'pdf-page ' + (hlMode ? 'cursor-text' : annMode ? 'cursor-crosshair' : 'cursor-default');
+  document.getElementById('toolStatus').textContent = hlMode ? 'Highlight: ' + hlColor : 'No tool active';
+  document.getElementById('toolStatus').style.color = hlMode ? 'var(--green)' : 'var(--text-muted)';
+}
+
+function setHlColor(color, el) {
+  hlColor = color;
+  document.querySelectorAll('.hl-color').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  if (hlMode) document.getElementById('toolStatus').textContent = 'Highlight: ' + color;
+}
+
+// ── ANNOTATE ──
+function toggleAnnotate() {
+  annMode = !annMode;
+  hlMode = false;
+  document.getElementById('annotateBtn').classList.toggle('active', annMode);
+  document.getElementById('highlightBtn').classList.remove('active');
+  document.getElementById('hlToolbar').classList.remove('active');
+  const page = document.getElementById('pdfPage');
+  page.className = 'pdf-page ' + (annMode ? 'cursor-crosshair' : 'cursor-default');
+  document.getElementById('toolStatus').textContent = annMode ? 'Annotate mode' : 'No tool active';
+  document.getElementById('toolStatus').style.color = annMode ? 'var(--green)' : 'var(--text-muted)';
+}
+
+// ── PDF PAGE INTERACTIONS ──
+const pdfPage = document.getElementById('pdfPage');
+const hlLayer = document.getElementById('hlLayer');
+const dragSelect = document.getElementById('dragSelect');
+const annPopup = document.getElementById('annPopup');
+
+pdfPage.addEventListener('mousedown', (e) => {
+  if (e.target.closest('.annotation-pin') || e.target.closest('.ann-input-popup') || e.target === annPopup) return;
+  const rect = pdfPage.getBoundingClientRect();
+  const x = (e.clientX - rect.left) / (zoom/100);
+  const y = (e.clientY - rect.top) / (zoom/100);
+
+  if (hlMode) {
+    isDragging = true;
+    dragStartX = x; dragStartY = y;
+    dragSelect.style.display = 'block';
+    dragSelect.style.left = x + 'px'; dragSelect.style.top = y + 'px';
+    dragSelect.style.width = '0'; dragSelect.style.height = '0';
+    const colors = { yellow:'rgba(246,224,94,0.4)', green:'rgba(104,211,145,0.4)', blue:'rgba(99,179,237,0.4)', red:'rgba(252,129,129,0.4)' };
+    dragSelect.style.background = colors[hlColor];
+    e.preventDefault();
+  }
+
+  if (annMode) {
+    annX = x; annY = y;
+    annPopup.style.left = Math.min(x, 680 - 230) + 'px';
+    annPopup.style.top = Math.max(0, y - 130) + 'px';
+    annPopup.classList.add('visible');
+    document.getElementById('annText').focus();
+    e.preventDefault();
+  }
+});
+
+pdfPage.addEventListener('mousemove', (e) => {
+  if (!isDragging || !hlMode) return;
+  const rect = pdfPage.getBoundingClientRect();
+  const x = (e.clientX - rect.left) / (zoom/100);
+  const y = (e.clientY - rect.top) / (zoom/100);
+  const w = x - dragStartX; const h = y - dragStartY;
+  dragSelect.style.left = (w < 0 ? x : dragStartX) + 'px';
+  dragSelect.style.top = (h < 0 ? y : dragStartY) + 'px';
+  dragSelect.style.width = Math.abs(w) + 'px';
+  dragSelect.style.height = Math.abs(h) + 'px';
+});
+
+document.addEventListener('mouseup', (e) => {
+  if (!isDragging) return;
+  isDragging = false;
+  const w = parseInt(dragSelect.style.width);
+  const h = parseInt(dragSelect.style.height);
+  dragSelect.style.display = 'none';
+  if (w > 10 && h > 8) {
+    const hl = document.createElement('div');
+    hl.className = `hl-rect hl-rect-${hlColor}`;
+    hl.style.left = dragSelect.style.left;
+    hl.style.top = dragSelect.style.top;
+    hl.style.width = dragSelect.style.width;
+    hl.style.height = dragSelect.style.height;
+    hlLayer.appendChild(hl);
+    // Add to annotations list
+    addAnnotationEntry(`[Highlighted area on page ${currentPage}]`, hlColor, 'HIGHLIGHT');
+  }
+});
+
+function saveAnnotation() {
+  const text = document.getElementById('annText').value.trim();
+  if (!text) { cancelAnnotation(); return; }
+  annPopup.classList.remove('visible');
+  // Add pin
+  const pin = document.createElement('div');
+  pin.className = 'annotation-pin';
+  pin.style.cssText = `left:${annX}px;top:${annY-11}px;`;
+  const colorMap = { yellow:'#f6e05e', green:'var(--green)', blue:'#63b3ed', red:'#fc8181' };
+  pin.innerHTML = `<div class="pin-dot" style="background:var(--green);box-shadow:0 0 0 4px rgba(0,229,160,0.2),0 2px 8px rgba(0,0,0,0.4);">${annCounter}</div><div class="pin-note">${text}</div>`;
+  pdfPage.appendChild(pin);
+  addAnnotationEntry(text, 'green', 'NOTE');
+  document.getElementById('annText').value = '';
+  annCounter++;
+}
+
+function cancelAnnotation() {
+  annPopup.classList.remove('visible');
+  document.getElementById('annText').value = '';
+}
+
+function addAnnotationEntry(text, color, type) {
+  // Annotations panel replaced by Recordings — highlights/pins saved internally only
+}
+
+// ── PANEL COLLAPSE / EXPAND ──
+function collapseRightPanel() {
+  document.getElementById('rightPanel').classList.add('collapsed');
+}
+function expandRightPanel(tab) {
+  document.getElementById('rightPanel').classList.remove('collapsed');
+  if (tab) switchTab(tab);
+}
+
+// Thumb strip
+document.getElementById('thumbCollapseBtn').addEventListener('click', () => {
+  const strip = document.getElementById('thumbStrip');
+  strip.classList.toggle('collapsed');
+  const btn = document.getElementById('thumbCollapseBtn');
+  btn.querySelector('svg polyline').setAttribute('points', strip.classList.contains('collapsed') ? '9 18 15 12 9 6' : '15 18 9 12 15 6');
+});
+
+// ── TABS ──
+function switchTab(name) {
+  document.querySelectorAll('.rp-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.getElementById('pane-' + name).classList.add('active');
+}
+
+// ── SCOPE ──
+function setScope(s) {
+  document.getElementById('scopePage').classList.toggle('active', s === 'page');
+  document.getElementById('scopeFile').classList.toggle('active', s === 'file');
+}
+
+// ── CHAT ──
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+function sendMessage() {
+  const inp = document.getElementById('chatInput');
+  const text = inp.value.trim();
+  if (!text) return;
+  const msgs = document.getElementById('chatMsgs');
+  // User msg
+  msgs.innerHTML += `<div class="chat-msg" style="flex-direction:row-reverse;">
+    <div class="msg-avatar av-user">M</div>
+    <div class="msg-body" style="text-align:right;">
+      <div class="msg-sender" style="text-align:right;">YOU</div>
+      <div class="chat-bubble user">${text}</div>
+    </div>
+  </div>`;
+  inp.value = ''; inp.style.height = 'auto';
+  msgs.scrollTop = msgs.scrollHeight;
+  // Simulated response
+  setTimeout(() => {
+    msgs.innerHTML += `<div class="chat-msg">
+      <div class="msg-avatar av-ai">S</div>
+      <div class="msg-body">
+        <div class="msg-sender">ASTRA · PAGE ${currentPage}</div>
+        <div class="chat-bubble">I'm analyzing page ${currentPage} of the Newborn Physical Examination file for you. This is a simulated response — Astra would answer based on the indexed content of this page.<div><span class="src-chip">📍 p.${currentPage}</span></div></div>
+      </div>
+    </div>`;
+    msgs.scrollTop = msgs.scrollHeight;
+  }, 800);
+}
+
+// ── RECORDING ──
+let recMode = null; // 'lecture' | 'slide' | null
+let recInterval = null;
+let recSeconds = 0;
+let isPlayingLecture = false;
+let playInterval = null;
+let playProgress = 23; // start at 23% (where the demo is)
+let tapTags = [];
+
+function buildWaveform() {
+  const wf = document.getElementById('waveform');
+  if (!wf || wf.children.length > 0) return;
+  const bars = 80;
+  for (let i = 0; i < bars; i++) {
+    const bar = document.createElement('div');
+    bar.className = 'wav-bar';
+    const h = 10 + Math.random() * 80;
+    bar.style.height = h + '%';
+    if (i < bars * (playProgress / 100)) bar.classList.add('played');
+    wf.appendChild(bar);
+  }
+}
+
+function toggleRecordMode(mode) {
+  const isSame = recMode === mode;
+  if (recMode) stopRecording();
+  if (isSame) return;
+
+  recMode = mode;
+  const indicator = document.getElementById('recordIndicator');
+  const labelEl = document.getElementById('recLabel');
+  const tapBtn = document.getElementById('tapTagBtn');
+  const lBtn = document.getElementById('recordLectureBtn');
+  const sBtn = document.getElementById('recordSlideBtn');
+
+  indicator.style.display = 'flex';
+  labelEl.textContent = mode === 'lecture' ? 'REC LECTURE' : 'REC SLIDE NOTE';
+  tapBtn.style.display = mode === 'lecture' ? 'block' : 'none';
+  lBtn.classList.toggle('active', mode === 'lecture');
+  sBtn.classList.toggle('active', mode === 'slide');
+
+  recSeconds = 0;
+  recInterval = setInterval(() => {
+    recSeconds++;
+    const m = Math.floor(recSeconds / 60);
+    const s = String(recSeconds % 60).padStart(2,'0');
+    document.getElementById('recTimer').textContent = `${m}:${s}`;
+  }, 1000);
+
+  // Switch right panel to recordings tab
+  document.getElementById('rightPanel').classList.remove('collapsed');
+  switchTab('recordings');
+  setRecPaneMode(mode === 'lecture' ? 'lecture' : 'slide');
+}
+
+function stopRecording() {
+  clearInterval(recInterval);
+  recMode = null;
+  document.getElementById('recordIndicator').style.display = 'none';
+  document.getElementById('recordLectureBtn').classList.remove('active');
+  document.getElementById('recordSlideBtn').classList.remove('active');
+}
+
+function addTapTag() {
+  const time = recSeconds;
+  const m = Math.floor(time / 60);
+  const s = String(time % 60).padStart(2,'0');
+  const label = prompt(`Tag label at ${m}:${s}:`);
+  if (!label) return;
+  // Add to tag list in panel
+  const tagList = document.getElementById('tagList');
+  const item = document.createElement('div');
+  item.className = 'rec-tag-item';
+  item.style.cssText = 'background:rgba(0,229,160,0.04);border-radius:7px;';
+  item.innerHTML = `<span class="rec-tag-time">${m}:${s}</span><span class="rec-tag-label">${label}</span><span class="rec-tag-page">p.${currentPage}</span>`;
+  tagList.appendChild(item);
+}
+
+function togglePlayLecture() {
+  isPlayingLecture = !isPlayingLecture;
+  const btn = document.getElementById('mainPlayBtn');
+  btn.innerHTML = isPlayingLecture
+    ? `<svg viewBox="0 0 24 24" fill="#0a0a0c"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>`
+    : `<svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" fill="#0a0a0c"/></svg>`;
+
+  if (isPlayingLecture) {
+    playInterval = setInterval(() => {
+      playProgress = Math.min(100, playProgress + 0.1);
+      updateWaveformProgress();
+      if (playProgress >= 100) { isPlayingLecture = false; clearInterval(playInterval); }
+    }, 100);
+  } else {
+    clearInterval(playInterval);
+  }
+}
+
+function updateWaveformProgress() {
+  const wf = document.getElementById('waveform');
+  const bars = wf.querySelectorAll('.wav-bar');
+  const totalBars = bars.length;
+  bars.forEach((b, i) => {
+    b.classList.remove('played','head');
+    const pct = (i / totalBars) * 100;
+    if (pct < playProgress - 1) b.classList.add('played');
+    else if (pct < playProgress) b.classList.add('head');
+  });
+  document.getElementById('progressLine').style.left = playProgress + '%';
+}
+
+function seekWaveform(e) {
+  const wf = document.getElementById('waveform');
+  const rect = wf.getBoundingClientRect();
+  playProgress = ((e.clientX - rect.left) / rect.width) * 100;
+  updateWaveformProgress();
+}
+
+function seekToTag(pct) {
+  playProgress = pct;
+  updateWaveformProgress();
+  if (!isPlayingLecture) togglePlayLecture();
+}
+
+function setRecPaneMode(mode) {
+  document.getElementById('rpModeLecture').classList.toggle('active', mode === 'lecture');
+  document.getElementById('rpModeSlide').classList.toggle('active', mode === 'slide');
+  document.getElementById('rpLectureContent').style.display = mode === 'lecture' ? 'flex' : 'none';
+  document.getElementById('rpLectureContent').style.flexDirection = 'column';
+  document.getElementById('rpLectureContent').style.gap = '8px';
+  document.getElementById('rpSlideContent').style.display = mode === 'slide' ? 'flex' : 'none';
+}
+
+function markAllRead() {
+  document.getElementById('notifBadge').style.display = 'none';
+  document.getElementById('notifDropdown').style.display = 'none';
+}
+
+// Build waveform on load
+window.addEventListener('load', buildWaveform);
+
+// ── NOTIFICATIONS ──
+function toggleNotifDropdown() {
+  const dd = document.getElementById('notifDropdown');
+  const bell = document.getElementById('notifBell');
+  const isOpen = dd.style.display === 'block';
+  dd.style.display = isOpen ? 'none' : 'block';
+  bell.classList.toggle('active', !isOpen);
+}
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#notifBell') && !e.target.closest('#notifDropdown')) {
+    document.getElementById('notifDropdown').style.display = 'none';
+    document.getElementById('notifBell').classList.remove('active');
+  }
+});
+
+// Textarea auto-resize
+document.getElementById('chatInput').addEventListener('input', function() {
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 72) + 'px';
+});
+</script>
+</body>
+</html>
