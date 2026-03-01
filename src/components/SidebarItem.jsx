@@ -12,8 +12,8 @@ export default function SidebarItem({ icon: Icon, label, to, className = "", sho
                 } hover:bg-neutral-800 transition`
             }
         >
-            <div className="w-8 h-8 flex items-center justify-center relative shrink-0">
-                <Icon size={16} />
+            <div className="w-9 h-9 flex items-center justify-center relative shrink-0">
+                <Icon size={20} />
                 {showAccent && (
                     <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-teal shadow-[0_0_8px_rgba(0,200,180,0.6)] rounded-full" />
                 )}

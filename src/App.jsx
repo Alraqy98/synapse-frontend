@@ -212,6 +212,8 @@ const SynapseOS = () => {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notificationSource, setNotificationSource] = useState(null); // 'sidebar' | null
   const sidebarNotificationsRef = useRef(null);
+  const profileDropdownRef = useRef(null);
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [changePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
 
   // Notifications state - empty initial state, fetched from backend only
@@ -672,6 +674,17 @@ const SynapseOS = () => {
     };
   }, [notificationsOpen]);
 
+  // Close profile dropdown when clicking outside
+  useEffect(() => {
+    if (!profileDropdownOpen) return;
+    const handleClickOutside = (event) => {
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target)) {
+        setProfileDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [profileDropdownOpen]);
 
   // Admin role validation after profile fetch
   useEffect(() => {
@@ -844,7 +857,7 @@ const SynapseOS = () => {
         <img
           src={logo}
           alt="Synapse Logo"
-          className="h-9 w-auto drop-shadow-[0_0_14px_rgba(0,200,180,0.65)]"
+          className="h-10 w-auto drop-shadow-[0_0_14px_rgba(0,200,180,0.65)]"
         />
       </div>
 
@@ -869,17 +882,17 @@ const SynapseOS = () => {
             to={isAdminRoute ? "/admin/settings" : "/settings"}
           />
           {/* Notifications bell */}
-          <div className="relative w-8 h-8 flex items-center justify-center" ref={sidebarNotificationsRef}>
+          <div className="relative w-9 h-9 flex items-center justify-center" ref={sidebarNotificationsRef}>
             <button
               type="button"
-              className="relative w-8 h-8 flex items-center justify-center rounded-lg text-white/40 hover:text-teal/70 transition-colors"
+              className="relative w-9 h-9 flex items-center justify-center rounded-lg text-white/40 hover:text-teal/70 transition-colors"
               onClick={() => {
                 setNotificationSource("sidebar");
                 setNotificationsOpen((prev) => !prev);
               }}
               aria-label="Notifications"
             >
-              <Bell size={16} />
+              <Bell size={20} />
               {unreadCount > 0 && (
                 <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500" />
               )}
@@ -933,29 +946,80 @@ const SynapseOS = () => {
               </div>
             )}
           </div>
-          {/* Profile avatar (bottom) */}
+          {/* Profile avatar (bottom) — opens dropdown */}
           {profile && (
-            <Link
-              to={isAdminRoute ? "/admin/settings" : "/settings"}
-              className="flex items-center justify-center w-8 h-8 rounded-lg bg-teal/20 text-teal font-semibold text-xs border border-teal/30 hover:bg-teal/30 transition shrink-0"
-              title={profile.full_name || "Profile"}
-              aria-label="Profile settings"
-            >
-              {profile.avatar_url ? (
-                <img
-                  src={profile.avatar_url}
-                  alt=""
-                  className="w-full h-full rounded-lg object-cover"
-                />
-              ) : (
-                (profile.full_name || "U")
-                  .split(/\s+/)
-                  .map((s) => s[0])
-                  .join("")
-                  .toUpperCase()
-                  .slice(0, 2)
+            <div className="relative flex items-center justify-center" ref={profileDropdownRef}>
+              <button
+                type="button"
+                className="flex items-center justify-center w-9 h-9 rounded-lg bg-teal/20 text-teal font-semibold text-xs border border-teal/30 hover:bg-teal/30 transition shrink-0"
+                title={profile.full_name || "Profile"}
+                aria-label="Profile menu"
+                aria-expanded={profileDropdownOpen}
+                onClick={() => setProfileDropdownOpen((prev) => !prev)}
+              >
+                {profile.avatar_url ? (
+                  <img
+                    src={profile.avatar_url}
+                    alt=""
+                    className="w-full h-full rounded-lg object-cover"
+                  />
+                ) : (
+                  (profile.full_name || "U")
+                    .split(/\s+/)
+                    .map((s) => s[0])
+                    .join("")
+                    .toUpperCase()
+                    .slice(0, 2)
+                )}
+              </button>
+              {profileDropdownOpen && (
+                <div
+                  className="fixed z-[10001] rounded-[10px] min-w-[200px] p-2 shadow-lg"
+                  style={{
+                    left: "5rem",
+                    bottom: "3.5rem",
+                    background: "#1e1e24",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                  }}
+                >
+                  <div className="px-2 py-2 border-b border-white/10 mb-2 pointer-events-none">
+                    <div className="font-medium text-white text-sm truncate">
+                      {profile.full_name || "User"}
+                    </div>
+                    <div className="text-white/50 text-xs truncate mt-0.5">
+                      {profile.email}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="w-full text-left px-3 py-2 text-sm text-white/80 hover:text-white hover:bg-white/10 rounded-md transition-colors"
+                    onClick={() => {
+                      setProfileDropdownOpen(false);
+                      navigate(isAdminRoute ? "/admin/settings" : "/settings");
+                    }}
+                  >
+                    Settings
+                  </button>
+                  <button
+                    type="button"
+                    className="w-full text-left px-3 py-2 text-sm text-red-400/90 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors"
+                    onClick={async () => {
+                      setProfileDropdownOpen(false);
+                      try {
+                        await supabase.auth.signOut();
+                      } catch (err) {
+                        console.error(err);
+                      } finally {
+                        localStorage.removeItem("access_token");
+                        setIsAuthenticated(false);
+                      }}
+                    }}
+                  >
+                    Sign out
+                  </button>
+                </div>
               )}
-            </Link>
+            </div>
           )}
         </div>
     </aside>
