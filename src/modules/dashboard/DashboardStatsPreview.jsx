@@ -1,7 +1,7 @@
 // src/modules/dashboard/DashboardStatsPreview.jsx
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Zap, Target } from "lucide-react";
+import { Zap, Target, ArrowRight } from "lucide-react";
 import api from "../../lib/api";
 
 // ─── Format risk_level for display ─────────────────────────────────────────────
@@ -79,77 +79,78 @@ const DashboardStatsPreview = () => {
   return (
     <div style={{ paddingBottom: 32 }}>
       {loading ? (
-        <div style={{ borderRadius: 18, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(13,15,18,0.6)", padding: "24px" }}>
-          <div style={{ height: 14, borderRadius: 6, background: "rgba(255,255,255,0.05)", width: "40%", marginBottom: 16 }} className="animate-pulse" />
-          <div style={{ height: 56, borderRadius: 10, background: "rgba(255,255,255,0.03)", marginBottom: 12 }} className="animate-pulse" />
-          <div style={{ height: 44, borderRadius: 10, background: "rgba(255,255,255,0.03)" }} className="animate-pulse" />
+        <div style={{ borderRadius: 18, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(13,15,18,0.6)", padding: "22px 20px", backdropFilter: "blur(8px)" }}>
+          <div style={{ height: 10, borderRadius: 6, background: "rgba(255,255,255,0.05)", width: "35%", marginBottom: 16 }} className="animate-pulse" />
+          <div style={{ height: 1, background: "rgba(255,255,255,0.04)", marginBottom: 12 }} />
+          <div style={{ height: 20, borderRadius: 6, background: "rgba(255,255,255,0.05)", width: "70%", marginBottom: 8 }} className="animate-pulse" />
+          <div style={{ height: 12, borderRadius: 6, background: "rgba(255,255,255,0.04)", width: "45%" }} className="animate-pulse" />
         </div>
       ) : !hasData ? (
         <EmptyState navigate={navigate} />
       ) : (
         <div
           style={{
-            background: "rgba(255,255,255,0.03)",
-            border: "1px solid rgba(255,255,255,0.08)",
-            borderRadius: 12,
-            padding: 24,
-            borderTop: "2px solid rgba(239,68,68,0.6)",
+            borderRadius: 18,
+            border: "1px solid rgba(255,255,255,0.06)",
+            background: "rgba(13,15,18,0.6)",
+            padding: "22px 20px",
+            backdropFilter: "blur(8px)",
           }}
         >
-          {/* Rotation tag */}
-          {data.plannerContext?.activePeriod?.name && (
-            <div style={{ marginBottom: 16 }}>
-              <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(245,245,247,0.5)", padding: "6px 10px", borderRadius: 8, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", display: "inline-block" }}>
+          {/* Header row: FOCUS TODAY (left) + rotation tag (right) */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+            <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(245,245,247,0.3)" }}>
+              FOCUS TODAY
+            </div>
+            {data.plannerContext?.activePeriod?.name && (
+              <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 9, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(245,245,247,0.35)", padding: "3px 8px", borderRadius: 100, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
                 {data.plannerContext.activePeriod.name}
               </span>
-            </div>
-          )}
+            )}
+          </div>
+          <div style={{ height: 1, background: "rgba(255,255,255,0.04)", marginBottom: 12 }} />
 
-          {/* FOCUS AREA label + concept name + red risk pill */}
-          <div style={{ marginBottom: 12 }}>
-            <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(245,245,247,0.3)", marginBottom: 6 }}>
-              FOCUS AREA
-            </div>
-            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, marginBottom: 8 }}>
-              <h3 style={{ fontSize: "1.5rem", fontWeight: 600, color: "#fff", lineHeight: 1.25, letterSpacing: "-0.02em", margin: 0 }}>
+          {/* Body: concept name + red accuracy pill, then subtext */}
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 6 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <h3 style={{ fontSize: "1.125rem", fontWeight: 600, color: "#fff", lineHeight: 1.3, margin: "0 0 4px 0" }}>
                 {data.primary_risk.concept_name}
               </h3>
-              <span style={{ flexShrink: 0, padding: "4px 10px", borderRadius: 100, background: "rgba(248,113,113,0.15)", border: "1px solid rgba(248,113,113,0.3)", fontSize: 13, fontWeight: 700, color: "#f87171", fontFamily: "'Geist Mono', monospace" }}>
+              <p style={{ fontSize: 12, fontFamily: "'Geist Mono', monospace", color: "#f87171", margin: 0 }}>
+                {data.primary_risk.attempts} attempts
+                {formatRiskLevel(data.primary_risk.risk_level) && (
+                  <> · {formatRiskLevel(data.primary_risk.risk_level)}</>
+                )}
+              </p>
+            </div>
+            <div style={{ padding: "3px 9px", borderRadius: 100, background: "rgba(255,75,75,0.12)", border: "1px solid rgba(255,75,75,0.3)", flexShrink: 0 }}>
+              <span style={{ fontSize: 10, color: "#f87171", fontFamily: "'Geist Mono', monospace", letterSpacing: "0.05em" }}>
                 {Math.round(data.primary_risk.accuracy ?? 0)}%
               </span>
             </div>
-            {/* Subtext: attempts · risk_level (text-red-400 text-xs font-mono) */}
-            <p style={{ fontSize: 12, fontFamily: "'Geist Mono', monospace", color: "#f87171", margin: 0 }}>
-              {data.primary_risk.attempts} attempts
-              {formatRiskLevel(data.primary_risk.risk_level) && (
-                <> · {formatRiskLevel(data.primary_risk.risk_level)}</>
-              )}
-            </p>
           </div>
 
-          {/* Single teal CTA */}
+          {/* Teal text link with arrow */}
           <Link
             to="/learning"
             style={{
-              display: "flex",
+              display: "inline-flex",
               alignItems: "center",
-              justifyContent: "center",
-              width: "100%",
-              marginTop: 20,
-              padding: "12px 20px",
-              borderRadius: 10,
-              background: "linear-gradient(135deg, #00C8B4, #00F5CC)",
-              color: "#0D0F12",
-              fontFamily: "'Syne', sans-serif",
-              fontWeight: 600,
-              fontSize: 14,
+              gap: 4,
+              marginTop: 12,
+              fontSize: 11,
+              color: "rgba(0,200,180,0.6)",
+              background: "none",
+              border: "none",
               textDecoration: "none",
-              transition: "opacity 0.15s",
+              fontFamily: "'Geist Mono', monospace",
+              transition: "color 0.15s",
             }}
-            onMouseEnter={e => { e.currentTarget.style.opacity = "0.9"; }}
-            onMouseLeave={e => { e.currentTarget.style.opacity = "1"; }}
+            onMouseEnter={e => { e.currentTarget.style.color = "#00C8B4"; }}
+            onMouseLeave={e => { e.currentTarget.style.color = "rgba(0,200,180,0.6)"; }}
           >
-            {data.prescription?.cta_label || "Start Focus Session"}
+            {data.prescription?.cta_label || "Recover Accuracy (20 mins)"}
+            <ArrowRight size={11} style={{ flexShrink: 0 }} />
           </Link>
         </div>
       )}
