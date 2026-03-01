@@ -67,6 +67,8 @@ export default function FileViewerV3({
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [conceptMastery, setConceptMastery] = useState([]);
   const [zoom, setZoom] = useState(1);
+  const [pinToolActive, setPinToolActive] = useState(false);
+  const [highlightToolActive, setHighlightToolActive] = useState(false);
   const [sessionId, setSessionId] = useState(() => {
     if (!fileId) return null;
     return localStorage.getItem(`synapse_file_session_${fileId}`) || null;
@@ -377,6 +379,7 @@ export default function FileViewerV3({
 
   const handlePdfPageClick = (e, pageNum) => {
     if (e.target.closest(".annotation-pin") || e.target.closest(".ann-input-popup")) return;
+    if (!pinToolActive) return;
     const el = e.currentTarget;
     if (!el) return;
     setCurrentPage(pageNum);
@@ -515,6 +518,26 @@ export default function FileViewerV3({
   })();
   const currentPageData = pages[currentPage - 1];
   const title = file?.title || "Document";
+  const titleTruncated = title.length > 35 ? title.slice(0, 32) + "…" : title;
+
+  const ZOOM_MIN = 0.5;
+  const ZOOM_MAX = 2;
+  const ZOOM_STEP = 0.25;
+  const zoomOut = () => setZoom((z) => Math.max(ZOOM_MIN, z - ZOOM_STEP));
+  const zoomIn = () => setZoom((z) => Math.min(ZOOM_MAX, z + ZOOM_STEP));
+  const zoomFitWidth = () => setZoom(1);
+
+  const handleDownload = () => {
+    const url = file?.signed_url || file?.file_url || currentPageData?.resolved_url || currentPageData?.image_path;
+    if (url) {
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = title || "document";
+      a.rel = "noopener";
+      a.target = "_blank";
+      a.click();
+    }
+  };
 
   return (
     <div
@@ -522,10 +545,55 @@ export default function FileViewerV3({
       style={{
         height: "100%",
         display: "flex",
+        flexDirection: "column",
         overflow: "hidden",
         fontFamily: "DM Sans, sans-serif",
       }}
     >
+      {/* Toolbar */}
+      <header className="file-viewer-toolbar">
+        <div className="fv-toolbar-left">
+          <button type="button" className="fv-tb-btn" onClick={onBack} title="Back to library" aria-label="Back to library">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+          </button>
+          <div className="fv-tb-page-nav">
+            <button type="button" className="fv-tb-icon" onClick={goPrev} disabled={currentPage <= 1} title="Previous page" aria-label="Previous page">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6" /></svg>
+            </button>
+            <span className="fv-tb-page-num"><span className="cur">{currentPage}</span> / {totalPages || 0}</span>
+            <button type="button" className="fv-tb-icon" onClick={goNext} disabled={currentPage >= totalPages || totalPages === 0} title="Next page" aria-label="Next page">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
+            </button>
+          </div>
+          <span className="fv-tb-filename" title={title}>{titleTruncated}</span>
+        </div>
+        <div className="fv-toolbar-center">
+          <button type="button" className="fv-tb-icon" onClick={zoomOut} disabled={zoom <= ZOOM_MIN} title="Zoom out" aria-label="Zoom out">−</button>
+          <span className="fv-tb-zoom">{Math.round(zoom * 100)}%</span>
+          <button type="button" className="fv-tb-icon" onClick={zoomIn} disabled={zoom >= ZOOM_MAX} title="Zoom in" aria-label="Zoom in">+</button>
+          <button type="button" className="fv-tb-btn" onClick={zoomFitWidth} title="Fit width" aria-label="Fit width">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" /></svg>
+          </button>
+        </div>
+        <div className="fv-toolbar-right">
+          <button type="button" className={`fv-tb-btn ${highlightToolActive ? "active" : ""}`} onClick={() => setHighlightToolActive((a) => !a)} title="Highlight tool" aria-label="Highlight tool">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h7" /></svg>
+          </button>
+          <button type="button" className={`fv-tb-btn ${pinToolActive ? "active" : ""}`} onClick={() => setPinToolActive((a) => !a)} title="Pin tool" aria-label="Pin tool">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" /><circle cx="12" cy="10" r="3" /></svg>
+          </button>
+          <button type="button" className={`fv-tb-btn ${recordingMode === "lecture" ? "active" : ""}`} onClick={() => setRecordingMode("lecture")} title="Lecture">Lecture</button>
+          <button type="button" className={`fv-tb-btn ${recordingMode === "slide_note" ? "active" : ""}`} onClick={() => setRecordingMode("slide_note")} title="Slide note">Slide Note</button>
+          <button type="button" className="fv-tb-btn" onClick={startRecording} title="Start recording">Record</button>
+          <button type="button" className="fv-tb-btn" onClick={handleDownload} title="Download" aria-label="Download">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+          </button>
+        </div>
+      </header>
+
+      <div className="file-viewer-body" style={{ flex: 1, display: "flex", overflow: "hidden" }}>
       {/* Thumbnail strip */}
       <aside className={`thumb-strip ${thumbCollapsed ? "collapsed" : ""}`}>
         <div className="thumb-top">
@@ -663,6 +731,10 @@ export default function FileViewerV3({
                   }}
                   data-page={num}
                   className="pdf-page"
+                  style={{
+                    transform: `scale(${zoom})`,
+                    transformOrigin: "top center",
+                  }}
                   onClick={(e) => handlePdfPageClick(e, num)}
                   role="button"
                   tabIndex={0}
@@ -826,51 +898,6 @@ export default function FileViewerV3({
           </div>
         ) : (
           <div className="rp-full">
-            <div className="rp-recording-bar">
-              {isRecording ? (
-                <div className="rp-recording-active">
-                  <span className="rp-rec-dot" />
-                  <span className="rp-rec-label">{recordingMode === "lecture" ? "LECTURE" : "SLIDE NOTE"}</span>
-                  <span className="rp-rec-time">{formatTime(recordingElapsed)}</span>
-                  <button type="button" className="rp-rec-stop" onClick={stopRecording}>
-                    STOP
-                  </button>
-                  {recordingMode === "lecture" && (
-                    <button type="button" className="rp-rec-tap" onClick={addTapTag}>
-                      TAP TAG
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    className={`rp-rec-btn ${recordingMode === "lecture" ? "active" : ""}`}
-                    onClick={() => setRecordingMode("lecture")}
-                    title="Record lecture"
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-                      <path d="M12 2a3 3 0 013 3v6a3 3 0 01-6 0V5a3 3 0 013-3z" />
-                      <path d="M19 10v2a7 7 0 01-14 0v-2" />
-                      <line x1="12" y1="19" x2="12" y2="23" />
-                      <line x1="8" y1="23" x2="16" y2="23" />
-                    </svg>
-                    Lecture
-                  </button>
-                  <button
-                    type="button"
-                    className={`rp-rec-btn ${recordingMode === "slide_note" ? "active" : ""}`}
-                    onClick={() => setRecordingMode("slide_note")}
-                    title="Slide note"
-                  >
-                    Slide Note
-                  </button>
-                  <button type="button" className="rp-rec-btn" onClick={startRecording} title="Start recording">
-                    Record
-                  </button>
-                </>
-              )}
-            </div>
             <div className="rp-header">
               <div className="rp-tabs">
                 <button
@@ -1211,6 +1238,7 @@ export default function FileViewerV3({
           </div>
         )}
       </aside>
+      </div>
     </div>
   );
 }
