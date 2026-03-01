@@ -27,10 +27,10 @@ const FeedbackBox = ({ user }) => {
     };
 
     return (
-        <div className="bg-[#0D0F12]/60 border border-white/[0.06] rounded-2xl backdrop-blur-sm p-6 space-y-4">
+        <div className="bg-[#0D0F12]/60 border border-white/[0.06] border-l-2 border-l-teal/20 rounded-2xl backdrop-blur-sm p-6 space-y-4">
             <div className="space-y-1">
-                <div className="text-[9px] uppercase tracking-[0.15em] text-white/30 font-mono">Feedback</div>
-                <h2 className="text-base font-semibold text-white">Suggestions & Feedback</h2>
+                <div className="text-[9px] uppercase tracking-[0.15em] text-teal/40 font-mono">Feedback</div>
+                <h2 className="text-lg font-semibold text-white">Suggestions & Feedback</h2>
             </div>
 
             <p className="text-sm text-white/40">
@@ -47,7 +47,7 @@ const FeedbackBox = ({ user }) => {
 
             <button
                 onClick={handleSubmit}
-                className="px-4 py-2 rounded-xl text-sm bg-transparent border border-white/[0.08] text-white/70 hover:border-teal/40 hover:text-teal transition-colors disabled:opacity-50"
+                className="px-4 py-2 rounded-xl text-sm bg-white/[0.03] border border-white/[0.08] text-white/70 hover:bg-teal/[0.06] hover:border-teal/40 hover:text-teal transition-colors disabled:opacity-50"
                 disabled={!message.trim() || submitting}
             >
                 {submitting ? "Sending..." : "Send feedback"}

@@ -136,10 +136,10 @@ const AstraPreferencesPanel = () => {
 
     if (isLoading) {
         return (
-            <div className="bg-[#0D0F12]/60 border border-white/[0.06] rounded-2xl backdrop-blur-sm p-6 space-y-4">
+            <div className="bg-[#0D0F12]/60 border border-white/[0.06] border-l-2 border-l-teal/20 rounded-2xl backdrop-blur-sm p-6 space-y-4">
                 <div className="space-y-1">
-                    <div className="text-[9px] uppercase tracking-[0.15em] text-white/30 font-mono">Preferences</div>
-                    <h2 className="text-base font-semibold text-white">Astra – Answer Preferences</h2>
+                    <div className="text-[9px] uppercase tracking-[0.15em] text-teal/40 font-mono">Preferences</div>
+                    <h2 className="text-lg font-semibold text-white">Astra – Answer Preferences</h2>
                 </div>
                 <div className="text-sm text-white/40">Loading...</div>
             </div>
@@ -147,11 +147,11 @@ const AstraPreferencesPanel = () => {
     }
 
     return (
-        <div className="bg-[#0D0F12]/60 border border-white/[0.06] rounded-2xl backdrop-blur-sm relative flex flex-col">
+        <div className="bg-[#0D0F12]/60 border border-white/[0.06] border-l-2 border-l-teal/20 rounded-2xl backdrop-blur-sm relative flex flex-col">
             <div className="p-6 space-y-6 flex-1">
                 <div className="space-y-1">
-                    <div className="text-[9px] uppercase tracking-[0.15em] text-white/30 font-mono">Preferences</div>
-                    <h2 className="text-base font-semibold text-white">Astra – Answer Preferences</h2>
+                    <div className="text-[9px] uppercase tracking-[0.15em] text-teal/40 font-mono">Preferences</div>
+                    <h2 className="text-lg font-semibold text-white">Astra – Answer Preferences</h2>
                 </div>
 
                 <div className="space-y-5">
