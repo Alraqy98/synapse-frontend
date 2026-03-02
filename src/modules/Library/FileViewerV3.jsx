@@ -18,6 +18,9 @@ import { sendMessageToTutor, createNewSession } from "../Tutor/apiTutor";
 import { getMCQDecksByFile } from "../mcq/apiMCQ";
 import { getFlashcardDecksByFile } from "../flashcards/apiFlashcards";
 import { getSummariesByFile } from "../summaries/apiSummaries";
+import GenerateMCQModal from "../mcq/GenerateMCQModal";
+import GenerateFlashcardsModal from "../flashcards/GenerateFlashcardsModal";
+import GenerateSummaryModal from "../summaries/GenerateSummaryModal";
 import { useNavigate } from "react-router-dom";
 import { MessageCircle, CheckSquare, Zap, FileText, BarChart2, Mic } from "lucide-react";
 const id = (fileId, file) => fileId || file?.id || "";
@@ -75,6 +78,9 @@ export default function FileViewerV3({
   const [flashcardDecksForFile, setFlashcardDecksForFile] = useState([]);
   const [summariesForFile, setSummariesForFile] = useState([]);
   const [zoom, setZoom] = useState(1);
+  const [showMCQModal, setShowMCQModal] = useState(false);
+  const [showFlashcardsModal, setShowFlashcardsModal] = useState(false);
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
   const navigate = useNavigate();
   const [pinToolActive, setPinToolActive] = useState(false);
   const [sessionId, setSessionId] = useState(() => {
@@ -216,6 +222,13 @@ export default function FileViewerV3({
       cancelled = true;
     };
   }, [fileId]);
+
+  const refetchDecksForFile = () => {
+    if (!fileId) return;
+    getMCQDecksByFile(fileId).then(setMcqDecksForFile).catch(() => {});
+    getFlashcardDecksByFile(fileId).then(setFlashcardDecksForFile).catch(() => {});
+    getSummariesByFile(fileId).then(setSummariesForFile).catch(() => {});
+  };
 
   // Load recording tags when lecture recording exists
   useEffect(() => {
@@ -925,7 +938,7 @@ export default function FileViewerV3({
             {/* MCQ tab */}
             <div className={`tab-pane ${activeTab === "mcq" ? "active" : ""}`}>
               <div className="rp-pane-inner" style={{ padding: 12 }}>
-                <button type="button" className="fv-generate-btn" onClick={() => navigate(`/mcq?fileId=${fileId}&page=${currentPage}`)}>
+                <button type="button" className="fv-generate-btn" onClick={() => setShowMCQModal(true)}>
                   <span className="fv-generate-icon">+</span> Generate MCQ
                 </button>
                 <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 8, marginTop: 12 }}>MCQ decks for this file</div>
@@ -946,7 +959,7 @@ export default function FileViewerV3({
             {/* Cards tab */}
             <div className={`tab-pane ${activeTab === "cards" ? "active" : ""}`}>
               <div className="rp-pane-inner" style={{ padding: 12 }}>
-                <button type="button" className="fv-generate-btn" onClick={() => navigate(`/flashcards?fileId=${fileId}&page=${currentPage}`)}>
+                <button type="button" className="fv-generate-btn" onClick={() => setShowFlashcardsModal(true)}>
                   <span className="fv-generate-icon">+</span> Generate Flashcards
                 </button>
                 <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 8, marginTop: 12 }}>Flashcard decks for this file</div>
@@ -967,7 +980,7 @@ export default function FileViewerV3({
             {/* Summary tab */}
             <div className={`tab-pane ${activeTab === "summary" ? "active" : ""}`}>
               <div className="rp-pane-inner" style={{ padding: 12 }}>
-                <button type="button" className="fv-generate-btn" onClick={() => navigate(`/summaries?fileId=${fileId}&page=${currentPage}`)}>
+                <button type="button" className="fv-generate-btn" onClick={() => setShowSummaryModal(true)}>
                   <span className="fv-generate-icon">+</span> Generate Summary
                 </button>
                 <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 8, marginTop: 12 }}>Summaries for this file</div>
@@ -1213,6 +1226,35 @@ export default function FileViewerV3({
         )}
       </aside>
       </div>
+
+      {/* Inline generation modals — preset file, no navigation */}
+      <GenerateMCQModal
+        open={showMCQModal}
+        presetFileId={fileId || undefined}
+        onClose={() => setShowMCQModal(false)}
+        onCreated={() => {
+          setShowMCQModal(false);
+          refetchDecksForFile();
+        }}
+      />
+      <GenerateFlashcardsModal
+        open={showFlashcardsModal}
+        presetFileId={fileId || undefined}
+        onClose={() => setShowFlashcardsModal(false)}
+        onCreated={() => {
+          setShowFlashcardsModal(false);
+          refetchDecksForFile();
+        }}
+      />
+      <GenerateSummaryModal
+        open={showSummaryModal}
+        presetFileId={fileId || undefined}
+        onClose={() => setShowSummaryModal(false)}
+        onCreated={() => {
+          setShowSummaryModal(false);
+          refetchDecksForFile();
+        }}
+      />
     </div>
   );
 }
