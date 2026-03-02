@@ -852,12 +852,12 @@ const SynapseOS = () => {
     const sidebarItems = isAdminRoute ? adminSidebarItems : userSidebarItems;
 
     return (
-    <aside className="w-14 bg-void border-r border-white/5 flex flex-col items-center py-2 z-40 h-full fixed left-0 top-0 px-2">
-      <div className="mb-4 flex items-center justify-center w-10 h-10 shrink-0">
+    <aside className="w-16 bg-void border-r border-white/5 flex flex-col items-center py-2 z-40 h-full fixed left-0 top-0 px-2">
+      <div className="mb-4 flex items-center justify-center w-11 h-11 shrink-0">
         <img
           src={logo}
           alt="Synapse Logo"
-          className="h-10 w-auto max-w-full object-contain drop-shadow-[0_0_14px_rgba(0,200,180,0.65)]"
+          className="h-11 w-auto max-w-full object-contain drop-shadow-[0_0_14px_rgba(0,200,180,0.65)]"
         />
       </div>
 
@@ -874,7 +874,7 @@ const SynapseOS = () => {
         ))}
       </nav>
 
-        <div className="mt-auto flex flex-col items-center gap-1.5 w-full">
+        <div className="flex flex-col items-center gap-1.5 w-full border-t border-white/5 pt-2 mt-2">
           {/* Settings (first in bottom group) */}
           <SidebarItem
             icon={Settings}
@@ -882,23 +882,23 @@ const SynapseOS = () => {
             to={isAdminRoute ? "/admin/settings" : "/settings"}
           />
           {/* Notifications bell */}
-          <div className="relative w-10 h-10 flex items-center justify-center" ref={sidebarNotificationsRef}>
+          <div className="relative w-11 h-11 flex items-center justify-center" ref={sidebarNotificationsRef}>
             <button
               type="button"
-              className="relative w-10 h-10 flex items-center justify-center rounded-lg text-white/40 hover:text-teal/70 transition-colors"
+              className="relative w-11 h-11 flex items-center justify-center rounded-lg text-white/40 hover:text-teal/70 transition-colors"
               onClick={() => {
                 setNotificationSource("sidebar");
                 setNotificationsOpen((prev) => !prev);
               }}
               aria-label="Notifications"
             >
-              <Bell size={22} />
+              <Bell size={24} />
               {unreadCount > 0 && (
                 <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500" />
               )}
             </button>
             {notificationsOpen && notificationSource === "sidebar" && (
-              <div className="fixed left-14 top-1/2 -translate-y-1/2 z-[10001] w-80 rounded-2xl bg-[#0D0F12]/95 backdrop-blur-md border border-white/[0.08] border-l-2 border-l-teal/20 shadow-[0_8px_32px_rgba(0,200,180,0.06)] overflow-hidden">
+              <div className="fixed left-16 top-1/2 -translate-y-1/2 z-[10001] w-80 rounded-2xl bg-[#0D0F12]/95 backdrop-blur-md border border-white/[0.08] border-l-2 border-l-teal/20 shadow-[0_8px_32px_rgba(0,200,180,0.06)] overflow-hidden">
                 <div className="flex items-center justify-between p-3 border-b border-white/[0.06]">
                   <span className="text-[9px] uppercase tracking-[0.15em] text-teal/40 font-mono">
                     Notifications
@@ -951,7 +951,7 @@ const SynapseOS = () => {
             <div className="relative flex items-center justify-center" ref={profileDropdownRef}>
               <button
                 type="button"
-                className="flex items-center justify-center w-10 h-10 rounded-lg bg-teal/20 text-teal font-semibold text-xs border border-teal/30 hover:bg-teal/30 transition shrink-0"
+                className="flex items-center justify-center w-11 h-11 rounded-lg bg-teal/20 text-teal font-semibold text-xs border border-teal/30 hover:bg-teal/30 transition shrink-0"
                 title={profile.full_name || "Profile"}
                 aria-label="Profile menu"
                 aria-expanded={profileDropdownOpen}
@@ -976,7 +976,7 @@ const SynapseOS = () => {
                 <div
                   className="fixed z-[10001] rounded-[10px] min-w-[200px] p-2 shadow-lg"
                   style={{
-                    left: "3.5rem",
+                    left: "4rem",
                     bottom: "3.5rem",
                     background: "#1e1e24",
                     border: "1px solid rgba(255,255,255,0.1)",
@@ -1031,7 +1031,7 @@ const SynapseOS = () => {
     <div className="h-[100dvh] w-full text-white flex bg-void relative overflow-hidden">
       <Sidebar />
 
-      <main className="flex-1 ml-14 flex flex-col h-full overflow-y-auto relative">
+      <main className="flex-1 ml-16 flex flex-col h-full overflow-y-auto relative">
         {/* CONTENT */}
         <div className="flex-1 flex flex-col overflow-hidden relative">
           <ErrorBoundary>
