@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 import GenerateFlashcardsModal from "./GenerateFlashcardsModal";
 import OutputCard from "../../components/OutputCard";
 import OutputFilters from "../../components/OutputFilters";
+import InlinePromptModal from "../../components/InlinePromptModal";
+import ConfirmModal from "../../components/ConfirmModal";
 import {
     getDecks,
     getFlashcardFolders,
@@ -30,6 +32,8 @@ export default function FlashcardsTab({ openDeck }) {
     const [importCode, setImportCode] = useState("");
     const [importError, setImportError] = useState(null);
     const [isImporting, setIsImporting] = useState(false);
+    const [showNewFolderModal, setShowNewFolderModal] = useState(false);
+    const [folderToDelete, setFolderToDelete] = useState(null);
 
     const loadFolders = async () => {
         try {
@@ -140,13 +144,7 @@ export default function FlashcardsTab({ openDeck }) {
             <OutputFilters
                 primaryLabel="Generate Flashcards"
                 onPrimary={() => setShowGenerateModal(true)}
-                onCreateFolder={async () => {
-                    const name = window.prompt("Folder name");
-                    if (name?.trim()) {
-                        const created = await handleCreateFolder(name.trim());
-                        if (created?.id) setSelectedFolderId(created.id);
-                    }
-                }}
+                onCreateFolder={() => setShowNewFolderModal(true)}
                 folders={folders}
                 activeFolderId={selectedFolderId}
                 onSelectFolder={setSelectedFolderId}
@@ -202,16 +200,7 @@ export default function FlashcardsTab({ openDeck }) {
                                         title={folder.name}
                                         folderColor={folder.color || "#f7c948"}
                                         onClick={() => setSelectedFolderId(folder.id)}
-                                        onDelete={async () => {
-                                            if (!window.confirm("Delete this folder?")) return;
-                                            try {
-                                                                await deleteFlashcardFolder(folder.id);
-                                                                setFolders((prev) => prev.filter((f) => f.id !== folder.id));
-                                                                if (selectedFolderId === folder.id) setSelectedFolderId(null);
-                                                            } catch (e) {
-                                                                console.error(e);
-                                                            }
-                                        }}
+                                        onDelete={() => setFolderToDelete(folder)}
                                         onRename={async (id, newTitle) => {
                                             try {
                                                 await updateFlashcardFolder(id, newTitle);
@@ -346,6 +335,36 @@ export default function FlashcardsTab({ openDeck }) {
                 </div>,
                 document.body
             )}
+
+            <InlinePromptModal
+                open={showNewFolderModal}
+                onClose={() => setShowNewFolderModal(false)}
+                onSubmit={async (name) => {
+                    const created = await handleCreateFolder(name);
+                    if (created?.id) setSelectedFolderId(created.id);
+                }}
+                title="New Folder"
+                inputLabel="Folder name"
+                submitLabel="Create"
+            />
+            <ConfirmModal
+                open={!!folderToDelete}
+                onClose={() => setFolderToDelete(null)}
+                onConfirm={async () => {
+                    if (!folderToDelete) return;
+                    try {
+                        await deleteFlashcardFolder(folderToDelete.id);
+                        setFolders((prev) => prev.filter((f) => f.id !== folderToDelete.id));
+                        if (selectedFolderId === folderToDelete.id) setSelectedFolderId(null);
+                    } catch (e) {
+                        console.error(e);
+                    }
+                }}
+                title="Delete folder"
+                message="Delete this folder?"
+                confirmLabel="Delete"
+                variant="danger"
+            />
         </div>
     );
 }

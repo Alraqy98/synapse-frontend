@@ -282,3 +282,62 @@
   border-radius: 8px !important;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
+
+/* ========== Inline prompt / confirm modals (same design system) ========== */
+.synapse-inline-modal {
+  --gen-bg-raised: #1e1e24;
+  --gen-bg-surface: #17171b;
+  --gen-border: rgba(255, 255, 255, 0.06);
+  --gen-border-mid: rgba(255, 255, 255, 0.1);
+  --gen-text-primary: #f0f0f4;
+  --gen-text-secondary: #8a8a9a;
+  --gen-text-muted: #4a4a5a;
+  --gen-green: #00e5a0;
+}
+
+.synapse-inline-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.synapse-prompt-modal-box {
+  max-width: 360px;
+  width: 90%;
+  background: var(--gen-bg-raised);
+  border: 1px solid var(--gen-border-mid);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+}
+
+.synapse-inline-modal .synapse-gen-modal-title {
+  margin-bottom: 0;
+  padding-right: 0;
+}
+
+.synapse-inline-modal .synapse-gen-modal-footer {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--gen-border);
+}
+
+.synapse-gen-modal-btn-danger {
+  background: #f87171;
+  color: #000;
+  font-weight: 600;
+  font-size: 13px;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 20px;
+  cursor: pointer;
+  transition: opacity 0.15s, filter 0.15s;
+}
+
+.synapse-gen-modal-btn-danger:hover:not(:disabled) {
+  filter: brightness(1.1);
+}

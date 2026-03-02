@@ -32,6 +32,7 @@ import MessageBubble from "../Tutor/MessageBubble";
 import { useDemo } from "../demo/DemoContext";
 import DemoSummaryChat from "./DemoSummaryChat";
 import SourceAttribution from "../../components/SourceAttribution";
+import ConfirmModal from "../../components/ConfirmModal";
 
 export default function SummaryViewer({ summaryId: propSummaryId, goBack: propGoBack, onRename: propOnRename, onDelete: propOnDelete }) {
     const { isDemo, currentStep } = useDemo() || {};
@@ -48,6 +49,7 @@ export default function SummaryViewer({ summaryId: propSummaryId, goBack: propGo
     const [error, setError] = useState(null);
     const [showMenu, setShowMenu] = useState(false);
     const [showRename, setShowRename] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [renameValue, setRenameValue] = useState("");
     const [showExportCode, setShowExportCode] = useState(false);
     const [importCode, setImportCode] = useState(null);
@@ -1369,10 +1371,7 @@ export default function SummaryViewer({ summaryId: propSummaryId, goBack: propGo
                                     <button
                                         onClick={() => {
                                             setShowMenu(false);
-                                            if (confirm("Delete this summary? This action cannot be undone.")) {
-                                                onDelete && summary?.id && onDelete(summary.id);
-                                                goBack();
-                                            }
+                                            setShowDeleteConfirm(true);
                                         }}
                                         className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition"
                                     >
@@ -1622,6 +1621,18 @@ export default function SummaryViewer({ summaryId: propSummaryId, goBack: propGo
                 </div>,
                 document.body
             )}
+            <ConfirmModal
+                open={showDeleteConfirm}
+                onClose={() => setShowDeleteConfirm(false)}
+                onConfirm={() => {
+                    if (summary?.id && onDelete) onDelete(summary.id);
+                    goBack();
+                }}
+                title="Delete summary"
+                message="Delete this summary? This action cannot be undone."
+                confirmLabel="Delete"
+                variant="danger"
+            />
         </div>
         </>
     );

@@ -21,6 +21,7 @@ import { getSummariesByFile } from "../summaries/apiSummaries";
 import GenerateMCQModal from "../mcq/GenerateMCQModal";
 import GenerateFlashcardsModal from "../flashcards/GenerateFlashcardsModal";
 import GenerateSummaryModal from "../summaries/GenerateSummaryModal";
+import InlinePromptModal from "../../components/InlinePromptModal";
 import { useNavigate } from "react-router-dom";
 import { MessageCircle, CheckSquare, Zap, FileText, BarChart2, Mic } from "lucide-react";
 const id = (fileId, file) => fileId || file?.id || "";
@@ -81,6 +82,7 @@ export default function FileViewerV3({
   const [showMCQModal, setShowMCQModal] = useState(false);
   const [showFlashcardsModal, setShowFlashcardsModal] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [showTagModal, setShowTagModal] = useState(false);
   const navigate = useNavigate();
   const [pinToolActive, setPinToolActive] = useState(false);
   const [sessionId, setSessionId] = useState(() => {
@@ -385,11 +387,15 @@ export default function FileViewerV3({
   };
   const formatTime = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
-  const addTapTag = async () => {
+  const openTagModal = () => {
     const recId = currentRecordingIdRef.current;
     if (!recId || !isRecording) return;
-    const label = window.prompt("Tag label:", "");
-    if (!label) return;
+    setShowTagModal(true);
+  };
+
+  const submitTag = async (label) => {
+    const recId = currentRecordingIdRef.current;
+    if (!recId) return;
     try {
       await createRecordingTag(recId, {
         label,
@@ -602,6 +608,9 @@ export default function FileViewerV3({
             <button type="button" className={`fv-tb-btn ${recordingMode === "lecture" ? "active" : ""}`} onClick={() => setRecordingMode("lecture")} title="Lecture">Lecture</button>
             <button type="button" className={`fv-tb-btn ${recordingMode === "slide_note" ? "active" : ""}`} onClick={() => setRecordingMode("slide_note")} title="Slide note">Slide Note</button>
             <button type="button" className="fv-tb-btn" onClick={startRecording} title="Start recording">Record</button>
+            {isRecording && (
+              <button type="button" className="fv-tb-btn" onClick={openTagModal} title="Add tag at current time">Add tag</button>
+            )}
           </div>
         </div>
       </header>
@@ -1254,6 +1263,18 @@ export default function FileViewerV3({
           setShowSummaryModal(false);
           refetchDecksForFile();
         }}
+      />
+      <InlinePromptModal
+        open={showTagModal}
+        onClose={() => setShowTagModal(false)}
+        onSubmit={(label) => {
+          submitTag(label);
+          setShowTagModal(false);
+        }}
+        title="Add tag"
+        inputLabel="Tag label"
+        submitLabel="Add"
+        placeholder="e.g., Key point"
       />
     </div>
   );

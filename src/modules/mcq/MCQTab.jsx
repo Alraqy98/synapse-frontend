@@ -7,6 +7,8 @@ import GenerateMCQModal from "./GenerateMCQModal";
 import MCQDeckView from "./MCQDeckView";
 import OutputCard from "../../components/OutputCard";
 import OutputFilters from "../../components/OutputFilters";
+import InlinePromptModal from "../../components/InlinePromptModal";
+import ConfirmModal from "../../components/ConfirmModal";
 import { Upload, Folder, Edit2, Copy, Trash2 } from "lucide-react";
 import { isValidCodeFormat } from "../summaries/utils/summaryCode";
 import { sanitizeErrorMessage } from "../utils/errorSanitizer";
@@ -165,6 +167,8 @@ export default function MCQTab() {
     const [folderAssignDeck, setFolderAssignDeck] = useState(null);
     const [creatingFolder, setCreatingFolder] = useState(false);
     const [newFolderName, setNewFolderName] = useState("");
+    const [showNewFolderModal, setShowNewFolderModal] = useState(false);
+    const [folderToDelete, setFolderToDelete] = useState(null);
 
     // --------------------------------------------------
     // Fetch decks
@@ -348,13 +352,7 @@ export default function MCQTab() {
                         <OutputFilters
                             primaryLabel="Generate MCQs"
                             onPrimary={() => setOpenModal(true)}
-                            onCreateFolder={async () => {
-                                const name = window.prompt("Folder name");
-                                if (name?.trim()) {
-                                    const created = await handleCreateFolder(name.trim());
-                                    if (created?.id) setSelectedFolderId(created.id);
-                                }
-                            }}
+                            onCreateFolder={() => setShowNewFolderModal(true)}
                             folders={folders}
                             activeFolderId={selectedFolderId}
                             onSelectFolder={setSelectedFolderId}
@@ -415,16 +413,7 @@ export default function MCQTab() {
                                                     title={folder.name}
                                                     folderColor={folder.color || "#f7c948"}
                                                     onClick={() => setSelectedFolderId(folder.id)}
-                                                    onDelete={async () => {
-                                                        if (!window.confirm("Delete this folder? Decks inside will move to All MCQs.")) return;
-                                                        try {
-                                                            await apiMCQ.deleteMCQFolder(folder.id);
-                                                            setFolders((prev) => prev.filter((f) => f.id !== folder.id));
-                                                            if (selectedFolderId === folder.id) setSelectedFolderId(null);
-                                                        } catch (e) {
-                                                            console.error(e);
-                                                        }
-                                                    }}
+                                                    onDelete={() => setFolderToDelete(folder)}
                                                     onRename={async (id, newTitle) => {
                                                         try {
                                                             await apiMCQ.renameMCQFolder(id, newTitle);
@@ -728,6 +717,36 @@ export default function MCQTab() {
                         </div>,
                         document.body
                     )}
+
+                    <InlinePromptModal
+                        open={showNewFolderModal}
+                        onClose={() => setShowNewFolderModal(false)}
+                        onSubmit={async (name) => {
+                            const created = await handleCreateFolder(name);
+                            if (created?.id) setSelectedFolderId(created.id);
+                        }}
+                        title="New Folder"
+                        inputLabel="Folder name"
+                        submitLabel="Create"
+                    />
+                    <ConfirmModal
+                        open={!!folderToDelete}
+                        onClose={() => setFolderToDelete(null)}
+                        onConfirm={async () => {
+                            if (!folderToDelete) return;
+                            try {
+                                await apiMCQ.deleteMCQFolder(folderToDelete.id);
+                                setFolders((prev) => prev.filter((f) => f.id !== folderToDelete.id));
+                                if (selectedFolderId === folderToDelete.id) setSelectedFolderId(null);
+                            } catch (e) {
+                                console.error(e);
+                            }
+                        }}
+                        title="Delete folder"
+                        message="Delete this folder? Decks inside will move to All MCQs."
+                        confirmLabel="Delete"
+                        variant="danger"
+                    />
                 </>
             )}
         </div>

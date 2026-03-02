@@ -7,6 +7,8 @@ import { apiSummaries } from "./apiSummaries";
 import OutputCard from "../../components/OutputCard";
 import OutputFilters from "../../components/OutputFilters";
 import GenerateSummaryModal from "./GenerateSummaryModal";
+import InlinePromptModal from "../../components/InlinePromptModal";
+import ConfirmModal from "../../components/ConfirmModal";
 import { isValidCodeFormat } from "./utils/summaryCode";
 import SummaryFailurePopup from "../../components/SummaryFailurePopup";
 
@@ -72,6 +74,8 @@ export default function SummariesTab() {
     const [importError, setImportError] = useState(null);
     const [isImporting, setIsImporting] = useState(false);
     const [failurePopup, setFailurePopup] = useState({ isOpen: false, isProcessing: false, onRetry: null });
+    const [showNewFolderModal, setShowNewFolderModal] = useState(false);
+    const [folderToDelete, setFolderToDelete] = useState(null);
 
     const loadFolders = async () => {
         try {
@@ -238,20 +242,7 @@ export default function SummariesTab() {
             <OutputFilters
                 primaryLabel="Generate Summary"
                 onPrimary={() => setOpenModal(true)}
-                onCreateFolder={async () => {
-                    const name = window.prompt("Folder name");
-                    if (name?.trim()) {
-                        try {
-                            const created = await apiSummaries.createSummaryFolder(name.trim());
-                            if (created?.id) {
-                                setFolders((prev) => [...prev, created]);
-                                setSelectedFolderId(created.id);
-                            }
-                        } catch (e) {
-                            console.error(e);
-                        }
-                    }
-                }}
+                onCreateFolder={() => setShowNewFolderModal(true)}
                 folders={folders}
                 activeFolderId={selectedFolderId}
                 onSelectFolder={setSelectedFolderId}
@@ -307,16 +298,7 @@ export default function SummariesTab() {
                                         title={folder.name}
                                         folderColor={folder.color || "#f7c948"}
                                         onClick={() => setSelectedFolderId(folder.id)}
-                                        onDelete={async () => {
-                                            if (!window.confirm("Delete this folder?")) return;
-                                            try {
-                                                await apiSummaries.deleteSummaryFolder(folder.id);
-                                                setFolders((prev) => prev.filter((f) => f.id !== folder.id));
-                                                if (selectedFolderId === folder.id) setSelectedFolderId(null);
-                                            } catch (e) {
-                                                console.error(e);
-                                            }
-                                        }}
+                                        onDelete={() => setFolderToDelete(folder)}
                                         onRename={async (id, newTitle) => {
                                             try {
                                                 await apiSummaries.updateSummaryFolder(id, newTitle);
@@ -510,6 +492,43 @@ export default function SummariesTab() {
                         </div>,
                         document.body
                     )}
+
+                    <InlinePromptModal
+                        open={showNewFolderModal}
+                        onClose={() => setShowNewFolderModal(false)}
+                        onSubmit={async (name) => {
+                            try {
+                                const created = await apiSummaries.createSummaryFolder(name);
+                                if (created?.id) {
+                                    setFolders((prev) => [...prev, created]);
+                                    setSelectedFolderId(created.id);
+                                }
+                            } catch (e) {
+                                console.error(e);
+                            }
+                        }}
+                        title="New Folder"
+                        inputLabel="Folder name"
+                        submitLabel="Create"
+                    />
+                    <ConfirmModal
+                        open={!!folderToDelete}
+                        onClose={() => setFolderToDelete(null)}
+                        onConfirm={async () => {
+                            if (!folderToDelete) return;
+                            try {
+                                await apiSummaries.deleteSummaryFolder(folderToDelete.id);
+                                setFolders((prev) => prev.filter((f) => f.id !== folderToDelete.id));
+                                if (selectedFolderId === folderToDelete.id) setSelectedFolderId(null);
+                            } catch (e) {
+                                console.error(e);
+                            }
+                        }}
+                        title="Delete folder"
+                        message="Delete this folder?"
+                        confirmLabel="Delete"
+                        variant="danger"
+                    />
 
                     {/* Summary Failure Popup */}
             <SummaryFailurePopup
