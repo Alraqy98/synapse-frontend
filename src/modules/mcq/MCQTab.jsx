@@ -243,10 +243,17 @@ export default function MCQTab() {
     };
 
     // --------------------------------------------------
-    // Filtered decks
+    // Filtered decks (by selected folder + search + sort)
     // --------------------------------------------------
     const visibleDecks = useMemo(() => {
         let list = [...decks];
+
+        // When a folder is selected, show only decks in that folder
+        if (selectedFolderId != null) {
+            list = list.filter(
+                (d) => (d.mcq_folder_id ?? d.folder_id) === selectedFolderId
+            );
+        }
 
         if (search) {
             list = list.filter((d) =>
@@ -262,7 +269,7 @@ export default function MCQTab() {
         }
 
         return list;
-    }, [decks, search, sort]);
+    }, [decks, search, sort, selectedFolderId]);
 
     const handleAssignFolder = async (deck, folderId) => {
         const nextFolderId = folderId === "all" ? null : folderId;

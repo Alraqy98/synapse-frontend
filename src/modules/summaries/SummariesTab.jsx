@@ -184,9 +184,16 @@ export default function SummariesTab() {
         navigate(`/summaries/${id}`);
     };
 
-    // Filtered and sorted summaries
+    // Filtered and sorted summaries (by selected folder + search + sort)
     const visibleSummaries = useMemo(() => {
         let list = [...summaries];
+
+        // When a folder is selected, show only summaries in that folder
+        if (selectedFolderId != null) {
+            list = list.filter(
+                (s) => (s.folder_id ?? s.summary_folder_id) === selectedFolderId
+            );
+        }
 
         if (search) {
             list = list.filter((s) =>
@@ -203,7 +210,7 @@ export default function SummariesTab() {
         }
 
         return list;
-    }, [summaries, search, sort]);
+    }, [summaries, search, sort, selectedFolderId]);
 
     const handleDelete = async () => {
         if (!confirmDelete) return;

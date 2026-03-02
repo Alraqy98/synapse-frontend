@@ -74,7 +74,16 @@ export default function FlashcardsTab({ openDeck }) {
     }, [decks, selectedFolderId]);
 
     const visibleDecks = useMemo(() => {
-        let list = decks.filter((d) =>
+        let list = [...decks];
+
+        // When a folder is selected, show only decks in that folder
+        if (selectedFolderId != null) {
+            list = list.filter(
+                (d) => (d.folder_id ?? d.flashcard_folder_id) === selectedFolderId
+            );
+        }
+
+        list = list.filter((d) =>
             d.title?.toLowerCase().includes(search.toLowerCase())
         );
         if (sortMode === "date") {
@@ -83,7 +92,7 @@ export default function FlashcardsTab({ openDeck }) {
             list.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
         }
         return list;
-    }, [decks, search, sortMode]);
+    }, [decks, search, sortMode, selectedFolderId]);
 
     const handleCreateFolder = async (name) => {
         const trimmed = name?.trim();
