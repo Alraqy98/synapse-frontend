@@ -1,0 +1,284 @@
+/* Shared styles for MCQ / Flashcards / Summary generation modals — Synapse dark design */
+
+.synapse-gen-modal {
+  --gen-bg-raised: #1e1e24;
+  --gen-bg-surface: #17171b;
+  --gen-border: rgba(255, 255, 255, 0.06);
+  --gen-border-mid: rgba(255, 255, 255, 0.1);
+  --gen-text-primary: #f0f0f4;
+  --gen-text-secondary: #8a8a9a;
+  --gen-text-muted: #4a4a5a;
+  --gen-green: #00e5a0;
+}
+
+/* Backdrop */
+.synapse-gen-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+/* Modal box */
+.synapse-gen-modal-box {
+  max-width: 440px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--gen-bg-raised);
+  border: 1px solid var(--gen-border-mid);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+}
+
+/* Header */
+.synapse-gen-modal-header {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.synapse-gen-modal-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--gen-text-primary);
+  margin: 0;
+  padding-right: 28px;
+}
+
+.synapse-gen-modal-subtitle {
+  font-size: 12px;
+  color: var(--gen-text-secondary);
+  margin: 4px 0 0;
+}
+
+.synapse-gen-modal-close {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--gen-text-muted);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.synapse-gen-modal-close:hover {
+  color: var(--gen-text-primary);
+  background: var(--gen-border-mid);
+}
+
+/* Form */
+.synapse-gen-modal-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--gen-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+
+.synapse-gen-modal-input,
+.synapse-gen-modal select,
+.synapse-gen-modal textarea {
+  width: 100%;
+  background: var(--gen-bg-surface);
+  border: 1px solid var(--gen-border-mid);
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: var(--gen-text-primary);
+  font-size: 13px;
+  transition: border-color 0.15s;
+}
+
+.synapse-gen-modal-input:focus,
+.synapse-gen-modal select:focus,
+.synapse-gen-modal textarea:focus {
+  border-color: var(--gen-green);
+  outline: none;
+}
+
+.synapse-gen-modal-input::placeholder,
+.synapse-gen-modal textarea::placeholder {
+  color: var(--gen-text-muted);
+}
+
+.synapse-gen-modal textarea {
+  resize: none;
+  min-height: 72px;
+}
+
+.synapse-gen-modal-field {
+  margin-bottom: 16px;
+}
+
+.synapse-gen-modal-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.synapse-gen-modal-grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+/* Dropdown trigger (match input look) */
+.synapse-gen-modal .synapse-gen-dropdown-trigger {
+  width: 100%;
+  background: var(--gen-bg-surface);
+  border: 1px solid var(--gen-border-mid);
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: var(--gen-text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: border-color 0.15s;
+}
+
+.synapse-gen-modal .synapse-gen-dropdown-trigger:hover {
+  border-color: var(--gen-green);
+}
+
+.synapse-gen-modal .synapse-gen-dropdown-panel {
+  background: var(--gen-bg-raised);
+  border: 1px solid var(--gen-border-mid);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  margin-top: 4px;
+  overflow: hidden;
+}
+
+/* File list / message boxes */
+.synapse-gen-modal .synapse-gen-file-list {
+  background: var(--gen-bg-surface);
+  border: 1px solid var(--gen-border-mid);
+  border-radius: 8px;
+  padding: 12px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.synapse-gen-modal .synapse-gen-message {
+  background: var(--gen-bg-surface);
+  border: 1px solid var(--gen-border-mid);
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 12px;
+  color: var(--gen-text-secondary);
+}
+
+/* Footer */
+.synapse-gen-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--gen-border);
+}
+
+.synapse-gen-modal-btn-cancel {
+  background: transparent;
+  border: 1px solid var(--gen-border-mid);
+  color: var(--gen-text-secondary);
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.synapse-gen-modal-btn-cancel:hover {
+  color: var(--gen-text-primary);
+  border-color: var(--gen-text-muted);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.synapse-gen-modal-btn-primary {
+  background: var(--gen-green);
+  color: #000;
+  font-weight: 600;
+  font-size: 13px;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 20px;
+  cursor: pointer;
+  transition: opacity 0.15s, filter 0.15s;
+}
+
+.synapse-gen-modal-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.synapse-gen-modal-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Checkbox row */
+.synapse-gen-modal-checkrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: var(--gen-text-secondary);
+}
+
+.synapse-gen-modal-checkrow input[type="checkbox"] {
+  width: auto;
+  accent-color: var(--gen-green);
+}
+
+/* Override internal dropdown/input styles when inside modal box */
+.synapse-gen-modal-box label.text-sm,
+.synapse-gen-modal-box label.text-muted {
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  color: var(--gen-text-secondary) !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+
+/* Dropdown triggers inside modal (match input look) */
+.synapse-gen-modal-box .relative > div.cursor-pointer,
+.synapse-gen-modal-box .relative > button.text-left {
+  background: var(--gen-bg-surface) !important;
+  border: 1px solid var(--gen-border-mid) !important;
+  border-radius: 8px !important;
+  padding: 9px 12px !important;
+  color: var(--gen-text-primary) !important;
+  font-size: 13px !important;
+}
+
+.synapse-gen-modal-box .relative > div.cursor-pointer:hover,
+.synapse-gen-modal-box .relative > button.text-left:hover {
+  border-color: var(--gen-green) !important;
+}
+
+.synapse-gen-modal-box .absolute.z-50.overflow-hidden {
+  background: var(--gen-bg-raised) !important;
+  border: 1px solid var(--gen-border-mid) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}

@@ -6,6 +6,7 @@ import React, { useEffect, useState } from "react";
 import { generateFlashcards } from "./apiFlashcards";
 import { getLibraryItems, getItemById, prepareFile } from "../Library/apiLibrary";
 import { Check, ChevronDown } from "lucide-react";
+import "../../styles/GenerationModal.css";
 
 // ===============================================================
 // MODE DROPDOWN
@@ -378,37 +379,48 @@ export default function GenerateFlashcardsModal({
     // --------------------------------------------------------------
     // UI
     // --------------------------------------------------------------
+    const presetFileName = presetFileId && selectedFilesData[0]?.title ? selectedFilesData[0].title : null;
+
     return (
-        <div 
-            className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+        <div
+            className="synapse-gen-modal synapse-gen-modal-backdrop"
             onClick={handleClose}
         >
-            <div 
-                className="bg-void border border-white/10 rounded-2xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl"
+            <div
+                className="synapse-gen-modal-box"
                 onClick={(e) => e.stopPropagation()}
             >
+                <div className="synapse-gen-modal-header">
+                    <h2 className="synapse-gen-modal-title">Generate Flashcards</h2>
+                    <p className="synapse-gen-modal-subtitle">
+                        {presetFileName ? `Generating from: ${presetFileName}` : "Select source file(s) below."}
+                    </p>
+                    <button
+                        type="button"
+                        className="synapse-gen-modal-close"
+                        onClick={handleClose}
+                        aria-label="Close"
+                    >
+                        ×
+                    </button>
+                </div>
 
-                <h2 className="text-2xl font-bold mb-6">Generate Flashcards</h2>
-
-                {/* Deck Name */}
-                <div className="mb-4">
-                    <label className="text-sm text-muted">Deck Name</label>
+                <div className="synapse-gen-modal-field">
+                    <label className="synapse-gen-modal-label">Deck Name</label>
                     <input
-                        className="w-full mt-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 focus:border-teal outline-none"
+                        className="synapse-gen-modal-input"
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
                         placeholder="Heart Failure High-Yield"
                     />
                 </div>
 
-                {/* Mode */}
-                <div className="mb-4">
-                    <label className="text-sm text-muted">Mode</label>
+                <div className="synapse-gen-modal-field">
+                    <label className="synapse-gen-modal-label">Mode</label>
                     <ModeDropdown mode={mode} setMode={setMode} />
                 </div>
 
-                {/* Toggle refs */}
-                <label className="flex items-center gap-2 mb-4 text-sm">
+                <label className="synapse-gen-modal-checkrow">
                     <input
                         type="checkbox"
                         checked={includeRefs}
@@ -417,35 +429,32 @@ export default function GenerateFlashcardsModal({
                     Include slide/page references
                 </label>
 
-                {/* File tree */}
                 {!presetFileId && (
-                    <div className="border border-white/10 rounded-xl p-4 max-h-64 overflow-y-auto bg-black/20">
-                        {loadingTree ? (
-                            <div className="text-sm text-muted">Loading…</div>
-                        ) : (
-                            tree.map((n) => renderNode(n))
-                        )}
-                    </div>
+                    <>
+                        <label className="synapse-gen-modal-label">Source Files</label>
+                        <div className="synapse-gen-file-list mt-1">
+                            {loadingTree ? (
+                                <div style={{ color: "var(--gen-text-muted)", fontSize: 13 }}>Loading…</div>
+                            ) : (
+                                tree.map((n) => renderNode(n))
+                            )}
+                        </div>
+                    </>
                 )}
-
 
                 {fileNotReadyMessage && (
-                    <div className="mb-4 p-3 bg-white/5 border border-white/10 rounded-xl">
-                        <p className="text-sm text-muted">{fileNotReadyMessage}</p>
+                    <div className="synapse-gen-message mt-2">
+                        <p style={{ margin: 0 }}>{fileNotReadyMessage}</p>
                     </div>
                 )}
 
-                {/* Footer */}
-                <div className="flex justify-end gap-3 mt-6">
-                    <button
-                        className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:border-red-400"
-                        onClick={handleClose}
-                    >
+                <div className="synapse-gen-modal-footer">
+                    <button type="button" className="synapse-gen-modal-btn-cancel" onClick={handleClose}>
                         Cancel
                     </button>
-
                     <button
-                        className="px-6 py-2 rounded-xl bg-teal text-black font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                        type="button"
+                        className="synapse-gen-modal-btn-primary"
                         disabled={submitting || !title.trim() || selectedFiles.length === 0}
                         onClick={handleSubmit}
                     >

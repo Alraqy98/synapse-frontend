@@ -6,6 +6,7 @@ import React, { useState, useEffect } from "react";
 import { apiMCQ } from "./apiMCQ";
 import { getLibraryItems, getItemById, prepareFile } from "../Library/apiLibrary";
 import { ChevronDown, Check } from "lucide-react";
+import "../../styles/GenerationModal.css";
 
 // ------------------------------------------------------------
 // PREMIUM DROPDOWN COMPONENT
@@ -487,30 +488,44 @@ export default function GenerateMCQModal({
     // UI
     // ------------------------------------------------------------
     return (
-        <div 
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+        <div
+            className="synapse-gen-modal synapse-gen-modal-backdrop"
             onClick={handleClose}
         >
-            <div 
-                className="bg-void border border-white/10 rounded-2xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl"
+            <div
+                className="synapse-gen-modal-box"
                 onClick={(e) => e.stopPropagation()}
             >
-
-                <h2 className="text-2xl font-bold mb-6">Generate MCQ Deck</h2>
+                <div className="synapse-gen-modal-header">
+                    <h2 className="synapse-gen-modal-title">Generate MCQ Deck</h2>
+                    <p className="synapse-gen-modal-subtitle">
+                        {presetFileId && selectedFilesData[0]?.title
+                            ? `Generating from: ${selectedFilesData[0].title}`
+                            : "Select source file(s) below."}
+                    </p>
+                    <button
+                        type="button"
+                        className="synapse-gen-modal-close"
+                        onClick={handleClose}
+                        aria-label="Close"
+                    >
+                        ×
+                    </button>
+                </div>
 
                 {/* Title */}
-                <div className="mb-4">
-                    <label className="text-sm text-muted">Title</label>
+                <div className="synapse-gen-modal-field">
+                    <label className="synapse-gen-modal-label">Title</label>
                     <input
-                        className="w-full mt-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 focus:border-teal outline-none"
+                        className="synapse-gen-modal-input"
                         placeholder="e.g., Cardiology Block MCQs"
                         value={title}
-                        onChange={e => setTitle(e.target.value)}
+                        onChange={(e) => setTitle(e.target.value)}
                     />
                 </div>
 
                 {/* Difficulty + Count */}
-                <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="synapse-gen-modal-grid-2">
                     <PremiumDropdown
                         label="Difficulty"
                         value={difficulty}
@@ -521,7 +536,6 @@ export default function GenerateMCQModal({
                             { value: "advanced", label: "Advanced" }
                         ]}
                     />
-
                     <PremiumDropdown
                         label="Question Count"
                         value={count}
@@ -535,7 +549,7 @@ export default function GenerateMCQModal({
                 </div>
 
                 {/* Folder */}
-                <div className="mb-4">
+                <div className="synapse-gen-modal-field">
                     <FolderDropdown
                         value={selectedFolderId}
                         onChange={setSelectedFolderId}
@@ -543,46 +557,39 @@ export default function GenerateMCQModal({
                         includeAll
                     />
                     {loadingFolders && (
-                        <div className="text-xs text-muted mt-1">Loading folders…</div>
+                        <div className="text-xs mt-1" style={{ color: "var(--gen-text-muted)" }}>Loading folders…</div>
                     )}
                 </div>
 
                 {/* FILE PICKER */}
                 {!presetFileId && (
                     <>
-                        <label className="text-sm text-muted">Source Files</label>
-                        <div className="border border-white/10 rounded-xl p-4 mt-1 max-h-64 overflow-y-auto bg-black/20">
+                        <label className="synapse-gen-modal-label">Source Files</label>
+                        <div className="synapse-gen-file-list mt-1">
                             {loadingTree ? (
-                                <div className="text-sm text-muted">Loading files…</div>
+                                <div style={{ color: "var(--gen-text-muted)", fontSize: 13 }}>Loading files…</div>
                             ) : tree.length === 0 ? (
-                                <div className="text-sm text-muted opacity-50">
-                                    No files found in your library.
-                                </div>
+                                <div style={{ color: "var(--gen-text-muted)", fontSize: 13, opacity: 0.8 }}>No files found in your library.</div>
                             ) : (
-                                tree.map(n => renderNode(n))
+                                tree.map((n) => renderNode(n))
                             )}
                         </div>
                     </>
                 )}
 
-
                 {fileNotReadyMessage && (
-                    <div className="mb-4 p-3 bg-white/5 border border-white/10 rounded-xl">
-                        <p className="text-sm text-muted">{fileNotReadyMessage}</p>
+                    <div className="synapse-gen-message mt-2">
+                        <p style={{ margin: 0 }}>{fileNotReadyMessage}</p>
                     </div>
                 )}
 
-                {/* Footer */}
-                <div className="flex justify-end gap-3 mt-6">
-                    <button
-                        className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:border-red-400"
-                        onClick={handleClose}
-                    >
+                <div className="synapse-gen-modal-footer">
+                    <button type="button" className="synapse-gen-modal-btn-cancel" onClick={handleClose}>
                         Cancel
                     </button>
-
                     <button
-                        className="px-6 py-2 rounded-xl bg-teal text-black font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                        type="button"
+                        className="synapse-gen-modal-btn-primary"
                         disabled={submitting || !title.trim() || selectedFiles.length === 0}
                         onClick={handleSubmit}
                     >

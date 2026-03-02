@@ -2,8 +2,9 @@
 import React, { useState, useEffect } from "react";
 import { apiSummaries } from "./apiSummaries";
 import { getLibraryItems, getItemById, prepareFile } from "../Library/apiLibrary";
-import { ChevronDown, Check, X } from "lucide-react";
+import { ChevronDown, Check } from "lucide-react";
 import SummaryFailurePopup from "../../components/SummaryFailurePopup";
+import "../../styles/GenerationModal.css";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -362,36 +363,41 @@ export default function GenerateSummaryModal({
 
     return (
         <div 
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+            className="synapse-gen-modal synapse-gen-modal-backdrop"
             onClick={handleClose}
         >
-            <div 
-                className="bg-void border border-white/10 rounded-2xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl"
+            <div
+                className="synapse-gen-modal-box"
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-2xl font-bold">Generate Summary</h2>
+                <div className="synapse-gen-modal-header">
+                    <h2 className="synapse-gen-modal-title">Generate Summary</h2>
+                    <p className="synapse-gen-modal-subtitle">
+                        {presetFileId && (selectedFileName || selectedFile?.title)
+                            ? `Generating from: ${selectedFileName || selectedFile?.title}`
+                            : "Select source file below."}
+                    </p>
                     <button
+                        type="button"
+                        className="synapse-gen-modal-close"
                         onClick={handleClose}
-                        className="text-muted hover:text-white transition-colors"
+                        aria-label="Close"
                     >
-                        <X size={20} />
+                        ×
                     </button>
                 </div>
 
-                {/* Title */}
-                <div className="mb-4">
-                    <label className="text-sm text-muted">Title</label>
+                <div className="synapse-gen-modal-field">
+                    <label className="synapse-gen-modal-label">Title</label>
                     <input
-                        className="w-full mt-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 focus:border-teal outline-none"
+                        className="synapse-gen-modal-input"
                         placeholder="e.g., Cardiology Block Summary"
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
                     />
                 </div>
 
-                {/* Preset Tags */}
-                <div className="grid grid-cols-3 gap-4 mb-4">
+                <div className="synapse-gen-modal-grid-3">
                     <PremiumDropdown
                         label="Academic Stage"
                         value={academicStage}
@@ -407,7 +413,6 @@ export default function GenerateSummaryModal({
                             { value: "residency", label: "Residency" },
                         ]}
                     />
-
                     <PremiumDropdown
                         label="Specialty"
                         value={specialty}
@@ -424,7 +429,6 @@ export default function GenerateSummaryModal({
                             { value: "pathology", label: "Pathology" },
                         ]}
                     />
-
                     <PremiumDropdown
                         label="Goal"
                         value={goal}
@@ -437,84 +441,65 @@ export default function GenerateSummaryModal({
                     />
                 </div>
 
-                {/* Instruction */}
-                <div className="mb-4">
-                    <label className="text-sm text-muted">
-                        Optional Instruction (max 200 chars)
-                    </label>
+                <div className="synapse-gen-modal-field">
+                    <label className="synapse-gen-modal-label">Optional Instruction (max 200 chars)</label>
                     <textarea
-                        className="w-full mt-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 focus:border-teal outline-none resize-none"
+                        className="synapse-gen-modal-input"
                         placeholder="e.g., Focus on high-yield exam points and common traps"
                         value={instruction}
                         onChange={(e) => {
-                            if (e.target.value.length <= 200) {
-                                setInstruction(e.target.value);
-                            }
+                            if (e.target.value.length <= 200) setInstruction(e.target.value);
                         }}
                         rows={3}
                         maxLength={200}
                     />
-                    <div className="text-xs text-muted mt-1 text-right">
+                    <div className="text-xs mt-1 text-right" style={{ color: "var(--gen-text-muted)" }}>
                         {instruction.length}/200
                     </div>
                 </div>
 
-                {/* FILE PICKER */}
                 {!presetFileId ? (
                     <>
-                        <label className="text-sm text-muted">Source File</label>
-                        <div className="border border-white/10 rounded-xl p-4 mt-1 max-h-64 overflow-y-auto bg-black/20">
+                        <label className="synapse-gen-modal-label">Source File</label>
+                        <div className="synapse-gen-file-list mt-1">
                             {loadingTree ? (
-                                <div className="text-sm text-muted">Loading files…</div>
+                                <div style={{ color: "var(--gen-text-muted)", fontSize: 13 }}>Loading files…</div>
                             ) : tree.length === 0 ? (
-                                <div className="text-sm text-muted opacity-50">
-                                    No files found in your library.
-                                </div>
+                                <div style={{ color: "var(--gen-text-muted)", fontSize: 13, opacity: 0.8 }}>No files found in your library.</div>
                             ) : (
                                 tree.map((n) => renderNode(n))
                             )}
                         </div>
                         {selectedFileId && (
-                            <div className="mt-2">
-                                <p className="text-xs text-muted">
-                                    Selected: {selectedFileName}
-                                </p>
-                            </div>
+                            <p className="text-xs mt-1" style={{ color: "var(--gen-text-muted)" }}>Selected: {selectedFileName}</p>
                         )}
                     </>
                 ) : (
-                    <div className="border border-white/10 rounded-xl p-4 bg-black/20">
-                        <p className="text-sm text-muted">
-                            File: <span className="text-white">{selectedFileName || "Loading..."}</span>
-                        </p>
-                        <p className="text-xs text-muted mt-1">
-                            File is locked for this summary.
-                        </p>
+                    <div className="synapse-gen-message mt-2">
+                        <p style={{ margin: 0 }}>File: <strong style={{ color: "var(--gen-text-primary)" }}>{selectedFileName || "Loading..."}</strong></p>
+                        <p className="text-xs mt-1" style={{ margin: 0, color: "var(--gen-text-muted)" }}>File is locked for this summary.</p>
                     </div>
                 )}
 
                 {errorMessage && (
-                    <div className="mb-4 p-3 bg-white/5 border border-white/10 rounded-xl">
-                        <p className="text-sm text-muted">{errorMessage}</p>
-                    </div>
-                )}
-                
-                {submitting && (
-                    <div className="mb-4 p-3 bg-white/5 border border-white/10 rounded-xl">
-                        <p className="text-sm text-muted">Generating summary…</p>
+                    <div className="synapse-gen-message mt-2">
+                        <p style={{ margin: 0 }}>{errorMessage}</p>
                     </div>
                 )}
 
-                {/* Footer */}
-                <div className="flex justify-end gap-3 mt-6">
-                    <button
-                        className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:border-red-400"
-                        onClick={handleClose}
-                    >
+                {submitting && (
+                    <div className="synapse-gen-message mt-2">
+                        <p style={{ margin: 0 }}>Generating summary…</p>
+                    </div>
+                )}
+
+                <div className="synapse-gen-modal-footer">
+                    <button type="button" className="synapse-gen-modal-btn-cancel" onClick={handleClose}>
                         Cancel
                     </button>
                     <button
-                        className="px-6 py-2 rounded-xl bg-teal text-black font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                        type="button"
+                        className="synapse-gen-modal-btn-primary"
                         disabled={submitting || !title.trim() || !selectedFileId}
                         onClick={handleSubmit}
                     >
