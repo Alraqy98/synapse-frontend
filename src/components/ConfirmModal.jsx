@@ -1,5 +1,5 @@
 import React from "react";
-import "../../styles/GenerationModal.css";
+import "../styles/GenerationModal.css";
 
 /**
  * Confirmation modal matching Synapse design system.

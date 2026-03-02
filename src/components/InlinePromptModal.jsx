@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import "../../styles/GenerationModal.css";
+import "../styles/GenerationModal.css";
 
 /**
  * Single-input modal matching Synapse design system.
