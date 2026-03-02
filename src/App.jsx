@@ -898,7 +898,19 @@ const SynapseOS = () => {
               )}
             </button>
             {notificationsOpen && notificationSource === "sidebar" && (
-              <div className="fixed left-16 top-1/2 -translate-y-1/2 z-[10001] w-80 rounded-2xl bg-[#0D0F12]/95 backdrop-blur-md border border-white/[0.08] border-l-2 border-l-teal/20 shadow-[0_8px_32px_rgba(0,200,180,0.06)] overflow-hidden">
+              <div
+                className="fixed z-[10001] overflow-hidden"
+                style={{
+                  left: "68px",
+                  bottom: "120px",
+                  width: "300px",
+                  maxHeight: "400px",
+                  overflowY: "auto",
+                  background: "#1e1e24",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: "12px",
+                }}
+              >
                 <div className="flex items-center justify-between p-3 border-b border-white/[0.06]">
                   <span className="text-[9px] uppercase tracking-[0.15em] text-teal/40 font-mono">
                     Notifications
@@ -912,7 +924,7 @@ const SynapseOS = () => {
                     </button>
                   )}
                 </div>
-                <div className="max-h-80 overflow-y-auto">
+                <div className="overflow-y-auto" style={{ maxHeight: "calc(400px - 52px)" }}>
                   {unreadNotifications.length === 0 ? (
                     <div className="text-white/25 text-xs text-center py-6">
                       No notifications yet
@@ -974,35 +986,49 @@ const SynapseOS = () => {
               </button>
               {profileDropdownOpen && (
                 <div
-                  className="fixed z-[10001] rounded-[10px] min-w-[200px] p-2 shadow-lg"
+                  className="fixed z-[10001] shadow-lg"
                   style={{
-                    left: "4rem",
-                    bottom: "3.5rem",
+                    left: "68px",
+                    bottom: "8px",
+                    minWidth: "200px",
+                    padding: "8px",
                     background: "#1e1e24",
                     border: "1px solid rgba(255,255,255,0.1)",
+                    borderRadius: "12px",
                   }}
                 >
-                  <div className="px-2 py-2 border-b border-white/10 mb-2 pointer-events-none">
-                    <div className="font-medium text-white text-sm truncate">
+                  <div
+                    className="px-2 py-2 mb-2 pointer-events-none truncate"
+                    style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+                  >
+                    <div
+                      className="truncate"
+                      style={{ color: "#f0f0f4", fontWeight: 600, fontSize: "13px" }}
+                    >
                       {profile.full_name || "User"}
                     </div>
-                    <div className="text-white/50 text-xs truncate mt-0.5">
+                    <div
+                      className="truncate mt-0.5"
+                      style={{ color: "#8a8a9a", fontSize: "11px" }}
+                    >
                       {profile.email}
                     </div>
                   </div>
                   <button
                     type="button"
-                    className="w-full text-left px-3 py-2 text-sm text-white/80 hover:text-white hover:bg-white/10 rounded-md transition-colors"
+                    className="w-full text-left px-3 py-2 text-sm rounded-md transition-colors hover:bg-white/10"
+                    style={{ color: "#f0f0f4" }}
                     onClick={() => {
                       setProfileDropdownOpen(false);
-                      navigate(isAdminRoute ? "/admin/settings" : "/settings");
+                      setChangePasswordModalOpen(true);
                     }}
                   >
-                    Settings
+                    Change Password
                   </button>
                   <button
                     type="button"
-                    className="w-full text-left px-3 py-2 text-sm text-red-400/90 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors"
+                    className="w-full text-left px-3 py-2 text-sm rounded-md transition-colors hover:bg-red-500/10"
+                    style={{ color: "#f87171" }}
                     onClick={async () => {
                       setProfileDropdownOpen(false);
                       try {
