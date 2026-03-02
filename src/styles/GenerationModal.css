@@ -341,3 +341,90 @@
 .synapse-gen-modal-btn-danger:hover:not(:disabled) {
   filter: brightness(1.1);
 }
+
+/* ========== fv-modal (inline New Folder / prompt pattern) ========== */
+.fv-modal-backdrop {
+  --bg-raised: #1e1e24;
+  --bg-surface: #17171b;
+  --bg-hover: #25252d;
+  --border-mid: rgba(255, 255, 255, 0.1);
+  --text-primary: #f0f0f4;
+  --text-secondary: #8a8a9a;
+  --green: #00e5a0;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.fv-modal-box {
+  background: var(--bg-raised);
+  border: 1px solid var(--border-mid);
+  border-radius: 16px;
+  padding: 24px;
+  width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+}
+.fv-modal-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+.fv-modal-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.fv-modal-input {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-mid);
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: var(--text-primary);
+  font-size: 13px;
+  width: 100%;
+  outline: none;
+  box-sizing: border-box;
+}
+.fv-modal-input:focus {
+  border-color: var(--green);
+}
+.fv-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+.fv-modal-cancel {
+  background: transparent;
+  border: 1px solid var(--border-mid);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.fv-modal-cancel:hover {
+  background: var(--bg-hover);
+}
+.fv-modal-confirm {
+  background: var(--green);
+  border: none;
+  color: #000;
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 8px 20px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.fv-modal-confirm:hover {
+  opacity: 0.9;
+}
