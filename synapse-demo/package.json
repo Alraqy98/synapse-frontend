@@ -1,0 +1,31 @@
+{
+  "name": "synapse-demo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "remotion studio src/index.tsx",
+    "build": "remotion bundle src/index.tsx",
+    "preview": "remotion preview src/index.tsx",
+    "render": "remotion render src/index.tsx SynapseDemo out/synapse-demo.mp4 --codec h264"
+  },
+  "dependencies": {
+    "@remotion/bundler": "^4.0.200",
+    "@remotion/cli": "^4.0.200",
+    "@remotion/renderer": "^4.0.200",
+    "lucide-react": "^0.576.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^7.13.1",
+    "remotion": "^4.0.200"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.3",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "autoprefixer": "^10.4.27",
+    "postcss": "^8.5.8",
+    "tailwindcss": "^4.2.1",
+    "typescript": "^5.0.0"
+  }
+}

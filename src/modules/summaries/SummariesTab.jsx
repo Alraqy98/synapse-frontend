@@ -58,6 +58,55 @@ const sanitizeErrorMessage = (errorMsg) => {
     return cleaned.trim() || "Invalid import code";
 };
 
+function FolderDropdown({ value, onChange, folders, includeAll = false, allLabel = "All Summaries" }) {
+    const [open, setOpen] = useState(false);
+
+    useEffect(() => {
+        function handleClickOutside() {
+            setOpen(false);
+        }
+        if (open) window.addEventListener("click", handleClickOutside);
+        return () => window.removeEventListener("click", handleClickOutside);
+    }, [open]);
+
+    const selectedLabel = value === "all" ? allLabel : (folders.find((f) => f.id === value)?.name || allLabel);
+
+    return (
+        <div className="relative" onClick={(e) => e.stopPropagation()}>
+            <button
+                type="button"
+                className="px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-sm text-white min-w-[180px] text-left"
+                onClick={() => setOpen((prev) => !prev)}
+            >
+                {selectedLabel}
+            </button>
+            {open && (
+                <div className="absolute left-0 right-0 mt-2 bg-[#0D0F12] border border-white/10 rounded-xl shadow-xl z-50 overflow-hidden">
+                    <div className="p-1 space-y-0.5">
+                        {includeAll && (
+                            <button
+                                className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-white/10"
+                                onClick={() => { onChange("all"); setOpen(false); }}
+                            >
+                                {allLabel}
+                            </button>
+                        )}
+                        {folders.map((folder) => (
+                            <button
+                                key={folder.id}
+                                className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-white/10"
+                                onClick={() => { onChange(folder.id); setOpen(false); }}
+                            >
+                                {folder.name}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 export default function SummariesTab() {
     const navigate = useNavigate();
     const [folders, setFolders] = useState([]);
@@ -76,6 +125,9 @@ export default function SummariesTab() {
     const [failurePopup, setFailurePopup] = useState({ isOpen: false, isProcessing: false, onRetry: null });
     const [showNewFolderModal, setShowNewFolderModal] = useState(false);
     const [folderToDelete, setFolderToDelete] = useState(null);
+    const [folderAssignSummary, setFolderAssignSummary] = useState(null);
+    const [creatingFolder, setCreatingFolder] = useState(false);
+    const [newFolderName, setNewFolderName] = useState("");
 
     const loadFolders = async () => {
         try {
@@ -236,6 +288,47 @@ export default function SummariesTab() {
         // For now, this is UI-only
     };
 
+    const handleCreateFolderForMove = async (name) => {
+        const trimmed = name?.trim();
+        if (!trimmed) return null;
+        try {
+            const created = await apiSummaries.createSummaryFolder(trimmed);
+            if (created?.id) {
+                setFolders((prev) => [...prev, created]);
+                return created;
+            }
+        } catch (err) {
+            console.error(err);
+        }
+        return null;
+    };
+
+    const handleAssignFolder = async (summary, folderId) => {
+        const nextFolderId = folderId === "all" ? null : folderId;
+        const previousFolderId = summary.folder_id ?? summary.summary_folder_id ?? null;
+        setSummaries((prev) =>
+            prev.map((s) =>
+                s.id === summary.id
+                    ? { ...s, folder_id: nextFolderId, summary_folder_id: nextFolderId }
+                    : s
+            )
+        );
+        try {
+            await apiSummaries.updateSummary(summary.id, { folder_id: nextFolderId });
+            setFolderAssignSummary(null);
+            loadSummaries(selectedFolderId ?? null);
+        } catch (err) {
+            console.error(err);
+            setSummaries((prev) =>
+                prev.map((s) =>
+                    s.id === summary.id
+                        ? { ...s, folder_id: previousFolderId, summary_folder_id: previousFolderId }
+                        : s
+                )
+            );
+        }
+    };
+
     const handleExportCode = (id, code) => {
         // Code is generated and shown in modal
         // Store in local state if needed
@@ -335,7 +428,7 @@ export default function SummariesTab() {
                                                 setSummaries((prev) => prev.map((s) => (s.id === id ? { ...s, title: newTitle } : s)));
                                                 handleRename(id, newTitle);
                                             }}
-                                            onMoveToFolder={null}
+                                            onMoveToFolder={() => setFolderAssignSummary(summary)}
                                         />
                                     );
                                 })}
@@ -344,6 +437,81 @@ export default function SummariesTab() {
                     })()}
                 </div>
             </div>
+
+                    {/* ================= ASSIGN FOLDER (Move to folder) ================= */}
+                    {folderAssignSummary && (
+                        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center">
+                            <div className="w-full max-w-md rounded-2xl bg-black border border-white/10 p-6">
+                                <h3 className="text-lg font-semibold text-white mb-2">Move to folder</h3>
+                                <p className="text-sm text-white/50 mb-4">{folderAssignSummary.title}</p>
+                                <FolderDropdown
+                                    allLabel="All Summaries"
+                                    value={folderAssignSummary.folder_id ?? folderAssignSummary.summary_folder_id ?? "all"}
+                                    onChange={(value) => {
+                                        handleAssignFolder(folderAssignSummary, value);
+                                        setFolderAssignSummary(null);
+                                    }}
+                                    folders={folders}
+                                    includeAll
+                                />
+                                <div className="mt-4">
+                                    {!creatingFolder ? (
+                                        <button
+                                            className="text-sm text-teal hover:text-teal-300"
+                                            onClick={() => setCreatingFolder(true)}
+                                        >
+                                            + Create new folder
+                                        </button>
+                                    ) : (
+                                        <input
+                                            autoFocus
+                                            className="w-full px-3 py-2 rounded-md bg-black/40 border border-white/10 text-sm"
+                                            placeholder="Folder name"
+                                            value={newFolderName}
+                                            onChange={(e) => setNewFolderName(e.target.value)}
+                                            onKeyDown={async (e) => {
+                                                if (e.key === "Enter") {
+                                                    e.preventDefault();
+                                                    const created = await handleCreateFolderForMove(newFolderName);
+                                                    if (created?.id) {
+                                                        handleAssignFolder(folderAssignSummary, created.id);
+                                                        setFolderAssignSummary(null);
+                                                    }
+                                                    setCreatingFolder(false);
+                                                    setNewFolderName("");
+                                                }
+                                                if (e.key === "Escape") {
+                                                    setCreatingFolder(false);
+                                                    setNewFolderName("");
+                                                }
+                                            }}
+                                            onBlur={async () => {
+                                                const created = await handleCreateFolderForMove(newFolderName);
+                                                if (created?.id) {
+                                                    handleAssignFolder(folderAssignSummary, created.id);
+                                                    setFolderAssignSummary(null);
+                                                }
+                                                setCreatingFolder(false);
+                                                setNewFolderName("");
+                                            }}
+                                        />
+                                    )}
+                                </div>
+                                <div className="flex justify-end gap-2 mt-6">
+                                    <button
+                                        className="btn btn-secondary"
+                                        onClick={() => {
+                                            setFolderAssignSummary(null);
+                                            setCreatingFolder(false);
+                                            setNewFolderName("");
+                                        }}
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* DELETE CONFIRM */}
                     {confirmDelete && (

@@ -158,6 +158,16 @@ export const getSummaryJobStatus = async (jobId) => {
 };
 
 /**
+ * Update a summary (e.g. folder_id for move to folder)
+ * PATCH /ai/summaries/:id
+ */
+export const updateSummary = async (summaryId, payload) => {
+    if (!summaryId) throw new Error("Summary ID is missing");
+    const res = await api.patch(`/ai/summaries/${summaryId}`, payload);
+    return res.data?.summary ?? res.data;
+};
+
+/**
  * Delete a summary
  * DELETE /ai/summaries/:id
  */
@@ -211,6 +221,7 @@ export const apiSummaries = {
     deleteSummaryFolder,
     generateSummary,
     getSummaryJobStatus,
+    updateSummary,
     deleteSummary,
     shareSummary,
     importSummary,

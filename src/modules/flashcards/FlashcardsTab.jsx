@@ -10,6 +10,7 @@ import {
     getFlashcardFolders,
     createFlashcardFolder,
     updateFlashcardFolder,
+    updateFlashcardDeck,
     deleteDeck,
     deleteFlashcardFolder,
     shareDeck,
@@ -18,6 +19,55 @@ import {
 import { isValidCodeFormat } from "../summaries/utils/summaryCode";
 import { sanitizeErrorMessage } from "../utils/errorSanitizer";
 import { Upload } from "lucide-react";
+
+function FolderDropdown({ value, onChange, folders, includeAll = false, allLabel = "All Decks" }) {
+    const [open, setOpen] = useState(false);
+
+    useEffect(() => {
+        function handleClickOutside() {
+            setOpen(false);
+        }
+        if (open) window.addEventListener("click", handleClickOutside);
+        return () => window.removeEventListener("click", handleClickOutside);
+    }, [open]);
+
+    const selectedLabel = value === "all" ? allLabel : (folders.find((f) => f.id === value)?.name || allLabel);
+
+    return (
+        <div className="relative" onClick={(e) => e.stopPropagation()}>
+            <button
+                type="button"
+                className="px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-sm text-white min-w-[180px] text-left"
+                onClick={() => setOpen((prev) => !prev)}
+            >
+                {selectedLabel}
+            </button>
+            {open && (
+                <div className="absolute left-0 right-0 mt-2 bg-[#0D0F12] border border-white/10 rounded-xl shadow-xl z-50 overflow-hidden">
+                    <div className="p-1 space-y-0.5">
+                        {includeAll && (
+                            <button
+                                className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-white/10"
+                                onClick={() => { onChange("all"); setOpen(false); }}
+                            >
+                                {allLabel}
+                            </button>
+                        )}
+                        {folders.map((folder) => (
+                            <button
+                                key={folder.id}
+                                className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-white/10"
+                                onClick={() => { onChange(folder.id); setOpen(false); }}
+                            >
+                                {folder.name}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
 
 export default function FlashcardsTab({ openDeck }) {
     const [showGenerateModal, setShowGenerateModal] = useState(false);
@@ -34,6 +84,9 @@ export default function FlashcardsTab({ openDeck }) {
     const [isImporting, setIsImporting] = useState(false);
     const [showNewFolderModal, setShowNewFolderModal] = useState(false);
     const [folderToDelete, setFolderToDelete] = useState(null);
+    const [folderAssignDeck, setFolderAssignDeck] = useState(null);
+    const [creatingFolder, setCreatingFolder] = useState(false);
+    const [newFolderName, setNewFolderName] = useState("");
 
     const loadFolders = async () => {
         try {
@@ -107,6 +160,28 @@ export default function FlashcardsTab({ openDeck }) {
             console.error(err);
         }
         return null;
+    };
+
+    const handleAssignFolder = async (deck, folderId) => {
+        const nextFolderId = folderId === "all" ? null : folderId;
+        const previousFolderId = deck.folder_id ?? deck.flashcard_folder_id ?? null;
+        setDecks((prev) =>
+            prev.map((d) =>
+                d.id === deck.id ? { ...d, folder_id: nextFolderId, flashcard_folder_id: nextFolderId } : d
+            )
+        );
+        try {
+            await updateFlashcardDeck(deck.id, { folder_id: nextFolderId });
+            setFolderAssignDeck(null);
+            loadDecks(selectedFolderId ?? null);
+        } catch (err) {
+            console.error(err);
+            setDecks((prev) =>
+                prev.map((d) =>
+                    d.id === deck.id ? { ...d, folder_id: previousFolderId, flashcard_folder_id: previousFolderId } : d
+                )
+            );
+        }
     };
 
     const handleDeleteDeck = async () => {
@@ -237,7 +312,7 @@ export default function FlashcardsTab({ openDeck }) {
                                             onClick={() => openDeck(deck.id)}
                                             onDelete={() => setConfirmDelete({ id: deck.id, title: deck.title })}
                                             onRename={(id, newTitle) => handleRenameDeck(id, newTitle)}
-                                            onMoveToFolder={null}
+                                            onMoveToFolder={() => setFolderAssignDeck(deck)}
                                             shareItem={shareDeck}
                                             itemId={deck.id}
                                             dataDemo={deck.id === "demo-flashcard-ct" ? "flashcard-deck-card" : undefined}
@@ -259,6 +334,81 @@ export default function FlashcardsTab({ openDeck }) {
                         loadDecks(selectedFolderId ?? null);
                     }}
                 />
+            )}
+
+            {/* ================= ASSIGN FOLDER (Move to folder) ================= */}
+            {folderAssignDeck && (
+                <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center">
+                    <div className="w-full max-w-md rounded-2xl bg-black border border-white/10 p-6">
+                        <h3 className="text-lg font-semibold text-white mb-2">Move to folder</h3>
+                        <p className="text-sm text-white/50 mb-4">{folderAssignDeck.title}</p>
+                        <FolderDropdown
+                            allLabel="All Decks"
+                            value={folderAssignDeck.folder_id ?? folderAssignDeck.flashcard_folder_id ?? "all"}
+                            onChange={(value) => {
+                                handleAssignFolder(folderAssignDeck, value);
+                                setFolderAssignDeck(null);
+                            }}
+                            folders={folders}
+                            includeAll
+                        />
+                        <div className="mt-4">
+                            {!creatingFolder ? (
+                                <button
+                                    className="text-sm text-teal hover:text-teal-300"
+                                    onClick={() => setCreatingFolder(true)}
+                                >
+                                    + Create new folder
+                                </button>
+                            ) : (
+                                <input
+                                    autoFocus
+                                    className="w-full px-3 py-2 rounded-md bg-black/40 border border-white/10 text-sm"
+                                    placeholder="Folder name"
+                                    value={newFolderName}
+                                    onChange={(e) => setNewFolderName(e.target.value)}
+                                    onKeyDown={async (e) => {
+                                        if (e.key === "Enter") {
+                                            e.preventDefault();
+                                            const created = await handleCreateFolder(newFolderName);
+                                            if (created?.id) {
+                                                handleAssignFolder(folderAssignDeck, created.id);
+                                                setFolderAssignDeck(null);
+                                            }
+                                            setCreatingFolder(false);
+                                            setNewFolderName("");
+                                        }
+                                        if (e.key === "Escape") {
+                                            setCreatingFolder(false);
+                                            setNewFolderName("");
+                                        }
+                                    }}
+                                    onBlur={async () => {
+                                        const created = await handleCreateFolder(newFolderName);
+                                        if (created?.id) {
+                                            handleAssignFolder(folderAssignDeck, created.id);
+                                            setFolderAssignDeck(null);
+                                        }
+                                        setCreatingFolder(false);
+                                        setNewFolderName("");
+                                    }}
+                                />
+                            )}
+                        </div>
+                        <div className="flex justify-end gap-2 mt-6">
+                            <button
+                                className="btn btn-secondary"
+                                onClick={() => {
+                                    setFolderAssignDeck(null);
+                                    setCreatingFolder(false);
+                                    setNewFolderName("");
+                                }}
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
 
             {confirmDelete && (

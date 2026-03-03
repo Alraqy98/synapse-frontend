@@ -134,6 +134,19 @@ export const getDeck = async (deck_id) => {
 };
 
 // ------------------------------------------------------
+// UPDATE deck (e.g. folder_id for move to folder)
+// ------------------------------------------------------
+export const updateFlashcardDeck = async (deck_id, payload) => {
+    if (!deck_id) throw new Error("Deck ID is missing (updateFlashcardDeck)");
+    const res = await axios.patch(
+        `${API_BASE}/flashcards/decks/${deck_id}`,
+        payload,
+        { headers: authHeaders() }
+    );
+    return res.data?.deck || res.data;
+};
+
+// ------------------------------------------------------
 // DELETE deck
 // ------------------------------------------------------
 export const deleteDeck = async (deck_id) => {
