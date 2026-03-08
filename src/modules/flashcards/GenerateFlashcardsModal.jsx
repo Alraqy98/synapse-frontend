@@ -6,6 +6,7 @@ import React, { useEffect, useState } from "react";
 import { generateFlashcards } from "./apiFlashcards";
 import { getLibraryItems, getItemById, prepareFile } from "../Library/apiLibrary";
 import { Check, ChevronDown } from "lucide-react";
+import { useNotification } from "../../context/NotificationContext";
 import "../../styles/GenerationModal.css";
 
 // ===============================================================
@@ -74,6 +75,7 @@ export default function GenerateFlashcardsModal({
     onCreated,
     presetFileId = null,
 }) {
+    const { success, error } = useNotification();
     if (!open) return null;
     const [title, setTitle] = useState("");
     const [mode, setMode] = useState("turbo");
@@ -303,9 +305,14 @@ export default function GenerateFlashcardsModal({
     // SUBMIT — BACKGROUND GENERATION (non-blocking)
     // --------------------------------------------------------------
     async function handleSubmit() {
-        if (!title.trim()) return alert("Enter deck name.");
-        if (selectedFiles.length === 0)
-            return alert("Select at least one file.");
+        if (!title.trim()) {
+            error("Enter deck name.");
+            return;
+        }
+        if (selectedFiles.length === 0) {
+            error("Select at least one file.");
+            return;
+        }
 
 
         const badIds = selectedFiles.filter((id) => !looksLikeUuid(id));
@@ -340,19 +347,15 @@ export default function GenerateFlashcardsModal({
 
             console.log("⚡ Flashcard generation started in background:", deck);
 
-            // 🔥 CLOSE MODAL IMMEDIATELY — user continues using Synapse
+            success("Flashcards created");
             onCreated(deck);
             onClose();
-
-            // Optional: show notification if you use toast
-            // toast.info("Flashcards are generating in the background…");
-
         } catch (err) {
             console.error("❌ Flashcard generation failed:", err);
             if (err.code === "FILE_NOT_READY" || err.message?.includes("Preparing content")) {
                 setFileNotReadyMessage(err.message || "Preparing content. This usually takes a few seconds.");
             } else {
-                alert("Flashcard generation failed.");
+                error("Generation failed. Please try again.");
             }
         } finally {
             setSubmitting(false);

@@ -78,6 +78,8 @@ import ReinforcementSession from "./modules/analytics/ReinforcementSession";
 // COMPONENTS
 import SidebarItem from "./components/SidebarItem";
 import ErrorBoundary from "./components/ErrorBoundary";
+import BannerNotification from "./components/BannerNotification";
+import { NotificationProvider, useNotification } from "./context/NotificationContext";
 import { DemoProvider, useDemo } from "./modules/demo/DemoContext";
 import DemoOverlay from "./modules/demo/DemoOverlay";
 import { demoApiIntercept } from "./modules/demo/demoApiRuntime";
@@ -215,6 +217,8 @@ const SynapseOS = () => {
   const profileDropdownRef = useRef(null);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [changePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
+
+  const { notifications: bannerNotifications, removeNotification: removeBannerNotification } = useNotification();
 
   // Notifications state - empty initial state, fetched from backend only
   const [notifications, setNotifications] = useState([]);
@@ -1058,6 +1062,10 @@ const SynapseOS = () => {
       <Sidebar />
 
       <main className="flex-1 ml-16 flex flex-col h-full overflow-y-auto relative">
+        <BannerNotification
+          notifications={bannerNotifications}
+          onDismiss={removeBannerNotification}
+        />
         {/* CONTENT */}
         <div className="flex-1 flex flex-col overflow-hidden relative">
           <ErrorBoundary>
@@ -1305,9 +1313,11 @@ const SynapseOS = () => {
 
 export default function App() {
   return (
-    <DemoProvider>
-      <SynapseOS />
-      <DemoOverlay />
-    </DemoProvider>
+    <NotificationProvider>
+      <DemoProvider>
+        <SynapseOS />
+        <DemoOverlay />
+      </DemoProvider>
+    </NotificationProvider>
   );
 }

@@ -1,38 +1,37 @@
 // src/modules/admin/pages/AdminNotifications.jsx
 import React, { useState } from "react";
 import { sendAdminNotification } from "../apiAdmin";
+import { useNotification } from "../../../context/NotificationContext";
 
 const AdminNotifications = () => {
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  const [statusMessage, setStatusMessage] = useState(null);
+  const { success, error } = useNotification();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validate required fields
     const trimmedTitle = title.trim();
     const trimmedMessage = message.trim();
 
     if (!trimmedTitle) {
-      setStatusMessage({ type: "error", text: "Title is required" });
+      error("Title is required");
       return;
     }
 
     if (!trimmedMessage) {
-      setStatusMessage({ type: "error", text: "Message is required" });
+      error("Message is required");
       return;
     }
 
     if (trimmedTitle.length > 120) {
-      setStatusMessage({ type: "error", text: "Title must be 120 characters or less" });
+      error("Title must be 120 characters or less");
       return;
     }
 
     try {
       setLoading(true);
-      setStatusMessage(null);
 
       await sendAdminNotification({
         type: "admin",
@@ -41,17 +40,12 @@ const AdminNotifications = () => {
         userIds: "all",
       });
 
-      // Success: show message and clear form
-      setStatusMessage({ type: "success", text: "Notification sent successfully" });
+      success("Notification sent");
       setTitle("");
       setMessage("");
     } catch (err) {
       console.error("Failed to send notification:", err);
-      setStatusMessage({
-        type: "error",
-        text: err.response?.data?.error || err.message || "Failed to send notification",
-      });
-      // Do NOT clear form on error
+      error("Failed to send notification. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -69,7 +63,6 @@ const AdminNotifications = () => {
 
         <div className="rounded-2xl border border-white/10 bg-black/40 p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Title Input */}
             <div>
               <label className="block text-sm font-medium text-white mb-2">
                 Title <span className="text-red-400">*</span>
@@ -77,10 +70,7 @@ const AdminNotifications = () => {
               <input
                 type="text"
                 value={title}
-                onChange={(e) => {
-                  setTitle(e.target.value);
-                  setStatusMessage(null); // Clear error when user types
-                }}
+                onChange={(e) => setTitle(e.target.value)}
                 maxLength={120}
                 className="w-full px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white placeholder-muted focus:outline-none focus:border-teal/50"
                 placeholder="Notification title"
@@ -92,17 +82,13 @@ const AdminNotifications = () => {
               </div>
             </div>
 
-            {/* Message Textarea */}
             <div>
               <label className="block text-sm font-medium text-white mb-2">
                 Message <span className="text-red-400">*</span>
               </label>
               <textarea
                 value={message}
-                onChange={(e) => {
-                  setMessage(e.target.value);
-                  setStatusMessage(null); // Clear error when user types
-                }}
+                onChange={(e) => setMessage(e.target.value)}
                 rows={6}
                 className="w-full px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white placeholder-muted focus:outline-none focus:border-teal/50 resize-none"
                 placeholder="Notification message"
@@ -111,27 +97,12 @@ const AdminNotifications = () => {
               />
             </div>
 
-            {/* Info Text */}
             <div className="p-3 rounded-xl bg-white/5 border border-white/5">
               <p className="text-sm text-muted">
                 This notification will be sent to all users.
               </p>
             </div>
 
-            {/* Status Message */}
-            {statusMessage && (
-              <div
-                className={`p-3 rounded-xl ${
-                  statusMessage.type === "success"
-                    ? "bg-teal/20 border border-teal/30 text-teal"
-                    : "bg-red-500/20 border border-red-500/30 text-red-400"
-                }`}
-              >
-                <div className="text-sm">{statusMessage.text}</div>
-              </div>
-            )}
-
-            {/* Submit Button */}
             <div className="flex justify-end">
               <button
                 type="submit"

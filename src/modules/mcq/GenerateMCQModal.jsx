@@ -6,6 +6,7 @@ import React, { useState, useEffect } from "react";
 import { apiMCQ } from "./apiMCQ";
 import { getLibraryItems, getItemById, prepareFile } from "../Library/apiLibrary";
 import { ChevronDown, Check } from "lucide-react";
+import { useNotification } from "../../context/NotificationContext";
 import "../../styles/GenerationModal.css";
 
 // ------------------------------------------------------------
@@ -142,6 +143,7 @@ export default function GenerateMCQModal({
     presetFileId = null,
     folders: initialFolders = [],
 }) {
+    const { success, error } = useNotification();
     if (!open) return null;
 
     const [title, setTitle] = useState("");
@@ -423,8 +425,14 @@ export default function GenerateMCQModal({
     // Submit → Create MCQ Deck
     // ------------------------------------------------------------
     async function handleSubmit() {
-        if (!title.trim()) return alert("Enter deck title.");
-        if (selectedFiles.length === 0) return alert("Select at least one file.");
+        if (!title.trim()) {
+            error("Enter deck title.");
+            return;
+        }
+        if (selectedFiles.length === 0) {
+            error("Select at least one file.");
+            return;
+        }
 
 
         const invalid = selectedFiles.filter(id => !looksLikeUuid(id));
@@ -454,6 +462,7 @@ export default function GenerateMCQModal({
 
             // Proceed with generation (atomic operation)
             await apiMCQ.createMCQDeck(payload);
+            success("MCQ deck created");
             onCreated();
             onClose();
         } catch (err) {
@@ -461,7 +470,7 @@ export default function GenerateMCQModal({
             if (err.code === "FILE_NOT_READY" || err.message?.includes("Preparing content")) {
                 setFileNotReadyMessage(err.message || "Preparing content. This usually takes a few seconds.");
             } else {
-                alert("MCQ generation failed.");
+                error("Generation failed. Please try again.");
             }
         } finally {
             setSubmitting(false);

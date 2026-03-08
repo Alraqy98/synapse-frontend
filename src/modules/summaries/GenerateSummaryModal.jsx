@@ -4,6 +4,7 @@ import { apiSummaries } from "./apiSummaries";
 import { getLibraryItems, getItemById, prepareFile } from "../Library/apiLibrary";
 import { ChevronDown, Check } from "lucide-react";
 import SummaryFailurePopup from "../../components/SummaryFailurePopup";
+import { useNotification } from "../../context/NotificationContext";
 import "../../styles/GenerationModal.css";
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -88,6 +89,7 @@ export default function GenerateSummaryModal({
     onCreated,
     presetFileId = null,
 }) {
+    const { success, error } = useNotification();
     if (!open) return null;
 
     const [title, setTitle] = useState("");
@@ -273,10 +275,12 @@ export default function GenerateSummaryModal({
 
     async function handleSubmit() {
         if (!title.trim()) {
-            return alert("Enter summary title.");
+            error("Enter summary title.");
+            return;
         }
         if (!selectedFileId) {
-            return alert("Please select a file.");
+            error("Please select a file.");
+            return;
         }
 
         if (!looksLikeUuid(selectedFileId)) {
@@ -310,6 +314,7 @@ export default function GenerateSummaryModal({
             const result = await apiSummaries.generateSummary(payload);
             
             if (result?.jobId) {
+                success("Summary created");
                 onCreated({ jobId: result.jobId, title: title.trim(), file_name: selectedFileName });
                 onClose();
             } else {
@@ -317,19 +322,15 @@ export default function GenerateSummaryModal({
             }
         } catch (err) {
             console.error("Summary generation error:", err);
-            
-            // Fail loudly if route is wrong
+            error("Generation failed. Please try again.");
             if (err.code === "ROUTE_NOT_FOUND" || err.status === 404) {
                 const errorMsg = err.message || "Summary generation endpoint not found. Please check backend configuration.";
                 setErrorMessage(errorMsg);
-                // Show failure popup for route errors
                 setFailurePopup({ isOpen: true, isProcessing: false });
             } else if (err.code === "FILE_NOT_READY" || err.message?.includes("Preparing content")) {
-                // File is still processing - show "Still preparing" popup
                 setFailurePopup({ isOpen: true, isProcessing: true });
                 setErrorMessage(err.message || "Preparing content. This usually takes a few seconds.");
             } else {
-                // Actual failure - show failure popup
                 const errorMsg = err.response?.data?.error || err.message || "Summary generation failed.";
                 setErrorMessage(errorMsg);
                 setFailurePopup({ isOpen: true, isProcessing: false });

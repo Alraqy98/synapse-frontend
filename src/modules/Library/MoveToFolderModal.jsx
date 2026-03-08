@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { X, Folder, ArrowUpLeft } from "lucide-react";
 import { getAllFolders, moveToFolder } from "./apiLibrary";
+import { useNotification } from "../../context/NotificationContext";
 
 /* ------------------------------------------------------
    Fallback pastel color (used only if color missing)
@@ -63,6 +64,7 @@ const MoveToFolderModal = ({ item, items, onClose, onSuccess }) => {
     const [folders, setFolders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedFolder, setSelectedFolder] = useState(null); // null = root
+    const { success, error } = useNotification();
 
     const isBulk = item?.isBulk === true;
     const itemIds = isBulk ? (item?.ids || []) : [item?.id || item || null].filter(Boolean);
@@ -95,7 +97,7 @@ const MoveToFolderModal = ({ item, items, onClose, onSuccess }) => {
                 setFolders(withDepth);
             } catch (err) {
                 console.error("Failed loading folders:", err);
-                alert("Failed loading folders");
+                error("Failed to load folders");
             } finally {
                 setLoading(false);
             }
@@ -106,21 +108,20 @@ const MoveToFolderModal = ({ item, items, onClose, onSuccess }) => {
     const handleSubmit = async () => {
         try {
             if (isBulk) {
-                // Bulk move handled by parent
-                // selectedFolder can be null (root) or a folder ID string
-                // Pass null explicitly for root, or the folder ID string
                 onSuccess?.(selectedFolder ?? null);
             } else {
                 if (!item?.id) {
-                    alert("Invalid item");
+                    error("Invalid item");
                     return;
                 }
                 await moveToFolder(item.id, selectedFolder ?? null);
+                const folderName = selectedFolder == null ? "root" : (folders.find((f) => f.id === selectedFolder)?.title || "folder");
+                success(`File moved to ${folderName}`);
                 onSuccess?.();
             }
         } catch (err) {
             console.error("Move failed:", err);
-            alert("Failed to move item");
+            error("Failed to move file");
         }
     };
 

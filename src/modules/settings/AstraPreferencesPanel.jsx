@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import Select from "../../components/Select";
+import { useNotification } from "../../context/NotificationContext";
 
 const STORAGE_KEY = "astra_preferences";
 
@@ -24,6 +25,7 @@ const AstraPreferencesPanel = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const isDirtyRef = useRef(false);
+    const { success, error } = useNotification();
 
     // Check if draft differs from saved
     const isDirty = !areEqual(savedPreferences, draftPreferences);
@@ -100,10 +102,8 @@ const AstraPreferencesPanel = () => {
     const handleSave = async () => {
         setIsSaving(true);
         try {
-            // Save to localStorage
             localStorage.setItem(STORAGE_KEY, JSON.stringify(draftPreferences));
 
-            // Try to save to Supabase profiles table (if available)
             try {
                 const { data: { user } } = await supabase.auth.getUser();
                 if (user) {
@@ -113,14 +113,14 @@ const AstraPreferencesPanel = () => {
                         .eq("id", user.id);
                 }
             } catch (err) {
-                // Silently fail - localStorage is the fallback
                 console.warn("Failed to save preferences to Supabase:", err);
             }
 
-            // Update saved preferences
             setSavedPreferences(draftPreferences);
+            success("Preferences updated");
         } catch (err) {
             console.error("Failed to save preferences:", err);
+            error("Failed to update preferences. Please try again.");
         } finally {
             setIsSaving(false);
         }

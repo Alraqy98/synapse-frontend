@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 
+import { useNotification } from "../../context/NotificationContext";
 import LibraryFilters from "./LibraryFilters";
 import LibraryGrid from "./LibraryGrid";
 import LibraryUploadModal from "./LibraryUploadModal";
@@ -36,7 +37,8 @@ const LibraryPage = () => {
     const { folderSlug, parentSlug, childSlug } = useParams();
     const navigate = useNavigate();
     const location = useLocation();
-    
+    const { success, error } = useNotification();
+
     const [items, setItems] = useState([]);
     const [activeFilter, setActiveFilter] = useState("All");
 
@@ -495,26 +497,24 @@ const LibraryPage = () => {
                 if (failCount > 0) {
                     const failedItems = items.filter(item => result.failed_ids?.includes(item.id));
                     const failedNames = failedItems.map(i => i.title).join(', ');
-                    alert(`${successCount} deleted, ${failCount} failed: ${failedNames}`);
-                    // Keep failed items selected
+                    error(`${successCount} deleted, ${failCount} failed: ${failedNames}`);
                 } else {
-                    // Clear selection if all succeeded
                     if (successCount === ids.length) {
                         setSelectedIds(new Set());
                         setSelectionMode(false);
                     }
+                    success(successCount === 1 ? "File deleted" : "Files deleted");
                 }
-                
-                // Reload to ensure consistency
                 await loadItems(activeFilter, currentFolder?.id || null);
             } else {
                 await deleteItem(deleteTarget);
                 await loadItems(activeFilter, currentFolder?.id || null);
+                success("File deleted");
             }
             setDeleteTarget(null);
         } catch (err) {
             console.error("Delete failed:", err);
-            alert(isBulk ? "Failed to delete some items" : "Failed to delete");
+            error(isBulk ? "Failed to delete some items" : "Failed to delete");
             setDeleteTarget(null);
         }
     };
@@ -526,8 +526,9 @@ const LibraryPage = () => {
         try {
             await moveItem(id, newCategory);
             await loadItems(activeFilter, currentFolder?.id || null);
+            success("File moved");
         } catch {
-            alert("Failed to move file");
+            error("Failed to move file");
         }
     };
 
@@ -543,16 +544,14 @@ const LibraryPage = () => {
         
         // Validate folderId is provided (null is valid for root)
         if (folderId === undefined) {
-            alert("Please select a destination");
+            error("Please select a destination");
             return;
         }
-        
         const ids = moveTarget?.ids || [];
         if (ids.length === 0) {
-            alert("No items selected");
+            error("No items selected");
             return;
         }
-        
         try {
             // folderId can be null (root) or a string (folder ID)
             const result = await bulkMoveItems(ids, folderId);
@@ -574,25 +573,22 @@ const LibraryPage = () => {
                 return next;
             });
             
-            // Show feedback
             if (failCount > 0) {
                 const failedItems = items.filter(item => result.failed_ids?.includes(item.id));
                 const failedNames = failedItems.map(i => i.title).join(', ');
-                alert(`${successCount} moved, ${failCount} failed: ${failedNames}`);
+                error(`${successCount} moved, ${failCount} failed: ${failedNames}`);
             } else {
-                // Clear selection if all succeeded
                 if (successCount === ids.length) {
                     setSelectedIds(new Set());
                     setSelectionMode(false);
                 }
+                success(successCount === 1 ? "File moved" : "Files moved");
             }
-            
-            // Reload to ensure consistency
             await loadItems(activeFilter, currentFolder?.id || null);
             setMoveTarget(null);
         } catch (err) {
             console.error("Bulk move failed:", err);
-            alert("Failed to move some items");
+            error("Failed to move some items");
             setMoveTarget(null);
         }
     };
@@ -659,13 +655,12 @@ const LibraryPage = () => {
                 parent_id ?? currentFolder?.id ?? null,
                 color
             );
-
             await loadItems(activeFilter, currentFolder?.id || null);
+            success("Folder created");
         } catch (err) {
             console.error(err);
-            alert("Failed to create folder");
+            error("Failed to create folder");
         }
-
         setShowFolderModal(false);
     };
 
@@ -734,20 +729,24 @@ const LibraryPage = () => {
         
         // Upload each file using the same upload logic as the modal
         // Use default category "Lecture" (same as modal default)
+        let successCount = 0;
+        let failCount = 0;
         const uploadPromises = fileList.map(async (file) => {
             try {
                 await uploadLibraryFile(file, "Lecture", parentFolderId);
-            } catch (error) {
-                console.error(`Failed to upload ${file.name}:`, error);
-                // Show error for failed uploads
-                alert(`Failed to upload ${file.name}: ${error.message || 'Unknown error'}`);
+                successCount++;
+            } catch (err) {
+                console.error(`Failed to upload ${file.name}:`, err);
+                failCount++;
             }
         });
-        
-        // Wait for all uploads to complete
         await Promise.allSettled(uploadPromises);
-        
-        // Reload library items to show newly uploaded files
+        if (successCount > 0) {
+            success(successCount === 1 ? "File uploaded successfully" : "Files uploaded successfully");
+        }
+        if (failCount > 0) {
+            error("Upload failed. Please try again.");
+        }
         await loadItems(activeFilter, currentFolder?.id || null);
     };
 
@@ -854,7 +853,7 @@ const LibraryPage = () => {
                             <button
                                 onClick={() => {
                                     if (selectionContainsFolders()) {
-                                        alert("Folders are not supported yet for bulk actions.");
+                                        error("Folders are not supported yet for bulk actions.");
                                         return;
                                     }
                                     setMoveTarget({ ids: Array.from(selectedIds), isBulk: true });
@@ -866,7 +865,7 @@ const LibraryPage = () => {
                             <button
                                 onClick={() => {
                                     if (selectionContainsFolders()) {
-                                        alert("Folders are not supported yet for bulk actions.");
+                                        error("Folders are not supported yet for bulk actions.");
                                         return;
                                     }
                                     setDeleteTarget({ ids: Array.from(selectedIds), isBulk: true });
