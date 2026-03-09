@@ -218,11 +218,13 @@ const SynapseOS = () => {
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [changePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
 
-  const { notifications: bannerNotifications, removeNotification: removeBannerNotification } = useNotification();
+  const { notifications: bannerNotifications, removeNotification: removeBannerNotification, success: bannerSuccess, info: bannerInfo } = useNotification();
 
   // Notifications state - empty initial state, fetched from backend only
   const [notifications, setNotifications] = useState([]);
   const [selectedNotification, setSelectedNotification] = useState(null);
+  // Track which notification IDs have already been shown as banners (avoid duplicate banners on poll)
+  const [shownBannerIds, setShownBannerIds] = useState(() => new Set());
 
   // Filter to only unread notifications for UI display
   const unreadNotifications = notifications.filter((n) => !n.read);
@@ -341,6 +343,13 @@ const SynapseOS = () => {
           summaryId: normalizeId(n.summary_id),
           mcqDeckId: normalizeId(n.mcq_deck_id),
           flashcardDeckId: normalizeId(n.flashcard_deck_id),
+
+          // optional names for banner messages (if backend sends them)
+          file_name: n.file_name ?? null,
+          summary_name: n.summary_name ?? null,
+          mcq_name: n.mcq_name ?? null,
+          flashcards_name: n.flashcards_name ?? null,
+          message: n.message ?? null,
         };
       });
       
@@ -352,6 +361,44 @@ const SynapseOS = () => {
       setNotifications([]);
     }
   };
+
+  // Backend notification → banner: show success/info for new notifications (no duplicate on poll)
+  useEffect(() => {
+    const newOnes = notifications.filter((n) => !shownBannerIds.has(n.id));
+    if (newOnes.length === 0) return;
+
+    const getMessage = (n) => n.description || n.title || n.message || "Notification";
+
+    newOnes.forEach((n) => {
+      switch (n.type) {
+        case "file_processing_completed":
+          bannerSuccess(`File processing completed: ${n.file_name || n.title || "File"}`);
+          break;
+        case "summary_completed":
+          bannerSuccess(`Summary created: ${n.summary_name || n.title || "Summary"}`);
+          break;
+        case "mcq_completed":
+          bannerSuccess(`MCQ deck created: ${n.mcq_name || n.title || "MCQ deck"}`);
+          break;
+        case "flashcards_completed":
+        case "flashcard_completed":
+          bannerSuccess(`Flashcards created: ${n.flashcards_name || n.title || "Flashcards"}`);
+          break;
+        case "admin":
+          bannerInfo(getMessage(n));
+          break;
+        default:
+          bannerInfo(getMessage(n));
+          break;
+      }
+    });
+
+    setShownBannerIds((prev) => {
+      const next = new Set(prev);
+      newOnes.forEach((n) => next.add(n.id));
+      return next;
+    });
+  }, [notifications, bannerSuccess, bannerInfo]);
 
   // Mark notification as read (acknowledged)
   const markNotificationAsRead = async (notificationId) => {
