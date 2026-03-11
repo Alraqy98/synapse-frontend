@@ -143,7 +143,7 @@ export default function GenerateMCQModal({
     presetFileId = null,
     folders: initialFolders = [],
 }) {
-    const { success, error } = useNotification();
+    const { success, error, info } = useNotification();
     if (!open) return null;
 
     const [title, setTitle] = useState("");
@@ -469,6 +469,12 @@ export default function GenerateMCQModal({
             console.error("MCQ creation error:", err);
             if (err.code === "FILE_NOT_READY" || err.message?.includes("Preparing content")) {
                 setFileNotReadyMessage(err.message || "Preparing content. This usually takes a few seconds.");
+            } else if (
+                err.response?.status === 409 &&
+                err.response?.data?.error === "FILES_STILL_PROCESSING"
+            ) {
+                // Timing issue: files are still being processed (not a hard failure)
+                info("Your file is still being processed. Please wait a moment and try again.");
             } else {
                 error("Generation failed. Please try again.");
             }
