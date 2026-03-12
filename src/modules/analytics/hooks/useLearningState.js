@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import api from "../../../lib/api";
 
+// Polling configuration for learning state computation
+const POLL_INTERVAL_MS = 3000;   // retry every 3 seconds
+const MAX_POLL_TIME_MS = 60000;  // give up after 60 seconds
+
 /**
  * Custom hook to fetch learning state data from backend with snapshot-first + async support
  * @param {object} options - Hook options
@@ -68,7 +72,10 @@ export default function useLearningState(options = {}) {
       }
 
       // ACTIVE MODE: Check for pending and poll if needed
-      const isPending = response.status === 202 || response.data?.data?.status === "pending";
+      const isPending =
+        response.status === 202 ||
+        response.data?.data?.status === "pending" ||
+        response.data?.status === "pending";
 
       if (isPending) {
         // Start polling if not already polling
@@ -82,12 +89,15 @@ export default function useLearningState(options = {}) {
             setData(null);
           }
           pollStartTimeRef.current = Date.now();
-          startPolling(1000); // Start with 1 second delay
+          startPolling(POLL_INTERVAL_MS);
         } else {
           if (thisFetchId !== fetchIdRef.current) return;
           // Continue polling - check if we've exceeded timeout
+          if (!pollStartTimeRef.current) {
+            pollStartTimeRef.current = Date.now();
+          }
           const elapsed = Date.now() - pollStartTimeRef.current;
-          if (elapsed > 60000) {
+          if (elapsed > MAX_POLL_TIME_MS) {
             // 60 seconds elapsed, stop polling
             setStatus("error");
             setError("Learning state computation timed out. Please try refreshing.");
@@ -95,9 +105,8 @@ export default function useLearningState(options = {}) {
             setIsUpdating(false);
             return;
           }
-          // Continue polling with exponential backoff
-          const nextDelay = Math.min(getCurrentDelay() * 2, 10000); // Max 10 seconds
-          startPolling(nextDelay);
+          // Continue polling with fixed interval
+          startPolling(POLL_INTERVAL_MS);
         }
       } else {
         // Successfully got data — cancel any scheduled poll so we don't overwrite with a later 202
@@ -124,17 +133,6 @@ export default function useLearningState(options = {}) {
       setIsUpdating(false);
     }
   }, [passive, sort]);
-
-  const getCurrentDelay = () => {
-    if (!pollStartTimeRef.current) return 1000;
-    const elapsed = Date.now() - pollStartTimeRef.current;
-    // Exponential backoff: 1s, 2s, 4s, 8s, 10s (max)
-    if (elapsed < 1000) return 1000;
-    if (elapsed < 3000) return 2000;
-    if (elapsed < 7000) return 4000;
-    if (elapsed < 15000) return 8000;
-    return 10000;
-  };
 
   const startPolling = (delay) => {
     // Clear any existing timeout
