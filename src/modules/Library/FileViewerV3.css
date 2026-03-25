@@ -180,7 +180,7 @@
 
 .file-viewer-v3 .thumb-strip.collapsed .thumb-list,
 .file-viewer-v3 .thumb-strip.collapsed .thumb-header-content,
-.file-viewer-v3 .thumb-strip.collapsed .thumb-file-row {
+.file-viewer-v3 .thumb-strip.collapsed .thumb-file-name {
   display: none;
 }
 
@@ -256,33 +256,13 @@
   padding: 0;
 }
 
+.file-viewer-v3 .thumb-strip.collapsed .thumb-file-row {
+  justify-content: center;
+  width: 100%;
+}
+
 .file-viewer-v3 .thumb-strip.collapsed .thumb-top-title {
   display: none;
-}
-
-.file-viewer-v3 .collapse-btn {
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s;
-  flex-shrink: 0;
-}
-
-.file-viewer-v3 .collapse-btn:hover {
-  background: var(--bg-hover);
-  color: var(--text-secondary);
-}
-
-.file-viewer-v3 .collapse-btn svg {
-  width: 11px;
-  height: 11px;
 }
 
 .file-viewer-v3 .thumb-header-content {

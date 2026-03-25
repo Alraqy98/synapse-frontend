@@ -620,18 +620,21 @@ export default function FileViewerV3({
       <aside className={`thumb-strip ${thumbCollapsed ? "collapsed" : ""}`}>
         <div className="thumb-top">
           <div className="thumb-file-row">
-            <button type="button" className="thumb-back" onClick={onBack} aria-label="Back to library">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6" /></svg>
+            <button
+              type="button"
+              className="thumb-back"
+              onClick={() => setThumbCollapsed((c) => !c)}
+              title={thumbCollapsed ? "Expand" : "Collapse"}
+              aria-label={thumbCollapsed ? "Expand thumbnails" : "Collapse thumbnails"}
+            >
+              {thumbCollapsed ? (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
+              ) : (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6" /></svg>
+              )}
             </button>
             <div className="thumb-file-name" title={title}>{title}</div>
           </div>
-          <button type="button" className="collapse-btn" onClick={() => setThumbCollapsed((c) => !c)} title={thumbCollapsed ? "Expand" : "Collapse"} aria-label={thumbCollapsed ? "Expand" : "Collapse"}>
-            {thumbCollapsed ? (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
-            ) : (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6" /></svg>
-            )}
-          </button>
         </div>
         <div className="thumb-header-content">
           <div className="thumb-progress">
