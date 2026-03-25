@@ -48,7 +48,7 @@ export default function useLearningState(options = {}) {
         setError(null);
       }
 
-      const params = sort ? { sort } : {};
+      const params = sort ? { sort, scheduled: "true" } : { scheduled: "true" };
       const response = await api.get("/api/learning/state", { params });
       console.log("[RAW API RESPONSE]", JSON.stringify(response.data, null, 2));
 
