@@ -3,7 +3,6 @@ import RevealWrapper from "./RevealWrapper";
 
 export default function LandingPricing({ onSignup, isFoundingMember = false }) {
   const [isAnnual, setIsAnnual] = useState(false);
-  const [examModeOpen, setExamModeOpen] = useState(true);
 
   return (
     <section className="pricing-section py-[120px]" id="pricing">
@@ -114,9 +113,9 @@ export default function LandingPricing({ onSignup, isFoundingMember = false }) {
           </div>
         </RevealWrapper>
 
-        <div className="pricing-grid grid grid-cols-1 md:grid-cols-3 gap-5 items-start max-w-[900px] mx-auto md:max-w-none">
-          <RevealWrapper>
-            <div className="pricing-card free p-8 bg-[rgba(13,15,18,0.9)] border border-[var(--border)] rounded-[20px] relative overflow-hidden">
+        <div className="pricing-grid landing-pricing-grid max-w-[1100px] mx-auto">
+          <RevealWrapper className="h-full">
+            <div className="pricing-card free p-8 bg-[rgba(13,15,18,0.9)] border border-[var(--border)] rounded-[20px] relative overflow-hidden h-full flex flex-col">
               <div className="pricing-name text-base font-bold mb-2">Explorer</div>
               <div className="pricing-price font-serif text-[40px] leading-none mb-1">
                 <span className="text-lg opacity-50">$</span>0
@@ -163,15 +162,15 @@ export default function LandingPricing({ onSignup, isFoundingMember = false }) {
               <button
                 type="button"
                 onClick={onSignup}
-                className="pricing-cta cta-free w-full py-3 px-4 rounded-xl font-sans text-sm font-bold text-center mt-6 block bg-white/[0.05] border border-white/[0.09] text-[var(--muted)] transition-colors hover:bg-white/[0.09] hover:text-[var(--text)] cursor-pointer"
+                className="pricing-cta cta-free w-full py-3 px-4 rounded-xl font-sans text-sm font-bold text-center mt-auto block bg-white/[0.05] border border-white/[0.09] text-[var(--muted)] transition-colors hover:bg-white/[0.09] hover:text-[var(--text)] cursor-pointer"
               >
                 Start free
               </button>
             </div>
           </RevealWrapper>
 
-          <RevealWrapper style={{ transitionDelay: "0.1s" }}>
-            <div className="pricing-card pro p-8 rounded-[20px] relative overflow-hidden border border-[rgba(0,200,180,0.25)] bg-[rgba(13,20,18,0.95)] shadow-[0_0_40px_rgba(0,200,180,0.07)]">
+          <RevealWrapper className="h-full" style={{ transitionDelay: "0.1s" }}>
+            <div className="pricing-card pro p-8 rounded-[20px] relative overflow-hidden border border-[rgba(0,200,180,0.25)] bg-[rgba(13,20,18,0.95)] shadow-[0_0_40px_rgba(0,200,180,0.07)] h-full flex flex-col">
               <div
                 className="absolute top-0 left-0 right-0 h-0.5"
                 style={{ background: "linear-gradient(90deg, transparent, var(--teal), transparent)" }}
@@ -236,7 +235,7 @@ export default function LandingPricing({ onSignup, isFoundingMember = false }) {
               <button
                 type="button"
                 onClick={onSignup}
-                className="pricing-cta cta-pro w-full py-3.5 px-4 rounded-xl font-sans text-sm font-bold text-center mt-6 block border-0 text-[var(--void)] cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_6px_24px_rgba(0,200,180,0.4)]"
+                className="pricing-cta cta-pro w-full py-3.5 px-4 rounded-xl font-sans text-sm font-bold text-center mt-auto block border-0 text-[var(--void)] cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_6px_24px_rgba(0,200,180,0.4)]"
                 style={{ background: "linear-gradient(135deg, var(--teal), var(--teal-neon))" }}
               >
                 Lock in early access rate →
@@ -244,77 +243,48 @@ export default function LandingPricing({ onSignup, isFoundingMember = false }) {
             </div>
           </RevealWrapper>
 
-          <RevealWrapper style={{ transitionDelay: "0.2s" }}>
-            <div className="pricing-card team p-8 bg-[rgba(13,13,18,0.9)] border border-[rgba(63,124,255,0.18)] rounded-[20px] relative overflow-hidden">
-              <div className="pricing-badge badge-team font-mono text-[9px] tracking-[0.12em] uppercase inline-block py-1 px-2.5 rounded-full mb-5 bg-[rgba(63,124,255,0.08)] border border-[rgba(63,124,255,0.18)] text-[var(--blue)]">
-                COMING SOON
+          <RevealWrapper className="h-full" style={{ transitionDelay: "0.2s" }}>
+            <div className="pricing-card exam-mode-card flex flex-col h-full min-h-0 p-8 rounded-[20px] relative overflow-hidden border bg-[rgba(13,15,18,0.9)] border-[rgba(0,200,180,0.3)]">
+              <div className="exam-mode-card-header flex flex-col gap-1 mb-2">
+                <div className="pricing-name text-base font-bold text-[var(--text)]">Exam Mode</div>
+                <div className="text-sm text-[var(--muted)]">Free unlock</div>
               </div>
-              <div className="pricing-name text-base font-bold mb-2">Team</div>
-              <div className="pricing-price font-sans text-[28px] font-bold mb-1">Custom</div>
-              <div className="pricing-billing text-xs text-[var(--muted)] mb-2">For study groups & universities</div>
-              <div className="pricing-divider h-px bg-[var(--border)] my-5" />
-              {[
-                "Everything in Student",
-                "Shared library & folders",
-                "Import peer summaries",
-                "Admin dashboard",
-                "Priority support",
-                "OSCE & Oral Exam (when live)",
-              ].map((line) => (
-                <div
-                  key={line}
-                  className="pricing-feature flex items-start gap-2.5 text-[13px] text-[rgba(245,245,247,0.7)] mb-2.5"
-                >
-                  <span className="pricing-check flex-shrink-0 text-[var(--blue)]">✓</span>
-                  {line}
+
+              <div className="exam-mode-card-details flex flex-col flex-1 min-h-0 gap-0 my-4">
+                <div className="exam-detail-item">
+                  <span className="exam-detail-label">Trigger:</span>
+                  <span className="exam-detail-value">Add exam date in Planner</span>
                 </div>
-              ))}
-              <button
-                type="button"
-                className="pricing-cta cta-team w-full py-3 px-4 rounded-xl font-sans text-sm font-bold text-center mt-6 block border border-[rgba(63,124,255,0.2)] bg-[rgba(63,124,255,0.1)] text-[var(--blue)] cursor-pointer transition-colors hover:bg-[rgba(63,124,255,0.18)]"
+                <div className="exam-detail-item">
+                  <span className="exam-detail-label">Duration:</span>
+                  <span className="exam-detail-value">2 weeks from exam date</span>
+                </div>
+                <div className="exam-detail-item">
+                  <span className="exam-detail-label">Unlocks:</span>
+                  <span className="exam-detail-value">Unlimited generations + full analytics</span>
+                </div>
+                <div className="exam-detail-item exam-detail-item-last">
+                  <span className="exam-detail-label">Cost:</span>
+                  <span className="exam-detail-value">Free gift when you plan ahead</span>
+                </div>
+              </div>
+
+              <div className="exam-mode-card-features">
+                <p className="exam-feature-description text-[0.95rem] leading-relaxed text-[rgba(245,245,247,0.55)] m-0">
+                  Automatically unlocks when you add an exam date to your Planner. One-time unlock per exam. No strings
+                  attached.
+                </p>
+              </div>
+
+              <a
+                href="#planner"
+                className="exam-cta-secondary pricing-cta mt-auto w-full py-3 px-4 rounded-xl font-sans text-sm font-bold text-center block no-underline"
               >
-                Join waitlist
-              </button>
+                Plan your exam →
+              </a>
             </div>
           </RevealWrapper>
         </div>
-
-        <RevealWrapper>
-          <div className="mt-14 max-w-[720px] mx-auto rounded-2xl border border-[var(--border)] bg-[rgba(13,15,18,0.9)] overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setExamModeOpen((o) => !o)}
-              className="w-full flex items-center justify-between gap-4 text-left py-4 px-5 hover:bg-[rgba(18,20,24,0.5)] transition-colors"
-            >
-              <span className="font-mono text-[11px] tracking-[0.12em] uppercase text-[var(--teal)]">
-                EXAM MODE (Free unlock)
-              </span>
-              <span className="text-[var(--muted)] text-lg leading-none w-6 text-center">{examModeOpen ? "−" : "+"}</span>
-            </button>
-            {examModeOpen && (
-              <div className="px-6 pb-6 pt-0 text-[14px] text-[rgba(245,245,247,0.75)] leading-relaxed border-t border-[var(--border)]">
-                <ul className="space-y-2.5 list-none pl-0 m-0 pt-4">
-                  <li>
-                    <span className="text-[var(--muted)] font-mono text-[11px] uppercase tracking-wide">Trigger:</span>{" "}
-                    Add an exam date in your Planner
-                  </li>
-                  <li>
-                    <span className="text-[var(--muted)] font-mono text-[11px] uppercase tracking-wide">Duration:</span>{" "}
-                    2 weeks from exam date
-                  </li>
-                  <li>
-                    <span className="text-[var(--muted)] font-mono text-[11px] uppercase tracking-wide">Unlocks:</span>{" "}
-                    Unlimited generations + full analytics (one-time pass)
-                  </li>
-                  <li>
-                    <span className="text-[var(--muted)] font-mono text-[11px] uppercase tracking-wide">No cost:</span>{" "}
-                    It&apos;s a free gift when you plan ahead
-                  </li>
-                </ul>
-              </div>
-            )}
-          </div>
-        </RevealWrapper>
       </div>
     </section>
   );

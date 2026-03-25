@@ -35,7 +35,7 @@ const CAL_DAYS = [
 
 export default function LandingPlanner() {
   return (
-    <section className="planner-section py-[120px]">
+    <section id="planner" className="planner-section py-[120px]">
       <div className="container max-w-[1200px] mx-auto px-6 md:px-10">
         <RevealWrapper className="section-header mb-16">
           <div className="section-label mb-4">

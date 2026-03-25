@@ -168,3 +168,90 @@ body.landing {
   scroll-behavior: smooth;
   cursor: none;
 }
+
+/* Pricing grid — responsive 3-column */
+.landing-page .landing-pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2rem;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+@media (max-width: 768px) {
+  .landing-page .landing-pricing-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Exam Mode pricing card */
+.landing-page .exam-mode-card {
+  border: 1px solid rgba(0, 200, 180, 0.3);
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.landing-page .exam-detail-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+@media (min-width: 400px) {
+  .landing-page .exam-detail-item {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+  }
+}
+
+.landing-page .exam-detail-item-last {
+  border-bottom: none;
+}
+
+.landing-page .exam-detail-label {
+  color: #00c8b4;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+
+.landing-page .exam-detail-value {
+  color: #e0e0e0;
+  font-size: 0.95rem;
+  text-align: right;
+}
+
+@media (max-width: 399px) {
+  .landing-page .exam-detail-value {
+    text-align: left;
+  }
+}
+
+.landing-page .exam-feature-description {
+  color: #a0a0a0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin: 1rem 0 0;
+}
+
+.landing-page .exam-cta-secondary {
+  padding: 0.75rem 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: transparent;
+  color: #ffffff;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color 0.3s ease, color 0.3s ease, background 0.3s ease;
+}
+
+.landing-page .exam-cta-secondary:hover {
+  border-color: rgba(0, 200, 180, 0.5);
+  color: #00c8b4;
+  background: rgba(255, 255, 255, 0.04);
+}
