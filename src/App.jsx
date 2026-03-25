@@ -806,6 +806,17 @@ const SynapseOS = () => {
     }
   }, [isAuthenticated, profile]);
 
+  useEffect(() => {
+    if (typeof window.Intercom !== "function") return;
+
+    const pathname = location.pathname;
+    if (pathname.includes("/fileviewer")) {
+      window.Intercom("update", { hide_default_launcher: true });
+    } else {
+      window.Intercom("update", { hide_default_launcher: false });
+    }
+  }, [location.pathname]);
+
   // /auth/callback
   if (window.location.pathname.startsWith("/auth/callback")) {
     return (
