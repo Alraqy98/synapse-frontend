@@ -18,7 +18,7 @@ export default function LandingPricing({ onSignup, isFoundingMember = false }) {
           </h2>
           <p className="section-sub text-[17px] text-[var(--muted)] max-w-[560px] mx-auto leading-[1.7]">
             Explorer stays free forever. Student unlocks unlimited AI, Learning State, Performance Mentor, and Planner —
-            with early access pricing before billing goes live.
+            with early access pricing.
           </p>
         </RevealWrapper>
 
@@ -177,8 +177,7 @@ export default function LandingPricing({ onSignup, isFoundingMember = false }) {
                 className="loyalty-strip my-3 py-3 px-3.5 rounded-[10px] text-[12px] leading-snug border border-[rgba(0,200,180,0.35)] bg-[rgba(0,200,180,0.12)] text-[rgba(245,245,247,0.92)]"
               >
                 <span className="text-[var(--teal-neon)] mr-1">🎁</span>
-                <strong className="text-[var(--teal)]">Early access offer:</strong> Sign up before billing goes live and
-                pay <strong className="text-[var(--teal)]">$8/mo forever</strong> — even after we raise prices. + 2 free
+                <strong className="text-[var(--teal)]">Early access offer:</strong> Lock in $8/mo forever. + 2 free
                 months on annual.
               </div>
               <div className="pricing-divider h-px bg-[var(--border)] my-5" />
