@@ -810,7 +810,7 @@ const SynapseOS = () => {
     if (typeof window.Intercom !== "function") return;
 
     const pathname = location.pathname;
-    if (pathname.includes("/fileviewer")) {
+    if (pathname.includes("/library/file/")) {
       window.Intercom("update", { hide_default_launcher: true });
     } else {
       window.Intercom("update", { hide_default_launcher: false });
