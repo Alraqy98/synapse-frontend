@@ -3,7 +3,7 @@ import RevealWrapper from "./RevealWrapper";
 
 export default function LandingLibrary() {
   return (
-    <section className="library-section py-[120px]">
+    <section id="features" className="library-section py-[120px]">
       <div className="container max-w-[1200px] mx-auto px-6 md:px-10">
         <div className="library-showcase grid grid-cols-1 lg:grid-cols-[1fr_1.4fr] gap-8 items-start">
           <div>

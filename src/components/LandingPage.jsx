@@ -21,7 +21,7 @@ import LandingFooter from "./landing/LandingFooter";
 const FONTS_HREF =
   "https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Geist+Mono:wght@400;500;600&family=Syne:wght@400;500;600;700&display=swap";
 
-const LandingPage = ({ onLogin, onSignup }) => {
+const LandingPage = ({ onLogin, onSignup, isFoundingMember = false }) => {
   const [navScrolled, setNavScrolled] = useState(false);
 
   useEffect(() => {
@@ -61,7 +61,19 @@ const LandingPage = ({ onLogin, onSignup }) => {
             Beta
           </span>
         </a>
-        <div className="nav-right flex items-center gap-3">
+        <div className="nav-right flex items-center gap-2 sm:gap-4">
+          <a
+            href="#features"
+            className="landing-nav-link text-xs sm:text-sm font-medium text-[var(--muted)] hover:text-[var(--text)] no-underline py-2 px-1.5 sm:px-2 rounded-lg transition-colors whitespace-nowrap"
+          >
+            Features
+          </a>
+          <a
+            href="#pricing"
+            className="landing-nav-link text-xs sm:text-sm font-medium text-[var(--muted)] hover:text-[var(--text)] no-underline py-2 px-1.5 sm:px-2 rounded-lg transition-colors whitespace-nowrap"
+          >
+            Pricing
+          </a>
           <button
             type="button"
             onClick={onLogin}
@@ -102,7 +114,7 @@ const LandingPage = ({ onLogin, onSignup }) => {
         <LandingSectionDivider />
         <LandingTestimonials />
         <LandingSectionDivider />
-        <LandingPricing onSignup={onSignup} />
+        <LandingPricing onSignup={onSignup} isFoundingMember={isFoundingMember} />
         <LandingSectionDivider />
         <LandingCTA onSignup={onSignup} />
         <LandingFooter />

@@ -164,6 +164,7 @@
   background: linear-gradient(90deg, transparent, var(--teal), transparent);
 }
 
-.landing-page body.landing {
+body.landing {
+  scroll-behavior: smooth;
   cursor: none;
 }
