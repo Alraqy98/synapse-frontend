@@ -12,6 +12,7 @@ import ForgotPassword from "./components/auth/ForgotPassword";
 import ResetPassword from "./components/auth/ResetPassword";
 import OnboardingFlow from "./components/onboarding/OnboardingFlow";
 import { supabase } from "./lib/supabaseClient";
+import Intercom from "@intercom/messenger-js-sdk";
 import api from "./lib/api";
 import SettingsPage from "./modules/settings/SettingsPage";
 import ChangePasswordModal from "./components/ChangePasswordModal";
@@ -788,6 +789,20 @@ const SynapseOS = () => {
       }
     }
   }, [isAdminRoute, isAuthenticated, profile, location.pathname, navigate]);
+
+  useEffect(() => {
+    if (isAuthenticated && profile && profile.id) {
+      Intercom({
+        app_id: "vksks433",
+        user_id: profile.id,
+        name: profile.full_name || "User",
+        email: profile.email,
+        created_at: profile.created_at
+          ? Math.floor(new Date(profile.created_at).getTime() / 1000)
+          : undefined,
+      });
+    }
+  }, [isAuthenticated, profile]);
 
   // /auth/callback
   if (window.location.pathname.startsWith("/auth/callback")) {
