@@ -447,7 +447,7 @@ const SynapseOS = () => {
 
       // Demo Mode interception
       const demoRes = demoApiIntercept({
-        method: "PATCH",
+        method: "POST",
         url: "/notifications/clear-all",
       });
       if (demoRes.handled) {
@@ -455,12 +455,14 @@ const SynapseOS = () => {
         return;
       }
 
-      // Mark all unread notifications as read via API with explicit body
-      // Use clear-all endpoint if available, otherwise mark individually
+      // Mark all unread notifications as read via API (backend: POST /api/notifications/clear-all)
+      // Fallback: per-id PATCH if clear-all is unavailable (e.g. older deploy)
       try {
-        await api.patch(`/api/notifications/clear-all`, { read: true });
+        const { data } = await api.post(`/api/notifications/clear-all`, { read: true });
+        if (data?.success === false) {
+          throw new Error("Clear-all reported success: false");
+        }
       } catch (clearAllError) {
-        // Fallback: if clear-all endpoint doesn't exist, mark each notification individually
         if (clearAllError.response?.status === 404) {
           const unreadIds = unreadNotifications.map((n) => n.id);
           await Promise.all(
