@@ -22,33 +22,6 @@ export default function LandingPricing({ onSignup, isFoundingMember = false }) {
           </p>
         </RevealWrapper>
 
-        <RevealWrapper>
-          <div
-            className="early-access-banner flex flex-wrap items-center justify-between gap-6 py-6 px-8 mb-12 rounded-2xl border border-[rgba(0,200,180,0.2)]"
-            style={{
-              background: "linear-gradient(135deg, rgba(0,200,180,0.08), rgba(0,245,204,0.04))",
-            }}
-          >
-            <div className="ea-left flex items-center gap-4">
-              <div
-                className="ea-pulse w-2.5 h-2.5 rounded-full bg-[var(--teal-neon)] flex-shrink-0"
-                style={{ boxShadow: "0 0 12px var(--teal-neon)" }}
-              />
-              <div>
-                <div className="ea-title text-[15px] font-bold mb-0.5">Early access is live</div>
-                <div className="ea-sub font-mono text-xs text-[var(--muted)]">
-                  Sign up before billing goes live to lock in your rate — including $8/mo forever for early supporters.
-                </div>
-              </div>
-            </div>
-            <div
-              className="ea-badge font-mono text-[10px] tracking-[0.12em] uppercase py-1.5 px-3.5 rounded-full border border-[rgba(0,200,180,0.2)] bg-[rgba(0,200,180,0.1)] text-[var(--teal)] whitespace-nowrap"
-            >
-              🔒 Lock in rates
-            </div>
-          </div>
-        </RevealWrapper>
-
         {isFoundingMember && (
           <RevealWrapper>
             <div
@@ -115,7 +88,7 @@ export default function LandingPricing({ onSignup, isFoundingMember = false }) {
 
         <div className="pricing-grid landing-pricing-grid max-w-[1100px] mx-auto">
           <RevealWrapper className="h-full">
-            <div className="pricing-card free p-8 bg-[rgba(13,15,18,0.9)] border border-[var(--border)] rounded-[20px] relative overflow-hidden h-full flex flex-col">
+            <div className="pricing-card explorer-card h-full flex flex-col relative overflow-hidden">
               <div className="pricing-name text-base font-bold mb-2">Explorer</div>
               <div className="pricing-price font-serif text-[40px] leading-none mb-1">
                 <span className="text-lg opacity-50">$</span>0
@@ -170,11 +143,7 @@ export default function LandingPricing({ onSignup, isFoundingMember = false }) {
           </RevealWrapper>
 
           <RevealWrapper className="h-full" style={{ transitionDelay: "0.1s" }}>
-            <div className="pricing-card pro p-8 rounded-[20px] relative overflow-hidden border border-[rgba(0,200,180,0.25)] bg-[rgba(13,20,18,0.95)] shadow-[0_0_40px_rgba(0,200,180,0.07)] h-full flex flex-col">
-              <div
-                className="absolute top-0 left-0 right-0 h-0.5"
-                style={{ background: "linear-gradient(90deg, transparent, var(--teal), transparent)" }}
-              />
+            <div className="pricing-card student-card h-full flex flex-col relative overflow-hidden">
               <span
                 className="badge-popular absolute top-4 right-4 font-mono text-[8px] tracking-[0.1em] uppercase py-0.5 px-2 rounded-full border border-[rgba(0,200,180,0.25)] bg-[var(--teal-dim)] text-[var(--teal)]"
               >
@@ -244,7 +213,7 @@ export default function LandingPricing({ onSignup, isFoundingMember = false }) {
           </RevealWrapper>
 
           <RevealWrapper className="h-full" style={{ transitionDelay: "0.2s" }}>
-            <div className="pricing-card exam-mode-card flex flex-col h-full min-h-0 p-8 rounded-[20px] relative overflow-hidden border bg-[rgba(13,15,18,0.9)] border-[rgba(0,200,180,0.3)]">
+            <div className="pricing-card exam-mode-card flex flex-col h-full min-h-0 relative overflow-hidden">
               <div className="exam-mode-card-header flex flex-col gap-1 mb-2">
                 <div className="pricing-name text-base font-bold text-[var(--text)]">Exam Mode</div>
                 <div className="text-sm text-[var(--muted)]">Free unlock</div>
