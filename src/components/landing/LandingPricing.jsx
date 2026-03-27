@@ -1,8 +1,59 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import RevealWrapper from "./RevealWrapper";
+import { supabase } from "../../lib/supabaseClient";
 
-export default function LandingPricing({ onSignup, isFoundingMember = false }) {
+function buildCheckoutUrls(userEmail) {
+  const q = encodeURIComponent(userEmail || "");
+  return {
+    monthly: `https://synapse-app.lemonsqueezy.com/checkout/buy/fbd79167-5ccc-445d-b2a9-e44684a891d5?enabled=1450770&checkout[email]=${q}`,
+    annual: `https://synapse-app.lemonsqueezy.com/checkout/buy/20dffce6-e573-4528-aaae-9b96d8bedaff?enabled=1450777&checkout[email]=${q}`,
+    earlyAccess: `https://synapse-app.lemonsqueezy.com/checkout/buy/4eba9b23-54a6-44a5-88ee-ae8ded2cea58?enabled=1450780&checkout[email]=${q}`,
+  };
+}
+
+export default function LandingPricing({ onSignup, isFoundingMember = false, userEmail: userEmailProp }) {
+  const navigate = useNavigate();
   const [isAnnual, setIsAnnual] = useState(false);
+  const [userEmail, setUserEmail] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (cancelled) return;
+      if (user?.email) {
+        setUserEmail(user.email);
+        return;
+      }
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!cancelled && session?.user?.email) setUserEmail(session.user.email);
+    };
+    load();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUserEmail(session?.user?.email ?? null);
+    });
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const effectiveEmail = userEmailProp ?? userEmail;
+
+  const openCheckout = useCallback(
+    (kind) => {
+      const email = effectiveEmail?.trim();
+      if (!email) {
+        navigate("/signup");
+        onSignup?.();
+        return;
+      }
+      const urls = buildCheckoutUrls(email);
+      window.open(urls[kind], "_blank", "noopener,noreferrer");
+    },
+    [effectiveEmail, navigate, onSignup]
+  );
 
   return (
     <section className="pricing-section py-[120px]" id="pricing">
@@ -51,8 +102,16 @@ export default function LandingPricing({ onSignup, isFoundingMember = false }) {
           <div className="billing-toggle flex items-center justify-center gap-3 mb-10">
             <span
               className={`billing-label monthly-label font-mono text-[13px] cursor-pointer transition-colors ${!isAnnual ? "text-[var(--text)]" : "text-[var(--muted)]"}`}
-              onClick={() => setIsAnnual(false)}
-              onKeyDown={(e) => e.key === "Enter" && setIsAnnual(false)}
+              onClick={() => {
+                setIsAnnual(false);
+                openCheckout("monthly");
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  setIsAnnual(false);
+                  openCheckout("monthly");
+                }
+              }}
               role="button"
               tabIndex={0}
             >
@@ -73,8 +132,16 @@ export default function LandingPricing({ onSignup, isFoundingMember = false }) {
             <span
               className="billing-label annual-label font-mono text-[13px] cursor-pointer transition-colors relative"
               style={{ color: isAnnual ? "var(--text)" : "var(--muted)" }}
-              onClick={() => setIsAnnual(true)}
-              onKeyDown={(e) => e.key === "Enter" && setIsAnnual(true)}
+              onClick={() => {
+                setIsAnnual(true);
+                openCheckout("annual");
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  setIsAnnual(true);
+                  openCheckout("annual");
+                }
+              }}
               role="button"
               tabIndex={0}
             >
@@ -202,7 +269,7 @@ export default function LandingPricing({ onSignup, isFoundingMember = false }) {
               ))}
               <button
                 type="button"
-                onClick={onSignup}
+                onClick={() => openCheckout("earlyAccess")}
                 className="pricing-cta cta-pro w-full py-3.5 px-4 rounded-xl font-sans text-sm font-bold text-center mt-auto block border-0 text-[var(--void)] cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_6px_24px_rgba(0,200,180,0.4)]"
                 style={{ background: "linear-gradient(135deg, var(--teal), var(--teal-neon))" }}
               >

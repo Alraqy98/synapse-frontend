@@ -1,8 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import api from "../../lib/api";
 
 export default function ReinforcementSession({ sessionData, onComplete }) {
+  /** UUID for mcq_user_answers.reinforcement_session_id — backend may use session_id or id */
+  const reinforcementSessionId = useMemo(
+    () => sessionData?.session_id ?? sessionData?.id ?? null,
+    [sessionData]
+  );
+
   // Compute initial state from sessionData (DB is source of truth)
   const getInitialState = () => {
     // Find first unanswered question
@@ -48,6 +54,8 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
   const [outcomeData, setOutcomeData] = useState(null);
   const [loadingOutcome, setLoadingOutcome] = useState(false);
 
+  const questionStartedAtRef = useRef(Date.now());
+
   const currentQuestion = sessionData.questions[currentIndex];
   const totalQuestions = sessionData.questions.length;
   const isLastQuestion = currentIndex === totalQuestions - 1;
@@ -71,6 +79,10 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
     return () => clearInterval(interval);
   }, [sessionComplete, startTime, sessionData.duration_minutes]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    questionStartedAtRef.current = Date.now();
+  }, [currentIndex]);
+
   // Generate AI teaching summary and fetch outcome if session was already complete on mount
   useEffect(() => {
     if (allAnswered) {
@@ -93,10 +105,19 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
   const handleSubmit = async () => {
     if (!selectedOptionId) return;
 
+    if (!reinforcementSessionId) {
+      console.error(
+        "[ReinforcementSession] Cannot submit answer: missing reinforcement session id on sessionData",
+        sessionData
+      );
+      return;
+    }
+
     const selectedOption = currentQuestion.options.find(
       (opt) => opt.id === selectedOptionId
     );
     const isCorrect = selectedOption?.is_correct ?? false;
+    const timeMs = Math.max(0, Date.now() - questionStartedAtRef.current);
 
     // Update local state
     setShowFeedback(true);
@@ -109,7 +130,7 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
       },
     ]);
 
-    // Send answer to backend
+    // Send answer to backend (reinforcement_session_id required for mcq_user_answers row)
     try {
       const session = await supabase.auth.getSession();
       const token = session?.data?.session?.access_token;
@@ -120,7 +141,8 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
           question_id: currentQuestion.id,
           selected_option_id: selectedOptionId,
           is_correct: isCorrect,
-          reinforcement_session_id: sessionData.session_id,
+          time_ms: timeMs,
+          reinforcement_session_id: reinforcementSessionId,
         },
         {
           headers: {
@@ -144,12 +166,20 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
   };
 
   const handleSessionComplete = async () => {
+    if (!reinforcementSessionId) {
+      console.error("[ReinforcementSession] Cannot complete session: missing session id");
+      setSessionComplete(true);
+      generateAiTeachingSummary();
+      fetchOutcomeData();
+      return;
+    }
+
     try {
       const session = await supabase.auth.getSession();
       const token = session?.data?.session?.access_token;
 
       await api.patch(
-        `/api/learning/reinforcement-session/${sessionData.session_id}`,
+        `/api/learning/reinforcement-session/${reinforcementSessionId}`,
         {
           status: "completed",
           ended_at: new Date().toISOString(),
@@ -172,6 +202,10 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
   };
 
   const fetchOutcomeData = async () => {
+    if (!reinforcementSessionId) {
+      return;
+    }
+
     setLoadingOutcome(true);
 
     try {
@@ -179,7 +213,7 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
       const token = session?.data?.session?.access_token;
 
       const response = await api.get(
-        `/api/learning/reinforcement-session/${sessionData.session_id}/outcome`,
+        `/api/learning/reinforcement-session/${reinforcementSessionId}/outcome`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -199,6 +233,10 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
   };
 
   const generateAiTeachingSummary = async () => {
+    if (!reinforcementSessionId) {
+      return;
+    }
+
     setLoadingAiTeaching(true);
 
     try {
@@ -237,7 +275,7 @@ export default function ReinforcementSession({ sessionData, onComplete }) {
       const response = await api.post(
         "/api/ai/teaching-summary",
         {
-          session_id: sessionData.session_id,
+          session_id: reinforcementSessionId,
           primary_concept_name: sessionData.primary_concept_name,
           questions: [
             ...rightQuestions.map(q => ({ ...q, is_correct: true })),

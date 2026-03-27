@@ -874,17 +874,38 @@ const SynapseOS = () => {
     }
 
     // Normal app: show landing/login/signup as usual
+    if (location.pathname === "/signup") {
+      return (
+        <SignUp
+          onSwitchToLogin={() => {
+            navigate("/");
+            setAuthScreen("login");
+          }}
+        />
+      );
+    }
+
     if (authScreen === "landing") {
       return (
         <LandingPage
           onLogin={() => setAuthScreen("login")}
-          onSignup={() => setAuthScreen("signup")}
+          onSignup={() => {
+            navigate("/signup");
+            setAuthScreen("signup");
+          }}
         />
       );
     }
 
     if (authScreen === "signup") {
-      return <SignUp onSwitchToLogin={() => setAuthScreen("login")} />;
+      return (
+        <SignUp
+          onSwitchToLogin={() => {
+            navigate("/");
+            setAuthScreen("login");
+          }}
+        />
+      );
     }
 
     if (authScreen === "login") {
@@ -895,7 +916,10 @@ const SynapseOS = () => {
             setTempUserData(userMeta);
             fetchProfile();
           }}
-          onSwitchToSignup={() => setAuthScreen("signup")}
+          onSwitchToSignup={() => {
+            navigate("/signup");
+            setAuthScreen("signup");
+          }}
         />
       );
     }
