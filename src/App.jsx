@@ -75,6 +75,7 @@ import ConceptDetailPage from "./modules/analytics/pages/ConceptDetailPage";
 import DeckRushedMistakesPage from "./modules/analytics/pages/DeckRushedMistakesPage";
 import PerformancePage from "./modules/analytics/PerformancePage";
 import ReinforcementSession from "./modules/analytics/ReinforcementSession";
+import CofounderApply from "./pages/CofounderApply";
 
 // COMPONENTS
 import SidebarItem from "./components/SidebarItem";
@@ -195,6 +196,22 @@ function FlashcardsModule() {
       {view === "review" && (
         <ReviewScreen deckId={deckId} goBack={() => setView("deck")} />
       )}
+    </div>
+  );
+}
+
+// ===================================================================
+// PUBLIC COFOUNDER PAGE (banner toasts for logged-out visitors)
+// ===================================================================
+function CofounderPublicShell() {
+  const { notifications, removeNotification } = useNotification();
+  return (
+    <div className="min-h-[100dvh] w-full bg-void text-white">
+      <BannerNotification
+        notifications={notifications}
+        onDismiss={removeNotification}
+      />
+      <CofounderApply />
     </div>
   );
 }
@@ -838,6 +855,11 @@ const SynapseOS = () => {
     return <ResetPassword />;
   }
 
+  // Public cofounder application (no auth)
+  if (!isAuthenticated && location.pathname === "/cofounder") {
+    return <CofounderPublicShell />;
+  }
+
   // Onboarding
   if (authScreen === "onboarding") {
     return (
@@ -1269,6 +1291,14 @@ const SynapseOS = () => {
                 <ReinforcementSession />
               </div>
             } />
+            <Route
+              path="/cofounder"
+              element={
+                <div className="flex-1 overflow-y-auto">
+                  <CofounderApply />
+                </div>
+              }
+            />
             <Route path="/settings" element={
               <div className="flex-1 overflow-y-auto p-6">
                   <SettingsPage
