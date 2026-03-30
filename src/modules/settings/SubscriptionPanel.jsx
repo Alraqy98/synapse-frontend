@@ -14,7 +14,7 @@ const BADGE_CLASS =
 // TODO: Query subscription status from API
 // Endpoint: GET /api/subscriptions/:userId
 // Returns: {
-//   status: 'no_subscription' | 'free_trial' | 'monthly_active' | 'annual_active' | 'canceled',
+//   status: 'no_subscription' | 'founder_lifetime' | 'free_trial' | 'monthly_active' | 'annual_active' | 'canceled',
 //   trial_end_date: ISO string | null,
 //   next_billing_date: ISO string | null,
 //   current_plan: 'monthly' | 'annual' | null
@@ -88,6 +88,9 @@ export default function SubscriptionPanel({ profile }) {
         if (effectiveStatus === "no_subscription") {
             return "No active subscription";
         }
+        if (effectiveStatus === "founder_lifetime") {
+            return "⭐ Founder access — Free for life";
+        }
         if (effectiveStatus === "free_trial") {
             const days = daysRemaining(trialEndDate);
             if (days == null) return "Free trial: —";
@@ -102,12 +105,16 @@ export default function SubscriptionPanel({ profile }) {
         return "No active subscription";
     }, [sub, effectiveStatus]);
 
+    const showCancelButton = ["monthly_active", "annual_active", "free_trial"].includes(effectiveStatus);
+    /** Upgrade / subscribe CTAs — not for founder_lifetime or annual_active */
+    const showUpgradeButton = ["no_subscription", "free_trial", "monthly_active", "canceled"].includes(
+        effectiveStatus
+    );
+
     const showStartSubscription = effectiveStatus === "no_subscription";
     const showUpgradeNow = effectiveStatus === "free_trial";
     const showUpgradeToAnnual = effectiveStatus === "monthly_active";
     const showReactivate = effectiveStatus === "canceled";
-    const showAnyUpgrade =
-        showStartSubscription || showUpgradeNow || showUpgradeToAnnual || showReactivate;
 
     const openModal = (planPref) => {
         const next = planPref === "annual" ? "annual" : "monthly";
@@ -144,7 +151,7 @@ export default function SubscriptionPanel({ profile }) {
                 <div className="space-y-6">
                     <div className="bg-white/[0.02] rounded-md p-4 text-base text-gray-300">{statusLine}</div>
 
-                    {showAnyUpgrade && (
+                    {showUpgradeButton && (
                         <div>
                             {showStartSubscription && (
                                 <button
@@ -178,9 +185,7 @@ export default function SubscriptionPanel({ profile }) {
             {/* TODO: Connect to subscription cancellation API */}
             {/* Should show confirmation modal before canceling */}
             {/* Update profile.subscription_status = "canceled" */}
-            {(effectiveStatus === "monthly_active" ||
-                effectiveStatus === "annual_active" ||
-                effectiveStatus === "free_trial") && (
+            {showCancelButton && (
                 <div className="pt-2 border-t border-white/5">
                     <button
                         type="button"
