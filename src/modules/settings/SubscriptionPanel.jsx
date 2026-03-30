@@ -3,7 +3,7 @@ import React, { useMemo, useState, useEffect } from "react";
 // TODO: Query subscription status from API
 // Endpoint: GET /api/subscriptions/:userId
 // Returns: {
-//   status: 'free_trial' | 'monthly_active' | 'annual_active' | 'canceled',
+//   status: 'no_subscription' | 'free_trial' | 'monthly_active' | 'annual_active' | 'canceled',
 //   trial_end_date: ISO string | null,
 //   next_billing_date: ISO string | null,
 //   current_plan: 'monthly' | 'annual' | null
@@ -54,6 +54,14 @@ function daysRemaining(iso) {
     return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
 }
 
+/** Default / new users: no `status` or explicit `no_subscription` */
+function normalizeSubscriptionStatus(status) {
+    if (status === null || status === undefined || status === "") {
+        return "no_subscription";
+    }
+    return status;
+}
+
 export default function SubscriptionPanel({ profile }) {
     const [modalOpen, setModalOpen] = useState(false);
     const [selectedPlan, setSelectedPlan] = useState("monthly");
@@ -63,26 +71,33 @@ export default function SubscriptionPanel({ profile }) {
     const university = isUniversityEmail(email);
     const monthlyPrice = university ? 10 : 15;
 
+    const effectiveStatus = useMemo(() => normalizeSubscriptionStatus(sub.status), [sub.status]);
+
     const statusLine = useMemo(() => {
-        const { status, trialEndDate, nextBillingDate } = sub;
-        if (status === "free_trial") {
+        const { trialEndDate, nextBillingDate } = sub;
+        if (effectiveStatus === "no_subscription") {
+            return "No active subscription";
+        }
+        if (effectiveStatus === "free_trial") {
             const days = daysRemaining(trialEndDate);
             if (days == null) return "Free trial: —";
             return `Free trial: ${days} day${days === 1 ? "" : "s"} remaining`;
         }
-        if (status === "monthly_active" || status === "annual_active") {
+        if (effectiveStatus === "monthly_active" || effectiveStatus === "annual_active") {
             return `Next billing date: ${formatDisplayDate(nextBillingDate)}`;
         }
-        if (status === "canceled") {
+        if (effectiveStatus === "canceled") {
             return "Subscription canceled";
         }
         return "No active subscription";
-    }, [sub]);
+    }, [sub, effectiveStatus]);
 
-    const showUpgradeNow = sub.status === "free_trial";
-    const showUpgradeToAnnual = sub.status === "monthly_active";
-    const showReactivate = sub.status === "canceled";
-    const showAnyUpgrade = showUpgradeNow || showUpgradeToAnnual || showReactivate;
+    const showStartSubscription = effectiveStatus === "no_subscription";
+    const showUpgradeNow = effectiveStatus === "free_trial";
+    const showUpgradeToAnnual = effectiveStatus === "monthly_active";
+    const showReactivate = effectiveStatus === "canceled";
+    const showAnyUpgrade =
+        showStartSubscription || showUpgradeNow || showUpgradeToAnnual || showReactivate;
 
     const openModal = (planPref) => {
         const next = planPref === "annual" ? "annual" : "monthly";
@@ -116,35 +131,46 @@ export default function SubscriptionPanel({ profile }) {
                 <div className="text-xs uppercase tracking-wider text-teal-400 mb-3">Subscription</div>
                 <h2 className="text-2xl font-semibold text-white mb-6">Billing &amp; plan</h2>
 
-                <div className="bg-white/[0.02] rounded-md p-4 text-base text-gray-300">{statusLine}</div>
+                <div className="space-y-6">
+                    <div className="bg-white/[0.02] rounded-md p-4 text-base text-gray-300">{statusLine}</div>
 
-                {showAnyUpgrade && (
-                    <div className="mt-6">
-                        {showUpgradeNow && (
-                            <button type="button" className={upgradeButtonClass} onClick={() => openModal("monthly")}>
-                                Upgrade Now
-                            </button>
-                        )}
-                        {showUpgradeToAnnual && (
-                            <button type="button" className={upgradeButtonClass} onClick={() => openModal("annual")}>
-                                Upgrade to Annual
-                            </button>
-                        )}
-                        {showReactivate && (
-                            <button type="button" className={upgradeButtonClass} onClick={() => openModal("monthly")}>
-                                Reactivate Subscription
-                            </button>
-                        )}
-                    </div>
-                )}
+                    {showAnyUpgrade && (
+                        <div>
+                            {showStartSubscription && (
+                                <button
+                                    type="button"
+                                    className={upgradeButtonClass}
+                                    onClick={() => openModal("monthly")}
+                                >
+                                    Start your subscription
+                                </button>
+                            )}
+                            {showUpgradeNow && (
+                                <button type="button" className={upgradeButtonClass} onClick={() => openModal("monthly")}>
+                                    Upgrade Now
+                                </button>
+                            )}
+                            {showUpgradeToAnnual && (
+                                <button type="button" className={upgradeButtonClass} onClick={() => openModal("annual")}>
+                                    Upgrade to Annual
+                                </button>
+                            )}
+                            {showReactivate && (
+                                <button type="button" className={upgradeButtonClass} onClick={() => openModal("monthly")}>
+                                    Reactivate Subscription
+                                </button>
+                            )}
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* TODO: Connect to subscription cancellation API */}
             {/* Should show confirmation modal before canceling */}
             {/* Update profile.subscription_status = "canceled" */}
-            {(sub.status === "monthly_active" ||
-                sub.status === "annual_active" ||
-                sub.status === "free_trial") && (
+            {(effectiveStatus === "monthly_active" ||
+                effectiveStatus === "annual_active" ||
+                effectiveStatus === "free_trial") && (
                 <div className="pt-2 border-t border-white/5">
                     <button
                         type="button"
