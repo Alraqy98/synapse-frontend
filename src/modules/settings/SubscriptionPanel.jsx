@@ -1,5 +1,16 @@
 import React, { useMemo, useState, useEffect } from "react";
 
+/** Matches LandingPricing paid-tier feature bullets */
+const MODAL_PAID_FEATURES = [
+    "Unlimited access — every feature, no caps",
+    "Full Learning State, Performance Mentor & Planner",
+    "Summaries, MCQ, flashcards, reinforcement & more",
+    "Cancel anytime — no long-term lock-in",
+];
+
+const BADGE_CLASS =
+    "inline-flex items-center font-mono text-[9px] tracking-[0.12em] uppercase px-2 py-1 rounded-md bg-teal-500/20 text-teal-400";
+
 // TODO: Query subscription status from API
 // Endpoint: GET /api/subscriptions/:userId
 // Returns: {
@@ -69,7 +80,6 @@ export default function SubscriptionPanel({ profile }) {
     const sub = useMemo(() => deriveSubscription(profile), [profile]);
     const email = profile?.email ?? "";
     const university = isUniversityEmail(email);
-    const monthlyPrice = university ? 10 : 15;
 
     const effectiveStatus = useMemo(() => normalizeSubscriptionStatus(sub.status), [sub.status]);
 
@@ -194,54 +204,116 @@ export default function SubscriptionPanel({ profile }) {
                         if (e.target === e.currentTarget) setModalOpen(false);
                     }}
                 >
-                    <div className="bg-[#0D0F12] border border-white/10 rounded-lg p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-                        <h3 id="subscription-modal-title" className="text-xl font-semibold text-white mb-6">
+                    <div className="bg-[#0D0F12] border border-white/10 rounded-lg p-8 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+                        <h3 id="subscription-modal-title" className="text-2xl font-bold text-white mb-8">
                             Choose your plan
                         </h3>
 
-                        <div className="flex flex-col sm:flex-row gap-4 sm:overflow-x-auto sm:pb-1">
+                        <div className="flex flex-col sm:flex-row gap-6">
+                            {/* Monthly — LandingPricing-aligned */}
                             <button
                                 type="button"
                                 onClick={() => setSelectedPlan("monthly")}
-                                className={`flex-1 min-w-[200px] text-left rounded-lg border p-5 transition-colors duration-200 ${
+                                className={`flex-1 flex flex-col text-left rounded-lg border p-6 cursor-pointer transition-all duration-200 relative overflow-hidden min-w-0 ${
                                     selectedPlan === "monthly"
                                         ? "border-teal-500 bg-teal-500/10"
                                         : "border-white/10 bg-white/[0.02] hover:border-white/20"
                                 }`}
                             >
-                                <div className="flex flex-wrap items-center gap-2 mb-2">
-                                    <span className="text-lg font-semibold text-white">
-                                        ${monthlyPrice}/mo
+                                {selectedPlan === "monthly" && (
+                                    <span
+                                        className={`absolute top-4 right-4 ${BADGE_CLASS}`}
+                                        aria-hidden
+                                    >
+                                        Recommended
                                     </span>
-                                    {university && (
-                                        <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-teal-500/15 text-teal-400 border border-teal-500/30">
-                                            University email — $10/mo
-                                        </span>
-                                    )}
+                                )}
+                                <div className="text-base font-bold text-white mb-4 pr-16">Monthly</div>
+                                <div className="text-2xl font-bold text-white leading-none">
+                                    <span className="text-lg opacity-60 font-semibold">$</span>15
+                                    <span className="text-lg opacity-60 font-semibold">/mo</span>
                                 </div>
-                                <p className="text-sm text-gray-400">Perfect for ongoing study</p>
+                                <p className="text-sm text-gray-400 mt-2 mb-4">Billed monthly, cancel anytime</p>
+
+                                {university && (
+                                    <div className="border-2 border-teal-500 bg-teal-500/5 rounded-lg p-4 mt-2 mb-4">
+                                        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                                            <span className="text-xs font-semibold text-teal-400 uppercase tracking-wide">
+                                                University email
+                                            </span>
+                                            <span className={BADGE_CLASS}>Save $60/year</span>
+                                        </div>
+                                        <div className="text-xs text-gray-400 mb-1">.edu or .std</div>
+                                        <div className="text-2xl font-bold text-white leading-none">
+                                            <span className="text-lg opacity-60 font-semibold">$</span>10
+                                            <span className="text-lg opacity-60 font-semibold">/mo</span>
+                                        </div>
+                                        <p className="text-xs text-teal-400/90 font-medium mt-2">
+                                            Student &amp; faculty discount
+                                        </p>
+                                    </div>
+                                )}
+
+                                <div className="h-px bg-white/10 my-4" />
+                                <ul className="space-y-2.5 text-left flex-1">
+                                    {MODAL_PAID_FEATURES.map((line) => (
+                                        <li
+                                            key={`m-${line}`}
+                                            className="flex items-start gap-2.5 text-sm text-gray-300"
+                                        >
+                                            <span className="text-teal-400 flex-shrink-0 mt-0.5" aria-hidden>
+                                                ✓
+                                            </span>
+                                            <span>{line}</span>
+                                        </li>
+                                    ))}
+                                </ul>
                             </button>
 
+                            {/* Annual */}
                             <button
                                 type="button"
                                 onClick={() => setSelectedPlan("annual")}
-                                className={`flex-1 min-w-[200px] text-left rounded-lg border p-5 transition-colors duration-200 ${
+                                className={`flex-1 flex flex-col text-left rounded-lg border p-6 cursor-pointer transition-all duration-200 relative overflow-hidden min-w-0 ${
                                     selectedPlan === "annual"
                                         ? "border-teal-500 bg-teal-500/10"
                                         : "border-white/10 bg-white/[0.02] hover:border-white/20"
                                 }`}
                             >
-                                <div className="flex flex-wrap items-center gap-2 mb-2">
-                                    <span className="text-lg font-semibold text-white">$80/yr</span>
-                                    <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-teal-500/15 text-teal-400 border border-teal-500/30">
-                                        Best value
-                                    </span>
+                                <span
+                                    className={`absolute top-4 right-4 ${BADGE_CLASS}`}
+                                    aria-hidden
+                                >
+                                    Best value
+                                </span>
+                                <div className="text-base font-bold text-white mb-4 pr-16">Annual</div>
+                                <div className="text-2xl font-bold text-white leading-none">
+                                    <span className="text-lg opacity-60 font-semibold">$</span>80
+                                    <span className="text-lg opacity-60 font-semibold">/yr</span>
                                 </div>
-                                <p className="text-sm text-gray-400">Save 33% vs monthly</p>
+                                <p className="text-sm text-teal-400 font-medium mt-2 mb-1">Save 33% vs monthly</p>
+                                <p className="text-xs text-gray-400 mb-4">
+                                    Unlimited access · billed once per year · cancel anytime
+                                </p>
+
+                                <div className="h-px bg-white/10 my-4" />
+                                <ul className="space-y-2.5 text-left flex-1">
+                                    {MODAL_PAID_FEATURES.map((line) => (
+                                        <li
+                                            key={`a-${line}`}
+                                            className="flex items-start gap-2.5 text-sm text-gray-300"
+                                        >
+                                            <span className="text-teal-400 flex-shrink-0 mt-0.5" aria-hidden>
+                                                ✓
+                                            </span>
+                                            <span>{line}</span>
+                                        </li>
+                                    ))}
+                                </ul>
                             </button>
                         </div>
 
-                        <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 mt-8">
+                        <div className="flex flex-col-reverse sm:flex-row justify-end gap-4 mt-8">
                             <button
                                 type="button"
                                 className="px-6 py-2 rounded-md font-medium border border-white/10 text-gray-300 hover:bg-white/[0.06] transition-colors"
