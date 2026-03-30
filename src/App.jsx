@@ -576,7 +576,7 @@ const SynapseOS = () => {
     setSelectedNotification(null);
   };
 
-  // Fetch profile
+  // Fetch profile + subscription (GET /api/me/subscription on API host; see VITE_API_URL / api.js dev default)
   const fetchProfile = async () => {
     try {
       const { data: userData } = await supabase.auth.getUser();
@@ -585,6 +585,36 @@ const SynapseOS = () => {
       if (!user) return;
 
       setIsAuthenticated(true);
+
+      let subscriptionPayload = null;
+      try {
+        const subRes = await api.get("/api/me/subscription");
+        const body = subRes.data;
+        // Support both raw objects { status, founder_badge } and wrapped { data: { ... } } / { success, data }
+        if (body != null && typeof body === "object" && "data" in body && body.data !== undefined) {
+          subscriptionPayload = body.data;
+        } else {
+          subscriptionPayload = body ?? null;
+        }
+      } catch (subErr) {
+        console.warn(
+          "[fetchProfile] GET /api/me/subscription failed:",
+          subErr?.response?.data?.error || subErr?.message
+        );
+      }
+
+      const withSubscription = (base) => {
+        if (base) return { ...base, subscription: subscriptionPayload };
+        if (subscriptionPayload) {
+          return {
+            id: user.id,
+            email: user.email,
+            full_name: user.user_metadata?.full_name ?? null,
+            subscription: subscriptionPayload,
+          };
+        }
+        return base;
+      };
 
       const { data: profileData, error } = await supabase
         .from("profiles")
@@ -613,9 +643,9 @@ const SynapseOS = () => {
           setAuthScreen("login");
           return;
         }
-        
+
         // Admin user: set profile and allow access
-        setProfile(profileData);
+        setProfile(withSubscription(profileData));
         setAuthScreen(null);
         return;
       }
@@ -626,17 +656,52 @@ const SynapseOS = () => {
         !profileData.field_of_study ||
         !profileData.stage
       ) {
-        setProfile(profileData || null);
+        setProfile(withSubscription(profileData || null));
         setAuthScreen("onboarding");
         return;
       }
 
-      setProfile(profileData);
+      setProfile(withSubscription(profileData));
       setAuthScreen(null);
     } catch (err) {
       console.error("fetchProfile error:", err);
     }
   };
+
+  // Restore profile + subscription when a session exists (covers cold load / INITIAL_SESSION edge cases)
+  useEffect(() => {
+    if (isAdminRoute) return;
+    let cancelled = false;
+    (async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (cancelled || !session?.access_token) return;
+      fetchProfile();
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchProfile is stable enough for session bootstrap
+  }, [isAdminRoute]);
+
+  // Refetch when opening Settings so subscription appears in Network and profile.subscription stays fresh
+  useEffect(() => {
+    if (isAdminRoute) return;
+    if (location.pathname !== "/settings") return;
+    let cancelled = false;
+    (async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (cancelled || !session?.access_token) return;
+      fetchProfile();
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname, isAdminRoute]);
 
   // Force logout on admin entry - HARD AUTH BOUNDARY
   useEffect(() => {

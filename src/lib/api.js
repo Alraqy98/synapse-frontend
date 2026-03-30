@@ -2,8 +2,17 @@
 import axios from "axios";
 import { supabase } from "./supabaseClient";
 
+// If VITE_API_URL is missing, browser requests hit the dev server origin and return HTML (SPA index).
+const envBase = import.meta.env.VITE_API_URL;
+const baseURL =
+    typeof envBase === "string" && envBase.trim() !== ""
+        ? envBase.replace(/\/$/, "")
+        : import.meta.env.DEV
+          ? "http://localhost:3000"
+          : "";
+
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL,
+    baseURL,
     withCredentials: false
 });
 
