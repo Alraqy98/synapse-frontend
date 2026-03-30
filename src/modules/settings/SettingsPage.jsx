@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import AnnouncementsPanel from "./AnnouncementsPanel";
 import FeedbackBox from "./FeedbackBox";
 import AstraPreferencesPanel from "./AstraPreferencesPanel";
+import SubscriptionPanel from "./SubscriptionPanel";
 import api from "../../lib/api";
 
 const TABS = [
@@ -133,9 +134,7 @@ const SettingsPage = ({ profile }) => {
 
                         {activeTab === "Announcements" && <AnnouncementsPanel />}
 
-                        {activeTab === "Subscription" && (
-                            <div className="text-base text-gray-300 leading-relaxed">Subscription management coming soon</div>
-                        )}
+                        {activeTab === "Subscription" && <SubscriptionPanel profile={profile} />}
 
                         {activeTab === "Feedback" && <FeedbackBox user={profile} />}
                     </div>
