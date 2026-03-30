@@ -37,11 +37,14 @@ const SettingsPage = ({ profile }) => {
     };
 
     return (
-        <div className="max-w-7xl mx-auto bg-[#0D0F12] min-h-full">
+        <div className="max-w-7xl mx-auto min-h-full bg-[#0D0F12] font-sans text-base text-gray-300 antialiased">
             <div className="flex gap-8 p-6">
                 {/* Sidebar */}
                 <aside className="w-48 flex-shrink-0 sticky top-6 self-start">
-                    <nav className="rounded-xl border border-white/[0.06] bg-[#0D0F12]/80 backdrop-blur-sm p-2 space-y-0.5" aria-label="Settings sections">
+                    <nav
+                        className="rounded-lg border border-white/10 bg-white/[0.02] backdrop-blur-sm p-2 space-y-1"
+                        aria-label="Settings sections"
+                    >
                         {TABS.map((tab) => {
                             const isActive = activeTab === tab.id;
                             return (
@@ -49,10 +52,10 @@ const SettingsPage = ({ profile }) => {
                                     key={tab.id}
                                     type="button"
                                     onClick={() => setActiveTab(tab.id)}
-                                    className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-200 border-l-2 ${
+                                    className={`w-full text-left px-4 py-3 rounded-md text-sm font-medium border-l-2 transition-colors duration-200 ${
                                         isActive
-                                            ? "border-teal bg-teal/10 text-teal shadow-[inset_0_0_0_1px_rgba(0,200,180,0.12)]"
-                                            : "border-transparent text-white/55 hover:text-white/90 hover:bg-white/[0.06]"
+                                            ? "bg-teal-500/15 text-teal-400 border-teal-500"
+                                            : "border-transparent text-gray-400 hover:text-white hover:bg-white/[0.06]"
                                     }`}
                                 >
                                     {tab.label}
@@ -66,55 +69,52 @@ const SettingsPage = ({ profile }) => {
                 <div className="flex-1 min-w-0 overflow-y-auto">
                     <div
                         key={activeTab}
-                        className="p-8 md:p-10 rounded-2xl border border-white/[0.05] bg-[#0D0F12]/40 min-h-[min(70vh,720px)] transition-opacity duration-200 ease-out"
+                        className="rounded-lg border border-white/10 bg-white/[0.02] p-8 md:p-10 min-h-[min(70vh,720px)] transition-opacity duration-200 ease-out"
                     >
                         {activeTab === "General" && (
-                            <div className="space-y-10">
-                                {/* SYSTEM LIMITS (BETA) — TOP PRIORITY */}
-                                <div className="bg-[#0D0F12]/60 border border-white/[0.06] border-l-2 border-l-teal/20 rounded-2xl backdrop-blur-sm p-6 space-y-4">
-                                    <div className="space-y-1">
-                                        <div className="text-[9px] uppercase tracking-[0.15em] text-teal/40 font-mono">Limits</div>
-                                        <h2 className="text-lg font-semibold text-white">System Limits (Beta)</h2>
-                                    </div>
-                                    <div className="space-y-3 text-sm">
-                                        <div className="flex items-start gap-3">
-                                            <span className="text-white/40 min-w-[140px]">Max upload size:</span>
-                                            <span className="text-white/70">25MB</span>
+                            <div className="space-y-8">
+                                {/* System limits */}
+                                <div className="rounded-lg border border-white/5 bg-white/[0.02] p-6 backdrop-blur-sm">
+                                    <div className="text-xs uppercase tracking-wider text-teal-400 mb-3">Limits</div>
+                                    <h2 className="text-2xl font-semibold text-white mb-6">System Limits (Beta)</h2>
+                                    <div className="space-y-3 text-base leading-relaxed">
+                                        <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-3">
+                                            <span className="text-gray-400 min-w-[140px] shrink-0">Max upload size</span>
+                                            <span className="text-gray-300">25MB</span>
                                         </div>
-                                        <div className="flex items-start gap-3">
-                                            <span className="text-white/40 min-w-[140px]">Supported formats:</span>
-                                            <span className="text-white/70">PDF, Images, DOC, DOCX, PPT, PPTX, TXT</span>
+                                        <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-3">
+                                            <span className="text-gray-400 min-w-[140px] shrink-0">Supported formats</span>
+                                            <span className="text-gray-300">PDF, Images, DOC, DOCX, PPT, PPTX, TXT</span>
                                         </div>
-                                        <div className="flex items-start gap-3">
-                                            <span className="text-white/40 min-w-[140px]">Automatic processing:</span>
-                                            <span className="text-white/70">Files are automatically rendered and OCR'd after upload</span>
+                                        <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-3">
+                                            <span className="text-gray-400 min-w-[140px] shrink-0">Automatic processing</span>
+                                            <span className="text-gray-300">Files are automatically rendered and OCR&apos;d after upload</span>
                                         </div>
-                                        <div className="flex items-start gap-3">
-                                            <span className="text-white/40 min-w-[140px]">Processing time:</span>
-                                            <span className="text-white/70">Large or complex files may take longer to process</span>
+                                        <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-3">
+                                            <span className="text-gray-400 min-w-[140px] shrink-0">Processing time</span>
+                                            <span className="text-gray-300">Large or complex files may take longer to process</span>
                                         </div>
                                     </div>
-                                    <p className="text-xs text-white/30 italic pt-2 border-t border-white/5">
+                                    <p className="text-sm text-gray-500 italic pt-6 mt-6 border-t border-white/5">
                                         Limits may change as Synapse evolves during beta.
                                     </p>
                                 </div>
 
-                                {/* Debug: Backfill Concept Mentions */}
+                                {/* Debug */}
                                 {showDebug && (
-                                    <div className="bg-[#0D0F12]/60 border border-white/[0.06] border-l-2 border-l-teal/20 rounded-2xl backdrop-blur-sm p-6 space-y-4">
-                                        <div className="space-y-1">
-                                            <div className="text-[9px] uppercase tracking-[0.15em] text-teal/40 font-mono">Dev</div>
-                                            <h2 className="text-lg font-semibold text-white">Debug</h2>
-                                        </div>
+                                    <div className="rounded-lg border border-white/5 bg-white/[0.02] p-6 backdrop-blur-sm">
+                                        <div className="text-xs uppercase tracking-wider text-teal-400 mb-3">Dev</div>
+                                        <h2 className="text-2xl font-semibold text-white mb-6">Debug</h2>
                                         <button
+                                            type="button"
                                             onClick={handleBackfillConceptMentions}
                                             disabled={backfillProgress && !backfillProgress.done && !backfillProgress.error}
-                                            className="px-4 py-2 rounded-xl text-sm bg-transparent border border-white/[0.08] text-white/70 hover:border-teal/40 hover:text-teal transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                            className="px-4 py-2.5 rounded-md text-sm font-medium bg-white/[0.03] border border-white/10 text-gray-300 hover:bg-white/[0.06] hover:border-teal-500/40 hover:text-teal-400 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-white/10 disabled:hover:text-gray-300"
                                         >
                                             Backfill Concept Mentions
                                         </button>
                                         {backfillProgress && (
-                                            <p className="text-sm text-white/70">
+                                            <p className="text-base text-gray-300 mt-4">
                                                 {backfillProgress.error
                                                     ? `Error: ${backfillProgress.error}`
                                                     : backfillProgress.done
@@ -134,7 +134,7 @@ const SettingsPage = ({ profile }) => {
                         {activeTab === "Announcements" && <AnnouncementsPanel />}
 
                         {activeTab === "Subscription" && (
-                            <div className="text-gray-400">Subscription management coming soon</div>
+                            <div className="text-base text-gray-300 leading-relaxed">Subscription management coming soon</div>
                         )}
 
                         {activeTab === "Feedback" && <FeedbackBox user={profile} />}
