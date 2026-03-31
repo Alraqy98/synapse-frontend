@@ -16,7 +16,9 @@ function deriveSubscription(profile) {
         return {
             status: raw.status ?? null,
             trialEndDate: raw.trial_end_date ?? null,
-            nextBillingDate: raw.next_billing_date ?? null,
+            /** End of paid period (billing cycle / Stripe grace); prefer explicit next bill, else period end */
+            nextBillingDate:
+                raw.next_billing_date ?? raw.current_period_end ?? raw.subscription_ends_at ?? null,
             currentPlan: raw.current_plan ?? null,
         };
     }
@@ -73,44 +75,71 @@ export default function SubscriptionPanel({ profile }) {
     const [showPlanModal, setShowPlanModal] = useState(false);
     const [, setSelectedPlan] = useState(null); // 'monthly' | 'annual' | null — set before checkout redirect
     const [cancelLoading, setCancelLoading] = useState(false);
+    const [modal, setModal] = useState(null); // 'confirm' | 'alert' | null
+    const [modalContent, setModalContent] = useState({ title: "", message: "", action: null });
 
     const sub = useMemo(() => deriveSubscription(profile), [profile]);
 
-    const handleCancelSubscription = async () => {
-        if (!window.confirm("Are you sure? This will cancel your subscription immediately.")) {
-            return;
-        }
-
-        setCancelLoading(true);
-        try {
-            const res = await api.post("/api/subscriptions/cancel");
-            if (res.data?.success) {
-                alert("Subscription canceled");
-                window.location.reload();
-            }
-        } catch (err) {
-            const msg =
-                err.response?.data?.error ||
-                err.response?.data?.message ||
-                err.message ||
-                "Unknown error";
-            alert(`Failed to cancel: ${msg}`);
-        } finally {
-            setCancelLoading(false);
-        }
+    const handleCancelSubscription = () => {
+        setModalContent({
+            title: "Cancel Subscription?",
+            message:
+                "Your subscription will end at the current billing date. You can reactivate anytime.",
+            action: async () => {
+                setCancelLoading(true);
+                try {
+                    const res = await api.post("/api/subscriptions/cancel");
+                    if (res.data?.success) {
+                        setModalContent({
+                            title: "Subscription Canceled",
+                            message: "Your subscription has been canceled.",
+                            action: () => {
+                                window.location.reload();
+                            },
+                        });
+                        setModal("alert");
+                    } else {
+                        setModalContent({
+                            title: "Could not cancel",
+                            message: "The server did not confirm cancellation. Please try again.",
+                            action: () => setModal(null),
+                        });
+                        setModal("alert");
+                    }
+                } catch (err) {
+                    const msg =
+                        err.response?.data?.error ||
+                        err.response?.data?.message ||
+                        err.message ||
+                        "Unknown error";
+                    setModalContent({
+                        title: "Error",
+                        message: `Failed to cancel: ${msg}`,
+                        action: () => setModal(null),
+                    });
+                    setModal("alert");
+                } finally {
+                    setCancelLoading(false);
+                }
+            },
+        });
+        setModal("confirm");
     };
 
     const effectiveStatus = useMemo(() => normalizeSubscriptionStatus(sub.status), [sub.status]);
 
     useEffect(() => {
         const handleEscape = (e) => {
-            if (e.key === "Escape" && showPlanModal) {
-                setShowPlanModal(false);
+            if (e.key !== "Escape") return;
+            if (modal) {
+                setModal(null);
+                return;
             }
+            if (showPlanModal) setShowPlanModal(false);
         };
         window.addEventListener("keydown", handleEscape);
         return () => window.removeEventListener("keydown", handleEscape);
-    }, [showPlanModal]);
+    }, [showPlanModal, modal]);
 
     const statusLine = useMemo(() => {
         const { trialEndDate, nextBillingDate } = sub;
@@ -128,22 +157,23 @@ export default function SubscriptionPanel({ profile }) {
         if (effectiveStatus === "monthly_active" || effectiveStatus === "annual_active") {
             return `Next billing date: ${formatDisplayDate(nextBillingDate)}`;
         }
-        if (effectiveStatus === "canceled") {
-            return "Subscription canceled";
-        }
         return "No active subscription";
     }, [sub, effectiveStatus]);
 
+    const nextBillingDateObj = useMemo(() => {
+        const d = sub.nextBillingDate;
+        if (!d) return null;
+        const dt = new Date(d);
+        return Number.isNaN(dt.getTime()) ? null : dt;
+    }, [sub.nextBillingDate]);
+
     const showCancelButton = ["monthly_active", "annual_active", "free_trial"].includes(effectiveStatus);
-    /** Upgrade / subscribe CTAs — not for founder_lifetime or annual_active */
-    const showUpgradeButton = ["no_subscription", "free_trial", "monthly_active", "canceled"].includes(
-        effectiveStatus
-    );
+    /** Upgrade / subscribe CTAs — not for founder_lifetime, annual_active, or canceled (canceled has its own block) */
+    const showUpgradeButton = ["no_subscription", "free_trial", "monthly_active"].includes(effectiveStatus);
 
     const showStartSubscription = effectiveStatus === "no_subscription";
     const showUpgradeNow = effectiveStatus === "free_trial";
     const showUpgradeToAnnual = effectiveStatus === "monthly_active";
-    const showReactivate = effectiveStatus === "canceled";
 
     const upgradeButtonClass =
         "bg-teal-500 hover:bg-teal-600 text-white px-6 py-2 rounded-md font-medium transition-colors";
@@ -155,47 +185,60 @@ export default function SubscriptionPanel({ profile }) {
                 <h2 className="text-2xl font-semibold text-white mb-6">Billing &amp; plan</h2>
 
                 <div className="space-y-6">
-                    <div className="bg-white/[0.02] rounded-md p-4 text-base text-gray-300">{statusLine}</div>
-
-                    {showUpgradeButton && (
+                    {effectiveStatus === "canceled" ? (
                         <div>
-                            {showStartSubscription && (
-                                <button
-                                    type="button"
-                                    className={upgradeButtonClass}
-                                    onClick={() => setShowPlanModal(true)}
-                                >
-                                    Start your subscription
-                                </button>
-                            )}
-                            {showUpgradeNow && (
-                                <button
-                                    type="button"
-                                    className={upgradeButtonClass}
-                                    onClick={() => setShowPlanModal(true)}
-                                >
-                                    Upgrade Now
-                                </button>
-                            )}
-                            {showUpgradeToAnnual && (
-                                <button
-                                    type="button"
-                                    className={upgradeButtonClass}
-                                    onClick={() => setShowPlanModal(true)}
-                                >
-                                    Upgrade to Annual
-                                </button>
-                            )}
-                            {showReactivate && (
-                                <button
-                                    type="button"
-                                    className={upgradeButtonClass}
-                                    onClick={() => setShowPlanModal(true)}
-                                >
-                                    Reactivate Subscription
-                                </button>
-                            )}
+                            <p className="text-gray-400 mb-4">
+                                Your subscription will end on{" "}
+                                {nextBillingDateObj
+                                    ? nextBillingDateObj.toLocaleDateString()
+                                    : "the specified date"}
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() => setShowPlanModal(true)}
+                                className="w-full px-4 py-3 bg-teal-500/20 border border-teal-500/50 rounded-lg text-teal-400 hover:bg-teal-500/30 transition"
+                            >
+                                Reactivate Subscription
+                            </button>
                         </div>
+                    ) : (
+                        <>
+                            <div className="bg-white/[0.02] rounded-md p-4 text-base text-gray-300">
+                                {statusLine}
+                            </div>
+
+                            {showUpgradeButton && (
+                                <div>
+                                    {showStartSubscription && (
+                                        <button
+                                            type="button"
+                                            className={upgradeButtonClass}
+                                            onClick={() => setShowPlanModal(true)}
+                                        >
+                                            Start your subscription
+                                        </button>
+                                    )}
+                                    {showUpgradeNow && (
+                                        <button
+                                            type="button"
+                                            className={upgradeButtonClass}
+                                            onClick={() => setShowPlanModal(true)}
+                                        >
+                                            Upgrade Now
+                                        </button>
+                                    )}
+                                    {showUpgradeToAnnual && (
+                                        <button
+                                            type="button"
+                                            className={upgradeButtonClass}
+                                            onClick={() => setShowPlanModal(true)}
+                                        >
+                                            Upgrade to Annual
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+                        </>
                     )}
                 </div>
             </div>
@@ -210,6 +253,80 @@ export default function SubscriptionPanel({ profile }) {
                     >
                         {cancelLoading ? "Canceling..." : "Cancel subscription"}
                     </button>
+                </div>
+            )}
+
+            {modal === "confirm" && (
+                <div
+                    className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="confirm-modal-title"
+                    onClick={(e) => {
+                        if (e.target === e.currentTarget) setModal(null);
+                    }}
+                >
+                    <div
+                        className="bg-[#0D0F12] rounded-lg p-6 max-w-sm w-full border border-white/10"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <h2 id="confirm-modal-title" className="text-lg font-semibold text-white mb-2">
+                            {modalContent.title}
+                        </h2>
+                        <p className="text-gray-400 mb-6">{modalContent.message}</p>
+                        <div className="flex gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setModal(null)}
+                                className="flex-1 px-4 py-2 border border-white/10 rounded-lg text-gray-400 hover:bg-white/5 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                disabled={cancelLoading}
+                                onClick={async () => {
+                                    setModal(null);
+                                    if (modalContent.action) await modalContent.action();
+                                }}
+                                className="flex-1 px-4 py-2 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 hover:bg-red-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Continue
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {modal === "alert" && (
+                <div
+                    className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="alert-modal-title"
+                    onClick={(e) => {
+                        if (e.target === e.currentTarget) setModal(null);
+                    }}
+                >
+                    <div
+                        className="bg-[#0D0F12] rounded-lg p-6 max-w-sm w-full border border-white/10"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <h2 id="alert-modal-title" className="text-lg font-semibold text-white mb-2">
+                            {modalContent.title}
+                        </h2>
+                        <p className="text-gray-400 mb-6">{modalContent.message}</p>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setModal(null);
+                                if (modalContent.action) modalContent.action();
+                            }}
+                            className="w-full px-4 py-2 bg-teal-500/20 border border-teal-500/50 rounded-lg text-teal-400 hover:bg-teal-500/30 transition-colors"
+                        >
+                            OK
+                        </button>
+                    </div>
                 </div>
             )}
 
