@@ -3,12 +3,10 @@
 // ===============================================================
 
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { generateFlashcards } from "./apiFlashcards";
 import { getLibraryItems, getItemById, prepareFile } from "../Library/apiLibrary";
 import { Check, ChevronDown } from "lucide-react";
 import { useNotification } from "../../context/NotificationContext";
-import PaywallModal from "../../components/PaywallModal";
 import "../../styles/GenerationModal.css";
 
 // ===============================================================
@@ -77,7 +75,6 @@ export default function GenerateFlashcardsModal({
     onCreated,
     presetFileId = null,
 }) {
-    const navigate = useNavigate();
     const { success, error } = useNotification();
     if (!open) return null;
     const [title, setTitle] = useState("");
@@ -94,7 +91,7 @@ export default function GenerateFlashcardsModal({
 
     const [loadingTree, setLoadingTree] = useState(false);
     const [submitting, setSubmitting] = useState(false);
-    const [showPaywall, setShowPaywall] = useState(false);
+    const [paywallModal, setPaywallModal] = useState(false);
 
     // --------------------------------------------------------------
     // Load file data for presetFileId
@@ -357,8 +354,10 @@ export default function GenerateFlashcardsModal({
         } catch (err) {
             console.error("❌ Flashcard generation failed:", err);
             if (err.response?.status === 402) {
-                setShowPaywall(true);
-            } else if (err.code === "FILE_NOT_READY" || err.message?.includes("Preparing content")) {
+                setPaywallModal(true);
+                return;
+            }
+            if (err.code === "FILE_NOT_READY" || err.message?.includes("Preparing content")) {
                 setFileNotReadyMessage(err.message || "Preparing content. This usually takes a few seconds.");
             } else {
                 error("Generation failed. Please try again.");
@@ -473,14 +472,34 @@ export default function GenerateFlashcardsModal({
                 </div>
             </div>
         </div>
-        <PaywallModal
-            isOpen={showPaywall}
-            onClose={() => setShowPaywall(false)}
-            onUpgrade={() => {
-                setShowPaywall(false);
-                navigate("/settings");
-            }}
-        />
+        {paywallModal && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-[#0D0F12] rounded-lg p-8 max-w-md border border-teal-500/30">
+                    <h2 className="text-2xl font-semibold text-white mb-2">🔒 Unlock generation</h2>
+                    <p className="text-gray-400 mb-6">
+                        MCQs, flashcards, and summaries require a paid subscription.
+                    </p>
+                    <div className="flex gap-3">
+                        <button
+                            type="button"
+                            onClick={() => setPaywallModal(false)}
+                            className="flex-1 px-4 py-2 border border-white/10 rounded-lg text-gray-400 hover:bg-white/5"
+                        >
+                            Close
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                window.location.href = "/settings";
+                            }}
+                            className="flex-1 px-4 py-3 bg-teal-500 rounded-lg text-white font-semibold hover:bg-teal-600"
+                        >
+                            Upgrade
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
         </>
     );
 }
