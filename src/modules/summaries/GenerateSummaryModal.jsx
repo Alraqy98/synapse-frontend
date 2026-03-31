@@ -323,7 +323,13 @@ export default function GenerateSummaryModal({
             }
         } catch (err) {
             console.error("Summary generation error:", err);
-            if (err.response?.status === 402) {
+            const status = err?.response?.status;
+            const data = err?.response?.data;
+            const isSubscriptionRequired =
+                status === 402 ||
+                data?.error === "Subscription required" ||
+                data?.message === "Upgrade to generate MCQs, flashcards, and summaries";
+            if (isSubscriptionRequired) {
                 setPaywallModal(true);
                 setSubmitting(false);
                 return;
@@ -532,7 +538,7 @@ export default function GenerateSummaryModal({
             />
         </div>
         {paywallModal && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000] p-4">
                 <div className="bg-[#0D0F12] rounded-lg p-8 max-w-md border border-teal-500/30">
                     <h2 className="text-2xl font-semibold text-white mb-2">🔒 Unlock generation</h2>
                     <p className="text-gray-400 mb-6">

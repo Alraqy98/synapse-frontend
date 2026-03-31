@@ -468,7 +468,13 @@ export default function GenerateMCQModal({
             onClose();
         } catch (err) {
             console.error("MCQ creation error:", err);
-            if (err.response?.status === 402) {
+            const status = err?.response?.status;
+            const data = err?.response?.data;
+            const isSubscriptionRequired =
+                status === 402 ||
+                data?.error === "Subscription required" ||
+                data?.message === "Upgrade to generate MCQs, flashcards, and summaries";
+            if (isSubscriptionRequired) {
                 setPaywallModal(true);
                 return;
             }
@@ -620,11 +626,11 @@ export default function GenerateMCQModal({
             </div>
         </div>
         {paywallModal && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000] p-4">
                 <div className="bg-[#0D0F12] rounded-lg p-8 max-w-md border border-teal-500/30">
-                    <h2 className="text-2xl font-semibold text-white mb-2">🔒 Unlock generation</h2>
+                    <h2 className="text-2xl font-semibold text-white mb-2">🔒 Unlock MCQ Generation</h2>
                     <p className="text-gray-400 mb-6">
-                        MCQs, flashcards, and summaries require a paid subscription.
+                        MCQ generation requires a paid subscription. Upgrade to generate unlimited questions.
                     </p>
                     <div className="flex gap-3">
                         <button
@@ -637,11 +643,12 @@ export default function GenerateMCQModal({
                         <button
                             type="button"
                             onClick={() => {
+                                setPaywallModal(false);
                                 window.location.href = "/settings";
                             }}
                             className="flex-1 px-4 py-3 bg-teal-500 rounded-lg text-white font-semibold hover:bg-teal-600"
                         >
-                            Upgrade
+                            Upgrade Now
                         </button>
                     </div>
                 </div>
