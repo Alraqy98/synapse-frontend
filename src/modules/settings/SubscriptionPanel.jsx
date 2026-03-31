@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import api from "../../lib/api";
 
 // TODO: Query subscription status from API
@@ -70,9 +70,21 @@ async function redirectToStripeCheckout(planType) {
 }
 
 export default function SubscriptionPanel({ profile }) {
+    const [showPlanModal, setShowPlanModal] = useState(false);
+    const [, setSelectedPlan] = useState(null); // 'monthly' | 'annual' | null — set before checkout redirect
+
     const sub = useMemo(() => deriveSubscription(profile), [profile]);
 
     const effectiveStatus = useMemo(() => normalizeSubscriptionStatus(sub.status), [sub.status]);
+
+    useEffect(() => {
+        if (!showPlanModal) return;
+        const onKey = (e) => {
+            if (e.key === "Escape") setShowPlanModal(false);
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [showPlanModal]);
 
     const statusLine = useMemo(() => {
         const { trialEndDate, nextBillingDate } = sub;
@@ -125,7 +137,7 @@ export default function SubscriptionPanel({ profile }) {
                                 <button
                                     type="button"
                                     className={upgradeButtonClass}
-                                    onClick={() => redirectToStripeCheckout("monthly")}
+                                    onClick={() => setShowPlanModal(true)}
                                 >
                                     Start your subscription
                                 </button>
@@ -134,7 +146,7 @@ export default function SubscriptionPanel({ profile }) {
                                 <button
                                     type="button"
                                     className={upgradeButtonClass}
-                                    onClick={() => redirectToStripeCheckout("monthly")}
+                                    onClick={() => setShowPlanModal(true)}
                                 >
                                     Upgrade Now
                                 </button>
@@ -143,7 +155,7 @@ export default function SubscriptionPanel({ profile }) {
                                 <button
                                     type="button"
                                     className={upgradeButtonClass}
-                                    onClick={() => redirectToStripeCheckout("annual")}
+                                    onClick={() => setShowPlanModal(true)}
                                 >
                                     Upgrade to Annual
                                 </button>
@@ -152,7 +164,7 @@ export default function SubscriptionPanel({ profile }) {
                                 <button
                                     type="button"
                                     className={upgradeButtonClass}
-                                    onClick={() => redirectToStripeCheckout("monthly")}
+                                    onClick={() => setShowPlanModal(true)}
                                 >
                                     Reactivate Subscription
                                 </button>
@@ -176,6 +188,61 @@ export default function SubscriptionPanel({ profile }) {
                     >
                         Cancel subscription
                     </button>
+                </div>
+            )}
+
+            {showPlanModal && (
+                <div
+                    className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="plan-modal-title"
+                    onClick={(e) => {
+                        if (e.target === e.currentTarget) setShowPlanModal(false);
+                    }}
+                >
+                    <div
+                        className="bg-[#0D0F12] rounded-lg p-6 max-w-md w-full border border-white/10"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <h2 id="plan-modal-title" className="text-xl font-semibold text-white mb-4">
+                            Choose your plan
+                        </h2>
+
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setSelectedPlan("monthly");
+                                setShowPlanModal(false);
+                                redirectToStripeCheckout("monthly");
+                            }}
+                            className="w-full mb-3 p-4 border border-teal-500/50 rounded-lg hover:bg-teal-500/10 transition text-left"
+                        >
+                            <div className="font-semibold text-white">Monthly</div>
+                            <div className="text-sm text-gray-400">$15/month or $10/month (student)</div>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setSelectedPlan("annual");
+                                setShowPlanModal(false);
+                                redirectToStripeCheckout("annual");
+                            }}
+                            className="w-full mb-4 p-4 border border-teal-500/50 rounded-lg hover:bg-teal-500/10 transition text-left"
+                        >
+                            <div className="font-semibold text-white">Annual</div>
+                            <div className="text-sm text-gray-400">$80/year (best value)</div>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setShowPlanModal(false)}
+                            className="w-full px-4 py-2 border border-white/10 rounded-lg text-gray-400 hover:bg-white/5 transition-colors"
+                        >
+                            Cancel
+                        </button>
+                    </div>
                 </div>
             )}
         </div>
