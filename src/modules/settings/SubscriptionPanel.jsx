@@ -78,12 +78,13 @@ export default function SubscriptionPanel({ profile }) {
     const effectiveStatus = useMemo(() => normalizeSubscriptionStatus(sub.status), [sub.status]);
 
     useEffect(() => {
-        if (!showPlanModal) return;
-        const onKey = (e) => {
-            if (e.key === "Escape") setShowPlanModal(false);
+        const handleEscape = (e) => {
+            if (e.key === "Escape" && showPlanModal) {
+                setShowPlanModal(false);
+            }
         };
-        window.addEventListener("keydown", onKey);
-        return () => window.removeEventListener("keydown", onKey);
+        window.addEventListener("keydown", handleEscape);
+        return () => window.removeEventListener("keydown", handleEscape);
     }, [showPlanModal]);
 
     const statusLine = useMemo(() => {
@@ -197,48 +198,62 @@ export default function SubscriptionPanel({ profile }) {
                     role="dialog"
                     aria-modal="true"
                     aria-labelledby="plan-modal-title"
-                    onClick={(e) => {
-                        if (e.target === e.currentTarget) setShowPlanModal(false);
-                    }}
+                    onClick={() => setShowPlanModal(false)}
                 >
                     <div
-                        className="bg-[#0D0F12] rounded-lg p-6 max-w-md w-full border border-white/10"
+                        className="bg-[#0D0F12] rounded-lg p-8 max-w-2xl w-full border border-white/10"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <h2 id="plan-modal-title" className="text-xl font-semibold text-white mb-4">
+                        <h2
+                            id="plan-modal-title"
+                            className="text-2xl font-semibold text-white mb-8 text-center"
+                        >
                             Choose your plan
                         </h2>
 
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setSelectedPlan("monthly");
-                                setShowPlanModal(false);
-                                redirectToStripeCheckout("monthly");
-                            }}
-                            className="w-full mb-3 p-4 border border-teal-500/50 rounded-lg hover:bg-teal-500/10 transition text-left"
-                        >
-                            <div className="font-semibold text-white">Monthly</div>
-                            <div className="text-sm text-gray-400">$15/month or $10/month (student)</div>
-                        </button>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setSelectedPlan("monthly");
+                                    redirectToStripeCheckout("monthly");
+                                    setShowPlanModal(false);
+                                }}
+                                className="group relative p-6 rounded-lg border-2 border-white/10 hover:border-teal-500/50 bg-white/[0.02] hover:bg-white/[0.05] transition cursor-pointer text-left"
+                            >
+                                <div className="text-sm text-gray-400 mb-2">MONTHLY</div>
+                                <div className="text-3xl font-bold text-white mb-1">$15</div>
+                                <div className="text-sm text-gray-400 mb-4">per month</div>
+                                <div className="text-xs text-teal-400">or $10/month with .edu/.std email</div>
+                                <div className="mt-4 text-xs text-gray-500">✓ Full access to all features</div>
+                                <div className="text-xs text-gray-500">✓ Cancel anytime</div>
+                            </button>
 
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setSelectedPlan("annual");
-                                setShowPlanModal(false);
-                                redirectToStripeCheckout("annual");
-                            }}
-                            className="w-full mb-4 p-4 border border-teal-500/50 rounded-lg hover:bg-teal-500/10 transition text-left"
-                        >
-                            <div className="font-semibold text-white">Annual</div>
-                            <div className="text-sm text-gray-400">$80/year (best value)</div>
-                        </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setSelectedPlan("annual");
+                                    redirectToStripeCheckout("annual");
+                                    setShowPlanModal(false);
+                                }}
+                                className="group relative p-6 rounded-lg border-2 border-teal-500/50 bg-teal-500/5 hover:bg-teal-500/10 transition cursor-pointer text-left ring-1 ring-teal-500/20"
+                            >
+                                <div className="absolute -top-3 left-4 bg-teal-500/20 text-teal-300 text-xs font-semibold px-3 py-1 rounded-full border border-teal-500/30">
+                                    BEST VALUE
+                                </div>
+                                <div className="text-sm text-gray-400 mb-2 mt-2">ANNUAL</div>
+                                <div className="text-3xl font-bold text-white mb-1">$80</div>
+                                <div className="text-sm text-gray-400 mb-4">per year</div>
+                                <div className="text-xs text-teal-400">Save $100 vs monthly</div>
+                                <div className="mt-4 text-xs text-gray-500">✓ Full access to all features</div>
+                                <div className="text-xs text-gray-500">✓ Best long-term value</div>
+                            </button>
+                        </div>
 
                         <button
                             type="button"
                             onClick={() => setShowPlanModal(false)}
-                            className="w-full px-4 py-2 border border-white/10 rounded-lg text-gray-400 hover:bg-white/5 transition-colors"
+                            className="w-full px-4 py-2 border border-white/10 rounded-lg text-gray-400 hover:bg-white/5 transition"
                         >
                             Cancel
                         </button>
