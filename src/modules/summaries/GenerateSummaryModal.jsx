@@ -1,9 +1,11 @@
 // src/modules/summaries/GenerateSummaryModal.jsx
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { apiSummaries } from "./apiSummaries";
 import { getLibraryItems, getItemById, prepareFile } from "../Library/apiLibrary";
 import { ChevronDown, Check } from "lucide-react";
 import SummaryFailurePopup from "../../components/SummaryFailurePopup";
+import PaywallModal from "../../components/PaywallModal";
 import { useNotification } from "../../context/NotificationContext";
 import "../../styles/GenerationModal.css";
 
@@ -89,6 +91,7 @@ export default function GenerateSummaryModal({
     onCreated,
     presetFileId = null,
 }) {
+    const navigate = useNavigate();
     const { success, error } = useNotification();
     if (!open) return null;
 
@@ -108,6 +111,7 @@ export default function GenerateSummaryModal({
     const [submitting, setSubmitting] = useState(false);
     const [errorMessage, setErrorMessage] = useState(null);
     const [failurePopup, setFailurePopup] = useState({ isOpen: false, isProcessing: false });
+    const [showPaywall, setShowPaywall] = useState(false);
 
     // Load library tree
     useEffect(() => {
@@ -322,6 +326,11 @@ export default function GenerateSummaryModal({
             }
         } catch (err) {
             console.error("Summary generation error:", err);
+            if (err.response?.status === 402) {
+                setShowPaywall(true);
+                setSubmitting(false);
+                return;
+            }
             error("Generation failed. Please try again.");
             if (err.code === "ROUTE_NOT_FOUND" || err.status === 404) {
                 const errorMsg = err.message || "Summary generation endpoint not found. Please check backend configuration.";
@@ -363,6 +372,7 @@ export default function GenerateSummaryModal({
     }, []);
 
     return (
+        <>
         <div 
             className="synapse-gen-modal synapse-gen-modal-backdrop"
             onClick={handleClose}
@@ -524,6 +534,15 @@ export default function GenerateSummaryModal({
                 isProcessing={failurePopup.isProcessing}
             />
         </div>
+        <PaywallModal
+            isOpen={showPaywall}
+            onClose={() => setShowPaywall(false)}
+            onUpgrade={() => {
+                setShowPaywall(false);
+                navigate("/settings");
+            }}
+        />
+        </>
     );
 }
 

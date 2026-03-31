@@ -3,10 +3,12 @@
 // ====================================================================
 
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { apiMCQ } from "./apiMCQ";
 import { getLibraryItems, getItemById, prepareFile } from "../Library/apiLibrary";
 import { ChevronDown, Check } from "lucide-react";
 import { useNotification } from "../../context/NotificationContext";
+import PaywallModal from "../../components/PaywallModal";
 import "../../styles/GenerationModal.css";
 
 // ------------------------------------------------------------
@@ -143,6 +145,7 @@ export default function GenerateMCQModal({
     presetFileId = null,
     folders: initialFolders = [],
 }) {
+    const navigate = useNavigate();
     const { success, error, info } = useNotification();
     if (!open) return null;
 
@@ -163,6 +166,7 @@ export default function GenerateMCQModal({
     const [folders, setFolders] = useState(initialFolders);
     const [selectedFolderId, setSelectedFolderId] = useState("all");
     const [loadingFolders, setLoadingFolders] = useState(false);
+    const [showPaywall, setShowPaywall] = useState(false);
 
     // ------------------------------------------------------------
     // Load file data for presetFileId
@@ -467,7 +471,9 @@ export default function GenerateMCQModal({
             onClose();
         } catch (err) {
             console.error("MCQ creation error:", err);
-            if (err.code === "FILE_NOT_READY" || err.message?.includes("Preparing content")) {
+            if (err.response?.status === 402) {
+                setShowPaywall(true);
+            } else if (err.code === "FILE_NOT_READY" || err.message?.includes("Preparing content")) {
                 setFileNotReadyMessage(err.message || "Preparing content. This usually takes a few seconds.");
             } else if (
                 err.response?.status === 409 &&
@@ -503,6 +509,7 @@ export default function GenerateMCQModal({
     // UI
     // ------------------------------------------------------------
     return (
+        <>
         <div
             className="synapse-gen-modal synapse-gen-modal-backdrop"
             onClick={handleClose}
@@ -613,5 +620,14 @@ export default function GenerateMCQModal({
                 </div>
             </div>
         </div>
+        <PaywallModal
+            isOpen={showPaywall}
+            onClose={() => setShowPaywall(false)}
+            onUpgrade={() => {
+                setShowPaywall(false);
+                navigate("/settings");
+            }}
+        />
+        </>
     );
 }

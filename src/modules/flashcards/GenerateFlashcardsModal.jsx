@@ -3,10 +3,12 @@
 // ===============================================================
 
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { generateFlashcards } from "./apiFlashcards";
 import { getLibraryItems, getItemById, prepareFile } from "../Library/apiLibrary";
 import { Check, ChevronDown } from "lucide-react";
 import { useNotification } from "../../context/NotificationContext";
+import PaywallModal from "../../components/PaywallModal";
 import "../../styles/GenerationModal.css";
 
 // ===============================================================
@@ -75,6 +77,7 @@ export default function GenerateFlashcardsModal({
     onCreated,
     presetFileId = null,
 }) {
+    const navigate = useNavigate();
     const { success, error } = useNotification();
     if (!open) return null;
     const [title, setTitle] = useState("");
@@ -91,6 +94,7 @@ export default function GenerateFlashcardsModal({
 
     const [loadingTree, setLoadingTree] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    const [showPaywall, setShowPaywall] = useState(false);
 
     // --------------------------------------------------------------
     // Load file data for presetFileId
@@ -352,7 +356,9 @@ export default function GenerateFlashcardsModal({
             onClose();
         } catch (err) {
             console.error("❌ Flashcard generation failed:", err);
-            if (err.code === "FILE_NOT_READY" || err.message?.includes("Preparing content")) {
+            if (err.response?.status === 402) {
+                setShowPaywall(true);
+            } else if (err.code === "FILE_NOT_READY" || err.message?.includes("Preparing content")) {
                 setFileNotReadyMessage(err.message || "Preparing content. This usually takes a few seconds.");
             } else {
                 error("Generation failed. Please try again.");
@@ -385,6 +391,7 @@ export default function GenerateFlashcardsModal({
     const presetFileName = presetFileId && selectedFilesData[0]?.title ? selectedFilesData[0].title : null;
 
     return (
+        <>
         <div
             className="synapse-gen-modal synapse-gen-modal-backdrop"
             onClick={handleClose}
@@ -466,5 +473,14 @@ export default function GenerateFlashcardsModal({
                 </div>
             </div>
         </div>
+        <PaywallModal
+            isOpen={showPaywall}
+            onClose={() => setShowPaywall(false)}
+            onUpgrade={() => {
+                setShowPaywall(false);
+                navigate("/settings");
+            }}
+        />
+        </>
     );
 }
