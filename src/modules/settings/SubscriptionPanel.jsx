@@ -72,8 +72,33 @@ async function redirectToStripeCheckout(planType) {
 export default function SubscriptionPanel({ profile }) {
     const [showPlanModal, setShowPlanModal] = useState(false);
     const [, setSelectedPlan] = useState(null); // 'monthly' | 'annual' | null — set before checkout redirect
+    const [cancelLoading, setCancelLoading] = useState(false);
 
     const sub = useMemo(() => deriveSubscription(profile), [profile]);
+
+    const handleCancelSubscription = async () => {
+        if (!window.confirm("Are you sure? This will cancel your subscription immediately.")) {
+            return;
+        }
+
+        setCancelLoading(true);
+        try {
+            const res = await api.post("/api/subscriptions/cancel");
+            if (res.data?.success) {
+                alert("Subscription canceled");
+                window.location.reload();
+            }
+        } catch (err) {
+            const msg =
+                err.response?.data?.error ||
+                err.response?.data?.message ||
+                err.message ||
+                "Unknown error";
+            alert(`Failed to cancel: ${msg}`);
+        } finally {
+            setCancelLoading(false);
+        }
+    };
 
     const effectiveStatus = useMemo(() => normalizeSubscriptionStatus(sub.status), [sub.status]);
 
@@ -175,19 +200,15 @@ export default function SubscriptionPanel({ profile }) {
                 </div>
             </div>
 
-            {/* TODO: Connect to subscription cancellation API */}
-            {/* Should show confirmation modal before canceling */}
-            {/* Update profile.subscription_status = "canceled" */}
             {showCancelButton && (
                 <div className="pt-2 border-t border-white/5">
                     <button
                         type="button"
-                        className="px-6 py-2 rounded-md font-medium border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors"
-                        onClick={() => {
-                            // TODO: confirmation modal + cancel API
-                        }}
+                        onClick={handleCancelSubscription}
+                        disabled={cancelLoading}
+                        className="w-full px-4 py-2 border border-red-500/50 rounded-lg text-red-400 hover:bg-red-500/10 transition disabled:opacity-50"
                     >
-                        Cancel subscription
+                        {cancelLoading ? "Canceling..." : "Cancel subscription"}
                     </button>
                 </div>
             )}
